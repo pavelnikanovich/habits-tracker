@@ -1,6 +1,6 @@
 # habits-tracker product design
 
-Date: 2026-10-28. Stage 1, step 1 of the development process (`docs/superpowers/specs/2026-10-28-development-process-design.md`).
+Date: 2026-10-28, revised 2026-10-30 by the epic 1 design fork (`docs/superpowers/specs/2026-10-30-email-service-design.md`, `docs/superpowers/specs/2026-10-30-legal-pages-design.md`): the email service, NFR-7, NFR-9, the interface languages, the Privacy and Terms pages. Stage 1, step 1 of the development process (`docs/superpowers/specs/2026-10-28-development-process-design.md`).
 
 Domain terms in this document are defined in `docs/domain/ubiquitous-language.md`, the only source of domain terms. Items marked *(agent's call)* were proposed by the agent without a separate question and are confirmed by the developer's review of this document.
 
@@ -33,7 +33,7 @@ All eight epics are merged to `main` and run at `habits.cardlane.eu`, and every 
 7. A habit can be archived (and restored) or deleted for good.
 8. The interface is in English only, and is ready for translations: adding a language is adding a translation file.
 9. Every habit is either a Routine (kept on trust) or a Commitment (kept strictly). A Routine becomes a Commitment at once; a Commitment becomes a Routine only 7 days after the user asks, and days closed before stay closed.
-10. A user stays signed in while they keep using the app, can sign out on one device or everywhere, can change their time zone, and can delete their account with all their data.
+10. A user stays signed in while they keep using the app (across browser restarts if they choose "Remember me"), can sign out on one device or everywhere, can change their time zone, and can delete their account with all their data.
 
 ## Non-goals
 
@@ -65,11 +65,14 @@ What makes the product a failure even if it technically works:
 
 - The user enters an email and receives a 6-digit one-time code. Entering the code signs them in; the first sign-in creates the account.
 - A session is a server-side record; the cookie carries only its opaque id. The session is sliding: it expires after 30 days without activity, and any activity extends it. Activity is a request the user makes; an open connection alone is not activity. Revoking it takes effect at once.
+- The sign-in form has a "Remember me" checkbox, unchecked by default. Without it the session cookie ends when the browser closes; with it the session is a Remembered session and its cookie persists (see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Remember me").
+- After a code is sent, the user sees how many code requests for this email are left; a refusal by a code request limit or by the email service says why and when to try again (see `docs/superpowers/specs/2026-10-30-email-service-design.md`, "What the user sees").
 - The user can sign out, or sign out everywhere, which revokes all their sessions and closes every open connection *(agent's call)*.
 - The time zone is taken from the browser on the first sign-in and stored with the user; the user can change it. *(agent's call)*
 - The user can delete their account; all their data is erased at once, and the copies in backups disappear when those backups expire, within 7 days. *(agent's call)*
 - In development mode the code email is written to the log instead of being sent (see the process document, "Epic 1 — walking skeleton").
-- A Privacy page, readable before sign-in, says what is stored (email, time zone, habits and check-ins, sessions, and IP addresses in logs and in request limits), which service sends the code email, that backups keep deleted data for up to 7 days and logs are kept for 7 days, and how to have the data deleted: until account deletion exists (epic 8), on request to a contact address on the page (the developer supplies it in epic 1).
+- A Privacy page, readable before sign-in, says what is stored (email, time zone, habits and check-ins, sessions, and IP addresses in logs and in request limits), which service sends the code email, that backups keep deleted data for up to 7 days and logs are kept for 7 days, and how to have the data deleted: until account deletion exists (epic 8), on request to a contact address on the page (the developer supplies it in epic 1). Its full contents, required by GDPR art. 13, are in `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Privacy page".
+- A Terms page, readable before sign-in, sets the terms of the service; its contents are in `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Terms page". Under the sign-in button the user is told that signing in accepts the Terms, with links to both pages.
 
 ### Routines and commitments
 
@@ -142,7 +145,7 @@ Rules differ by type of data:
 
 ### Interface language
 
-English only. Every user-visible string, the code email included, comes from translation files, with plural rules handled by the translation format. Adding a language means adding a file, with no code change.
+English, Polish and Russian, from epic 1. Every user-visible string, the code email and the Privacy and Terms pages included, comes from translation files, with plural rules handled by the translation format. Adding a language means adding a file, with no code change. Before sign-in the language follows the browser and a switcher on every page; at the first sign-in it becomes the user's locale (see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Languages").
 
 ## Non-functional requirements
 
@@ -156,9 +159,9 @@ Numbers in brackets are anti-goals the requirement guards. The Epic column names
 | NFR-4 | Streak, best streak and completion rate rules are covered by unit tests, including a schedule change, a fix to a past day, a time zone change, a daylight-saving transition, an archive period of a Routine and of a Commitment, a Closed day, Commit and Release (including the day a Release takes effect), a Partial week, a change of N. (3) | 2; epics 4–8 add their cases |
 | NFR-5 | The database is backed up daily and before every migration; backups are kept for 7 days *(agent's call)*. A restore from backup has been done at least once. | 1 |
 | NFR-6 | Every request sees only the signed-in user's data. An automated test covers every endpoint: user B can neither read nor change user A's data, and no connection of user B receives a change notification about user A's data. (5) | 1; every epic that adds an endpoint; the live-update channel: 3 |
-| NFR-7 | One-time codes: 6 digits, valid 10 minutes, at most 5 entry attempts per code, stored only as a hash; requesting a new code invalidates earlier ones; at most 3 code requests per email per 15 minutes and 20 per IP address per hour *(agent's call)*. | 1 |
+| NFR-7 | One-time codes: 6 digits, valid 10 minutes, at most 5 entry attempts per code, stored only as a hash; requesting a new code invalidates earlier ones; at most 5 code requests per email and 10 per IP address (per /64 prefix for IPv6) in any 24 hours, a sliding window (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-email-service-design.md`). | 1 |
 | NFR-8 | The code email arrives within 1 minute and lands in the Gmail inbox, not spam: the sending domain has SPF, DKIM and DMARC. (4) | 1 |
-| NFR-9 | Sessions are server-side and carried in an `HttpOnly`, `Secure` cookie; a session expires after 30 days without activity; an open connection alone is not activity. Revocation (sign out, sign out everywhere, account deletion) and expiry take effect on the next request and close open connections at once. HTTPS only. | 1; closing connections: 3 |
+| NFR-9 | Sessions are server-side and carried in an `HttpOnly`, `Secure` cookie; a session expires after 30 days without activity; an open connection alone is not activity. The cookie of a session that is not a Remembered session ends when the browser closes; the cookie of a Remembered session persists (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`). Revocation (sign out, sign out everywhere, account deletion) and expiry take effect on the next request and close open connections at once. HTTPS only. | 1; closing connections: 3 |
 | NFR-10 | In production, one-time codes never appear in logs; logs are kept for 7 days *(agent's call)*. Account deletion erases all the user's data at once; the copies in backups disappear when those backups expire (NFR-5). | 1; account deletion: 8 |
 | NFR-11 | Sized for about 100 users on one VPS; no horizontal scaling: a load test with 100 users, two open connections each, keeps the API latency SLO. (6) | 1; open connections: 3 |
 | NFR-12 | The main screen with 20 habits opens within 2 seconds, measured by an end-to-end test in CI. | 4 |
@@ -190,7 +193,7 @@ The measuring tools are chosen in `speckit-plan` and follow the rule "no case, n
 - One environment, no staging (see the process document).
 - The code is a modular monolith: each bounded context is a package, not a service.
 - Public GitHub repository; secrets live only in GitHub secrets and on the server.
-- Email: the one-time code is sent through a transactional email service from `mail.cardlane.eu` with its own SPF, DKIM and DMARC records. The DNS zone is managed at OVH. The records of `cardlane.eu` itself (SPF `-all`, DMARC `p=reject` with strict alignment) stay unchanged. The developer creates the service account and the DNS records.
+- Email: the one-time code is sent through a transactional email service, Resend (see `docs/superpowers/specs/2026-10-30-email-service-design.md`), from `mail.cardlane.eu` with its own SPF, DKIM and DMARC records. The DNS zone is managed at OVH. The records of `cardlane.eu` itself (SPF `-all`, DMARC `p=reject` with strict alignment) stay unchanged. The developer creates the service account and the DNS records.
 
 ## Domain
 
@@ -204,7 +207,7 @@ Three bounded contexts; terms, rules and the context map are in `docs/domain/ubi
 
 In this order. Each epic is a speckit feature `specs/NNN-<epic>/`; user stories, functional requirements and success criteria are written in its `speckit-specify` step and refer to the NFRs and SLOs above.
 
-1. **Walking skeleton.** An empty application all the way to the server: CI/CD, deployment to the subdomain, one-time code sign-in with the time zone taken from the browser, sign out and sign out everywhere, the translation setup, the Privacy page, an empty "no habits yet" screen, the daily database backup and one restore from it. Measures the availability, API latency, data loss and recovery SLOs. Retires the deployment and authentication risks.
+1. **Walking skeleton.** An empty application all the way to the server: CI/CD, deployment to the subdomain, one-time code sign-in with the time zone taken from the browser, sign out and sign out everywhere, the translation setup with English, Polish and Russian, the Privacy and Terms pages, an empty "no habits yet" screen, the daily database backup and one restore from it. Measures the availability, API latency, data loss and recovery SLOs. Retires the deployment and authentication risks.
 2. **Habits and today.** Weekday schedule; create, rename and delete a habit; today's check-in; the streak. Until epic 6 every habit is a Routine.
 3. **Live updates.** Changes appear on every open device; the concurrent edit rules; closing the connections of revoked or expired sessions. Measures the sync latency SLO. It comes right after the first feature because it is the main technical risk after deployment and sign-in, and every later feature is then built with live updates from the start.
 4. **History calendar.** The activity calendar with its Day statuses, fixing past days, best streak, completion rate.
@@ -280,7 +283,7 @@ What the user gets from each epic, one line per story. The map checks that the e
 ## Left to the builder
 
 - Libraries and frameworks inside the stack, including how live updates are delivered to the browser.
-- The email service, chosen in a brainstorming before epic 1's `speckit-specify` step. Criteria: a free tier, DKIM on a subdomain, a delivery log, NFR-8, and what happens when the free tier's daily limit is reached: someone requesting codes for many addresses must not lock other users out (anti-goal 4).
+- The email service: decided 2026-10-30, Resend (`docs/superpowers/specs/2026-10-30-email-service-design.md`). The criterion "someone requesting codes for many addresses must not lock other users out" (anti-goal 4) holds against a single source; distributed abuse is an accepted risk recorded there.
 - The tools that measure the SLOs.
 - The database schema and the API shape.
 - Visual design: colors, spacing, components, beyond what "Main screen" fixes.

@@ -267,7 +267,7 @@ The summary goes into the epic's ledger entry; the "Before epic 2" decision is m
 | Decision | Where it is decided |
 |---|---|
 | Stack | decided: see the product design, Constraints; libraries confirmed in epic 1 `speckit-plan` |
-| OTP / email delivery provider. Outbound ports 25 and 465 are probably blocked on new Hetzner servers — to be checked | epic 1, brainstorming on the fork before `speckit-specify` |
+| OTP / email delivery provider. Outbound ports 25 and 465 are probably blocked on new Hetzner servers — to be checked | decided: Resend over its HTTP API, see `docs/superpowers/specs/2026-10-30-email-service-design.md` |
 | Subdomain name on `cardlane.eu` | decided: see the product design, Constraints |
 | CI/CD artifacts (what is built, how it is delivered to the VPS) | epic 1, `speckit-plan` |
 | `writing-plans` or `speckit-tasks` for epics 2+ | before epic 2, by metrics |

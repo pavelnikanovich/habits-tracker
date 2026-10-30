@@ -29,13 +29,14 @@ Each bounded context is a package in the code (modular monolith), not a service.
 |---|---|---|---|
 | User | Пользователь | A person signed up to the app, identified by their email. | One user per email. Created on the first successful sign-in. "Account" means the User record: creating the account creates the User, account deletion erases it. |
 | Email | Email | The address a user signs in with. | Compared case-insensitively. Unique among users. |
-| One-time code | Одноразовый код | A 6-digit code sent by email to prove the user owns the address. | Valid for 10 minutes. At most 5 entry attempts per code. Stored only as a hash. Used once. Requesting a new code invalidates earlier ones. At most 3 codes per email per 15 minutes and 20 per IP address per hour. Never written to logs in production. |
+| One-time code | Одноразовый код | A 6-digit code sent by email to prove the user owns the address. | Valid for 10 minutes. At most 5 entry attempts per code. Stored only as a hash. Used once. Requesting a new code invalidates earlier ones, once the new code is sent. At most 5 codes per email and 10 per IP address (per /64 prefix for IPv6) in any 24 hours. Never written to logs in production. |
 | Sign-in | Вход | Requesting a one-time code and entering it. | A correct, unexpired, unused code opens a session. |
-| Session | Сеанс | The state of being signed in on one browser. | Stored on the server; the `HttpOnly`, `Secure` cookie carries only its id. Sliding: expires after 30 days without activity, activity extends it. Activity is a request the user makes; an open Connection alone is not activity. Revocation takes effect at once. |
+| Session | Сеанс | The state of being signed in on one browser. | Stored on the server; the `HttpOnly`, `Secure` cookie carries only its id. Sliding: expires after 30 days without activity, activity extends it. Activity is a request the user makes; an open Connection alone is not activity. Revocation takes effect at once. The cookie of a session that is not a Remembered session ends when the browser closes. |
+| Remembered session | Запомненный сеанс | A session opened with "Remember me" ticked. | Its cookie persists across browser restarts; the session still expires after 30 days without activity. Ticking the box is the user's consent to the persistent cookie; the box is unchecked by default. |
 | Sign out | Выход | Revoking the current session. | — |
 | Sign out everywhere | Выход на всех устройствах | Revoking every session of the user. | Live Updates is told of every revoked session (see the context map). |
 | Time zone | Часовой пояс | The user's IANA time zone. | Taken from the browser on the first sign-in; the user can change it. |
-| Locale | Язык интерфейса | The language of the interface and of the one-time code email. | Only English exists now. Every user-visible string lives in translation files; a new language is a new file, with no code change. |
+| Locale | Язык интерфейса | The language of the interface and of the one-time code email. | English, Polish and Russian. Before sign-in it follows the browser and the language switcher, falling back to English; at the first sign-in it becomes the user's locale; the user can change it. Every user-visible string lives in translation files; a new language is a new file, with no code change. |
 | Account deletion | Удаление аккаунта | The user erasing their account. | Erases all the user's data at once, in every context. Not reversible. Backups keep a copy until they expire, at most 7 days. |
 
 ## Habit Tracking
