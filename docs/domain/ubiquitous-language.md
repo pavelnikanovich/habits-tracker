@@ -8,9 +8,9 @@ Each bounded context is a package in the code (modular monolith), not a service.
 
 | Context | Kind | Responsibility |
 |---|---|---|
-| Identity | supporting | Who the user is and whether they are signed in: accounts, one-time codes, sessions, time zone, locale, account deletion. |
-| Habit Tracking | core | Habits, their schedules, check-ins, and everything computed from them: day status, streaks, completion rate. |
-| Live Updates | generic | Delivers changes to every open connection of the same user. Knows no domain rules and decides nothing. |
+| Identity | supporting subdomain | Who the user is and whether they are signed in: accounts, one-time codes, sessions, time zone, locale, account deletion. |
+| Habit Tracking | core domain | Habits, their schedules, check-ins, and everything computed from them: day status, streaks, completion rate. |
+| Live Updates | generic subdomain | Delivers changes to every open connection of the same user. Knows no domain rules and decides nothing. |
 
 ## Context map
 
