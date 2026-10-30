@@ -1,50 +1,139 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# habits-tracker Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Minimum technology
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+A library, service or tool enters the project only with a case: a named function of this product
+that breaks without it. The case is written in the epic's `research.md` when the technology is
+chosen. Without a case, use what the stack already gives: ASP.NET Core, Angular, PostgreSQL and
+docker compose. Microservices, a message broker or a cache are added only on that same condition.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+Rationale: every added technology is code to configure, secure and review, and a reviewer reads
+restraint as maturity.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Tests are mandatory
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Every behavior change, backend and frontend, is written test first: a failing test, then the code
+that makes it pass. Every value from the spec and `data-model.md` (limits, lengths, lifetimes,
+enumerations) is asserted by a test. Algorithms are specified by example tables and tested as
+parameterized tests. Every NFR and SLO is checked by an automated test or a measurement, not only
+declared. Do not weaken, skip or delete a test to make a run green: tests encode the spec, so a
+failing test means the code is wrong. Fix the code, or report the conflict if the test
+contradicts the spec.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Rationale: the agent writes most of the code; a test that was run is the only evidence that the
+code does what the spec says.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. One ubiquitous language
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+`docs/domain/ubiquitous-language.md` is the only source of domain terms. A term is spelled the same
+in specs, class names, tests, the API and the ledger; one concept has one term, without synonyms.
+Every entity in an epic's `data-model.md` is a term in that file. An epic that introduces or
+changes a term edits the file in its own branch, and renaming a term is a refactoring everywhere.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Rationale: two words for one concept, or one word for two, is how the domain rules drift apart
+between the spec and the code.
+
+### IV. Bounded contexts as packages
+
+The application is a modular monolith. Each bounded context (Identity, Habit Tracking,
+Live Updates) is a package of its own, not a service; the concrete form of a package is chosen in
+epic 1's `speckit-plan`. A context depends on another only along the context map in
+`docs/domain/ubiquitous-language.md`, and only through what the map says crosses the boundary.
+Live Updates knows no domain rules. A dependency the map does not show is added to the map first,
+as a design decision.
+
+Rationale: the boundaries keep the domain core reviewable on its own, without the cost of
+separate services.
+
+### V. Each user sees only their own data
+
+Every request reads and changes only the signed-in user's data, and every change notification
+reaches only that user's connections. Every endpoint and the live-update channel are covered by an
+automated test in which user B can neither read nor change user A's data and receives no
+notification about it. An epic that adds an endpoint adds its test.
+
+Rationale: a user seeing another user's habit is a product failure (anti-goal 5), and the way
+queries are bound to the user is decided in the architecture, before the code.
+
+### VI. Expand-only migrations
+
+The branch deployment applies migrations to the one real database before merge. A migration that
+has reached the server is never edited; a fix is a new migration. Migrations only expand the
+schema: add a column instead of renaming one. Removing a column or table is a separate step in a
+later epic, once no code reads it. The database is backed up before migrations are applied.
+
+Rationale: there is one environment and no staging, so a destructive migration on a branch that
+is later fixed or abandoned cannot be taken back.
+
+### VII. Only the developer's work in the repository
+
+The repository holds development artifacts: specs, plans, code, tests, CI, agent configuration and
+the ledger. Learning notes, experiments and rejected options stay outside it. Spike code is
+discarded and never merged; what it taught goes into `research.md`. The ledger records accepted
+decisions only.
+
+Rationale: the repository is read by an employer's reviewer, who looks at decisions and their
+result, not at how they were reached.
+
+### VIII. No secrets in the repository
+
+Secrets live only in GitHub secrets and on the server: no keys, passwords, tokens or connection
+strings with credentials in the repository, in CI logs or in application logs. Local secrets are
+kept in git-ignored files. In production, one-time codes never appear in logs. Configuration
+names its secrets; their values are supplied at deployment.
+
+Rationale: the repository is public, and a committed secret stays in its history.
+
+## Additional Constraints
+
+Taken from the product design (`docs/superpowers/specs/2026-10-28-product-design.md`,
+Constraints); this section is their current source.
+
+- Backend: C# on .NET 10 (LTS), ASP.NET Core.
+- Frontend: Angular, a single-page application.
+- Database: PostgreSQL.
+- The whole application starts with one command through docker compose; data survives restarts.
+- Deployment target: the developer's Hetzner VPS running Linux, at `habits.cardlane.eu`,
+  HTTPS only.
+- One environment, no staging.
+- Public GitHub repository.
+- Email: the one-time code is sent through a transactional email service from `mail.cardlane.eu`,
+  with its own SPF, DKIM and DMARC records. The records of `cardlane.eu` itself (SPF `-all`,
+  DMARC `p=reject` with strict alignment) stay unchanged.
+
+## Development Workflow
+
+Three kinds of change need the developer's decision before they are made, because each changes
+something the developer approved:
+
+- a new dependency (a package, service or tool): it changes the approved stack. Propose it with
+  its case (principle I) and wait for the answer.
+- a database schema change beyond the epic's `data-model.md`: it becomes irreversible once
+  deployed (principle VI). Propose the change to `data-model.md` first.
+- a divergence from the spec: the spec is the developer's decision. Stop and report the
+  divergence instead of choosing a reading of the spec.
+
+`speckit-plan` checks every technical plan against this constitution in its Constitution Check. A
+plan that departs from a principle records the departure and its case under Complexity Tracking;
+the developer accepts or rejects it at the technical plan review.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution governs the product and its code. The way of working (stages, reviews, the
+ledger) is governed by `docs/superpowers/specs/2026-10-28-development-process-design.md`, and the
+agent's session rules by `CLAUDE.md`. Where a spec or plan conflicts with this constitution, the
+constitution holds until it is amended.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+Amendments are the developer's decision. They are made with `speckit-constitution`, in a commit
+of their own, on the epic branch that needs them or as a small change, and are recorded in one
+ledger line.
+
+Versioning follows semantic versioning: MAJOR for removing or redefining a principle, MINOR for
+adding a principle or section or materially expanding one, PATCH for wording and clarifications.
+
+Compliance is checked at the Constitution Check of every `speckit-plan`, at the developer's review
+of the technical plan, and at the final branch review of every epic.
+
+**Version**: 1.0.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-30
