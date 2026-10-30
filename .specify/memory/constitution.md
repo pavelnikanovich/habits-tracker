@@ -35,17 +35,31 @@ changes a term edits the file in its own branch, and renaming a term is a refact
 Rationale: two words for one concept, or one word for two, is how the domain rules drift apart
 between the spec and the code.
 
-### IV. Bounded contexts as packages
+### IV. Bounded contexts as hexagonal packages
 
 The application is a modular monolith. Each bounded context (Identity, Habit Tracking,
-Live Updates) is a package of its own, not a service; the concrete form of a package is chosen in
-epic 1's `speckit-plan`. A context depends on another only along the context map in
-`docs/domain/ubiquitous-language.md`, and only through what the map says crosses the boundary.
-Live Updates knows no domain rules. A dependency the map does not show is added to the map first,
-as a design decision.
+Live Updates) is a package of its own, not a service. On the backend, each package is
+hexagonal: a core and its adapters.
 
-Rationale: the boundaries keep the domain core reviewable on its own, without the cost of
-separate services.
+- The core holds the context's domain model and its ports: the interfaces through which the
+  core is used (its use cases) and through which it reaches the outside (storage, email, time,
+  other contexts). The core depends on no framework, database or external service.
+- The domain model in the core is marked in DDD terms: each epic's `data-model.md` names its
+  aggregates, entities and value objects, and the invariants each aggregate guards.
+- Adapters connect the ports to the outside: the HTTP API, the database, the email service,
+  the development log. An adapter depends on the core, never the other way round.
+- The build holds the dependency rule: the core's project references no framework, database
+  driver or adapter project, so code that breaks the rule does not compile.
+
+The concrete projects are chosen in epic 1's `speckit-plan`; a context added later follows the
+same structure. A context depends on another only along the context map in
+`docs/domain/ubiquitous-language.md`, only through a port, and only with what the map says
+crosses the boundary. Live Updates knows no domain rules. A dependency the map does not show is
+added to the map first, as a design decision. The Angular frontend is not split this way.
+
+Rationale: the boundaries keep each context's core reviewable on its own, without the cost of
+separate services; the ports let a test run the core without a database, an email service or a
+real clock, and let development mode replace the email service with a log.
 
 ### V. Each user sees only their own data
 
@@ -136,4 +150,4 @@ adding a principle or section or materially expanding one, PATCH for wording and
 Compliance is checked at the Constitution Check of every `speckit-plan`, at the developer's review
 of the technical plan, and at the final branch review of every epic.
 
-**Version**: 1.0.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-30
+**Version**: 1.1.0 | **Ratified**: 2026-10-30 | **Last Amended**: 2026-10-30
