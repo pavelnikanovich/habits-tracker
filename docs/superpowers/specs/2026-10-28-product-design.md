@@ -1,6 +1,6 @@
 # habits-tracker product design
 
-Date: 2026-10-28, revised 2026-10-30 by the epic 1 design fork (`docs/superpowers/specs/2026-10-30-email-service-design.md`, `docs/superpowers/specs/2026-10-30-legal-pages-design.md`): the email service, NFR-7, NFR-9, the interface languages, the Privacy and Terms pages. Stage 1, step 1 of the development process (`docs/superpowers/specs/2026-10-28-development-process-design.md`).
+Date: 2026-10-28, revised 2026-10-30 by the epic 1 design fork (`docs/superpowers/specs/2026-10-30-email-service-design.md`, `docs/superpowers/specs/2026-10-30-legal-pages-design.md`): the email service, NFR-7, NFR-9, the interface languages, the Privacy and Terms pages; revised again 2026-10-30 by the external constraints check (`docs/superpowers/specs/2026-10-30-external-constraints-check.md`): goal 8, the language switch, NFR-5, NFR-11, the SLO measurements, third-party requests. Stage 1, step 1 of the development process (`docs/superpowers/specs/2026-10-28-development-process-design.md`).
 
 Domain terms in this document are defined in `docs/domain/ubiquitous-language.md`, the only source of domain terms. Items marked *(agent's call)* were proposed by the agent without a separate question and are confirmed by the developer's review of this document.
 
@@ -31,7 +31,7 @@ All eight epics are merged to `main` and run at `habits.cardlane.eu`, and every 
 5. A change on one device is visible on every other open device of the same user within 2 seconds, and concurrent edits converge to one state by fixed rules.
 6. Changing a schedule never rewrites history.
 7. A habit can be archived (and restored) or deleted for good.
-8. The interface is in English only, and is ready for translations: adding a language is adding a translation file.
+8. The interface is in English, Polish and Russian; adding a language is adding a translation file (revised 2026-10-30, see "Interface language").
 9. Every habit is either a Routine (kept on trust) or a Commitment (kept strictly). A Routine becomes a Commitment at once; a Commitment becomes a Routine only 7 days after the user asks, and days closed before stay closed.
 10. A user stays signed in while they keep using the app (across browser restarts if they choose "Remember me"), can sign out on one device or everywhere, can change their time zone, and can delete their account with all their data.
 
@@ -73,6 +73,7 @@ What makes the product a failure even if it technically works:
 - In development mode the code email is written to the log instead of being sent (see the process document, "Epic 1 — walking skeleton").
 - A Privacy page, readable before sign-in, says what is stored (email, time zone, habits and check-ins, sessions, and IP addresses in logs and in request limits), which service sends the code email, that backups keep deleted data for up to 7 days and logs are kept for 7 days, and how to have the data deleted: until account deletion exists (epic 8), on request to a contact address on the page (the developer supplies it in epic 1). Its full contents, required by GDPR art. 13, are in `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Privacy page".
 - A Terms page, readable before sign-in, sets the terms of the service; its contents are in `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Terms page". Under the sign-in button the user is told that signing in accepts the Terms, with links to both pages.
+- Every page loads everything from `habits.cardlane.eu`: no fonts, scripts, styles or images from third-party servers, since each such request sends the user's IP address to a recipient outside the closed list on the Privacy page (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-external-constraints-check.md`) *(agent's call)*.
 
 ### Routines and commitments
 
@@ -145,7 +146,7 @@ Rules differ by type of data:
 
 ### Interface language
 
-English, Polish and Russian, from epic 1. Every user-visible string, the code email and the Privacy and Terms pages included, comes from translation files, with plural rules handled by the translation format. Adding a language means adding a file, with no code change. Before sign-in the language follows the browser and a switcher on every page; at the first sign-in it becomes the user's locale (see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Languages").
+English, Polish and Russian, from epic 1. Every user-visible string, the code email and the Privacy and Terms pages included, comes from translation files, with plural rules handled by the translation format. Adding a language means adding a file, with no code change. Switching the language applies at once, without a page reload (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-external-constraints-check.md`). Before sign-in the language follows the browser and a switcher on every page; at the first sign-in it becomes the user's locale (see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Languages").
 
 ## Non-functional requirements
 
@@ -157,13 +158,13 @@ Numbers in brackets are anti-goals the requirement guards. The Epic column names
 | NFR-2 | A device that lost its connection (sleep, network change) shows the current state within 5 seconds after the network is back, without a page reload: an end-to-end test cuts and restores the network of one browser while another makes changes, and asserts the time. (1) | 3 |
 | NFR-3 | A check-in is shown as saved only after the server confirms it; a failed save is visible to the user. (2) | 2 |
 | NFR-4 | Streak, best streak and completion rate rules are covered by unit tests, including a schedule change, a fix to a past day, a time zone change, a daylight-saving transition, an archive period of a Routine and of a Commitment, a Closed day, Commit and Release (including the day a Release takes effect), a Partial week, a change of N. (3) | 2; epics 4–8 add their cases |
-| NFR-5 | The database is backed up daily and before every migration; backups are kept for 7 days *(agent's call)*. A restore from backup has been done at least once. | 1 |
+| NFR-5 | The database is backed up daily and before every migration; backups are kept for 7 days *(agent's call)*. A restore from backup has been done at least once. The backups are kept on the VPS itself: they cover failures that leave the server's disk intact (a failed migration, an application defect, data deleted by mistake), not the loss of the server, which is an accepted risk. The restore is done on the server into a separate temporary database next to the live one: its data is checked against the backup, its time is recorded, and it is then removed; the live database is not touched (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-external-constraints-check.md`). | 1 |
 | NFR-6 | Every request sees only the signed-in user's data. An automated test covers every endpoint: user B can neither read nor change user A's data, and no connection of user B receives a change notification about user A's data. (5) | 1; every epic that adds an endpoint; the live-update channel: 3 |
 | NFR-7 | One-time codes: 6 digits, valid 10 minutes, at most 5 entry attempts per code, stored only as a hash; requesting a new code invalidates earlier ones; at most 5 code requests per email and 10 per IP address (per /64 prefix for IPv6) in any 24 hours, a sliding window (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-email-service-design.md`). | 1 |
 | NFR-8 | The code email arrives within 1 minute and lands in the Gmail inbox, not spam: the sending domain has SPF, DKIM and DMARC. (4) | 1 |
 | NFR-9 | Sessions are server-side and carried in an `HttpOnly`, `Secure` cookie; a session expires after 30 days without activity; an open connection alone is not activity. The cookie of a session that is not a Remembered session ends when the browser closes; the cookie of a Remembered session persists (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`). Revocation (sign out, sign out everywhere, account deletion) and expiry take effect on the next request and close open connections at once. HTTPS only. | 1; closing connections: 3 |
 | NFR-10 | In production, one-time codes never appear in logs; logs are kept for 7 days *(agent's call)*. Account deletion erases all the user's data at once; the copies in backups disappear when those backups expire (NFR-5). | 1; account deletion: 8 |
-| NFR-11 | Sized for about 100 users on one VPS; no horizontal scaling: a load test with 100 users, two open connections each, keeps the API latency SLO. (6) | 1; open connections: 3 |
+| NFR-11 | Sized for about 100 users on one VPS; no horizontal scaling: a load test with 100 users, two open connections each, keeps the API latency SLO. The load test runs in CI, with the application and database containers limited together to the CPU and memory of the server, a Hetzner Cloud CX23 (2 vCPU, 4 GB) (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-external-constraints-check.md`). (6) | 1; open connections: 3 |
 | NFR-12 | The main screen with 20 habits opens within 2 seconds, measured by an end-to-end test in CI. | 4 |
 | NFR-13 | At a viewport width of 360 px every action of the screen is reachable and the page has no horizontal scroll except the calendar: checked by the end-to-end tests at that width. | every epic with a screen |
 
@@ -173,15 +174,15 @@ Internal objectives per calendar month. There is no contract with clients, so th
 
 | SLO | Objective | Measured by | Epic |
 |---|---|---|---|
-| Availability | 99% (about 7 hours of downtime a month) | an external check of a health endpoint once a minute, from outside the VPS | 1 |
-| API latency | 95% of requests answered within 300 ms, server side, live-update connections excluded | request timing kept as metrics for at least a month (logs are kept only 7 days) | 1 |
-| Sync latency | 95% of changes reach another open device within 2 seconds | synthetically: an end-to-end test with two browsers signed in as one user, run in CI, and against the server after every deployment and at least once a day. Each run sends at least 20 changes; the monthly value is the 95th percentile over all the month's runs against the server *(agent's call)*. Telemetry from real clients is added only when a case appears that the test does not catch | 3 |
-| Data loss (RPO) | at most 24 hours | the daily backup and the backup before each migration | 1 |
-| Recovery (RTO) | at most 4 hours | a restore done once, with its time recorded | 1 |
+| Availability | 99% (about 7 hours of downtime a month) | an external check of a health endpoint every 5 minutes from a scheduled GitHub Actions workflow, outside the VPS. A check passes when the endpoint answers with success over HTTPS within 10 seconds; the endpoint answers with success only when the application can reach the database, and returns no personal data; a timeout or a TLS error fails the check *(agent's call)*. The monthly value is the share of passed checks among the checks that ran; a month in which no check ran has no value. A failed check notifies the developer through GitHub's notification for a failed workflow run. Scheduled workflows run only from `main`, so the schedule starts once epic 1 is merged; before merge, the branch deployment runs the same check once against the server (revised 2026-10-30) | 1 |
+| API latency | 95% of requests answered within 300 ms, server side, live-update connections excluded | request timing kept as metrics for at least a month (logs are kept only 7 days); the metrics are aggregated and hold no IP address and no user id, so they are not personal data (revised 2026-10-30) | 1 |
+| Sync latency | 95% of changes reach another open device within 2 seconds | synthetically: an end-to-end test with two browsers signed in as one user, run in CI, and against the server after every deployment and at least once a day. Each run sends at least 20 changes; the monthly value is the 95th percentile over all the month's runs against the server *(agent's call)*. The runs against the server sign in with a Remembered session of a dedicated test account, opened once by the developer and kept in GitHub secrets: they send no code email and use no sign-in bypass (revised 2026-10-30). Telemetry from real clients is added only when a case appears that the test does not catch | 3 |
+| Data loss (RPO) | at most 24 hours, for failures that leave the server's disk intact (NFR-5) | the daily backup and the backup before each migration | 1 |
+| Recovery (RTO) | at most 4 hours, for failures that leave the server's disk intact (NFR-5) | a restore done once on the server into a separate database (NFR-5), with its time recorded | 1 |
 
 Error budget: if an SLO is missed in a month, the next epic starts with a reliability task before new features. Planned downtime during deployment counts against the budget.
 
-The measuring tools are chosen in `speckit-plan` and follow the rule "no case, no technology". The requirement is that every SLO is measured, not only declared.
+The measuring tools are chosen in `speckit-plan` and follow the rule "no case, no technology"; the availability check is the exception, fixed above by the external constraints check (revised 2026-10-30). The requirement is that every SLO is measured, not only declared.
 
 ## Constraints
 
@@ -284,7 +285,7 @@ What the user gets from each epic, one line per story. The map checks that the e
 
 - Libraries and frameworks inside the stack, including how live updates are delivered to the browser.
 - The email service: decided 2026-10-30, Resend (`docs/superpowers/specs/2026-10-30-email-service-design.md`). The criterion "someone requesting codes for many addresses must not lock other users out" (anti-goal 4) holds against a single source; distributed abuse is an accepted risk recorded there.
-- The tools that measure the SLOs.
+- The tools that measure the SLOs, except the availability check (see "Service level objectives").
 - The database schema and the API shape.
 - Visual design: colors, spacing, components, beyond what "Main screen" fixes.
 - How the Archive view and the delete confirmation look.
