@@ -173,7 +173,7 @@ Operational records of the host; none of them is an entity of the domain, and no
 
 | Table | Columns | Purpose |
 |---|---|---|
-| `request_timings` | `hour timestamptz`, `endpoint text`, `bucket_upper_ms integer`, `count bigint` | FR-039: request timing aggregated per hour, per endpoint route template and per latency bucket; no IP address, no user id. Kept 13 months *(agent's call: "at least a month", and a year to compare months)*. Bucket bounds in research R9. |
+| `request_timings` | `hour timestamptz`, `endpoint text`, `bucket_upper_ms integer`, `count bigint`; PK (`hour`, `endpoint`, `bucket_upper_ms`) | FR-039: request timing aggregated per hour, per endpoint route template and per latency bucket; no IP address, no user id. Kept 13 months *(agent's call: "at least a month", and a year to compare months)*. Bucket bounds in research R9. Primary key (`hour`, `endpoint`, `bucket_upper_ms`), so the host adds each minute's counts with one upsert; the +∞ bucket is stored as `bucket_upper_ms = 2147483647`. This table stands in for a metrics stack (Prometheus with Grafana dashboards and alerts; research R9, "Alternatives"): one PostgreSQL table keeps the API latency SLO measurable without three more services. `ops/latency-p95.sh` reads the SLO from it; there is no automatic latency alert: the developer reads the value after each deployment and for each calendar month. |
 
 Each `DbContext` keeps its EF Core migrations history table in its own schema; the backup manifest (FR-035) is a file next to each backup, not a table (research R10).
 
