@@ -11,7 +11,7 @@ Phase 0 of `plan.md`. Each section records a decision, why, and what else was co
 
 `HabitsTracker.Host` is the composition root: it wires the adapters to the core, serves the Angular build, and holds what belongs to no context — the health endpoint, request timing, the hourly cleanup, the migrations entry point. Habit Tracking and Live Updates get the same two projects in their epics.
 
-The build holds the dependency rule (principle IV): the core's project has no `PackageReference`, `FrameworkReference` or `ProjectReference`, so ASP.NET Core or EF Core types do not compile in it. A test reads the core's `.csproj` and fails if any such reference appears, so the rule cannot be dropped by a one-line edit.
+The build holds the dependency rule (principle IV): the core's project has no `PackageReference`, `FrameworkReference` or `ProjectReference`, so ASP.NET Core or EF Core types do not compile in it. A test reads the core's `.csproj` and fails if any such reference appears, so the rule cannot be dropped by a one-line edit. A second test holds "adapters meet only in the core" (constitution IV), which one adapter project cannot hold by references: the sources under `Identity.Adapters/Http`, `/Storage`, `/Email` and `/Translations` name no type of another of these folders; only the context's registration names them all.
 
 **Rationale.** Two projects per context is the smallest form that lets the compiler hold the rule; folders inside one project would not. Ports with hand-written fakes make the core testable without a database, an email service or a clock.
 
@@ -19,9 +19,9 @@ The build holds the dependency rule (principle IV): the core's project has no `P
 
 ## R2. Data access and migrations
 
-**Decision.** EF Core 10 with `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.x in the adapters; one `DbContext` per context, schema `identity`; the host's own `DbContext` for schema `operations`. Migrations are EF Core migrations, shipped as a migration bundle (`efbundle`) built into the image; the deployment runs the bundle after the backup and before the new version starts. Npgsql's connection pooling is used as it comes.
+**Decision.** EF Core 10 with `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.x in the adapters; one `DbContext` per context, schema `identity`; the host's own `DbContext` for schema `operations`. Migrations are EF Core migrations, shipped as a migration bundle (`efbundle`) built into the image; the deployment runs the bundle after the backup and before the new version starts. Npgsql's connection pooling is used as it comes. In Development and in tests the host applies both contexts' migrations at start (`Database:MigrateOnStart`); in Production it never does, and only the deployment runs the bundles (`migrate-identity`, `migrate-operations`).
 
-**Rationale.** The branch deployment applies migrations to the one database (principle VI): versioned, ordered migrations that a deployment step can run are needed from the first table. EF Core's documentation recommends bundles for automated deployment and warns against migrating at application start in production. EF Core also maps the aggregates without hand-written SQL for every query.
+**Rationale.** The branch deployment applies migrations to the one database (principle VI): versioned, ordered migrations that a deployment step can run are needed from the first table. EF Core's documentation recommends bundles for automated deployment and warns against migrating at application start in production. EF Core maps the adapter's storage records without hand-written SQL for every query; the core's factories turn them into aggregates (data-model, "Storage").
 
 **Alternatives.** Plain Npgsql with SQL scripts and a hand-written migration runner: fewer packages, but a runner, a history table and row mapping to write and test. Dapper: mapping only, migrations still missing. `Database.MigrateAsync()` at start: rejected by EF Core's own guidance for production.
 
@@ -40,7 +40,7 @@ Outcome mapping of a send (FR-004, FR-005):
 | other `4xx`, `503 service_unavailable` | refused: email service unavailable | none |
 | `500 application_error`, timeout after 10 s, connection lost after the request was sent | unclear: counts as sent | — |
 
-The timeout of 10 seconds is the agent's call. A `500` is treated as unclear because the email may have left. Not used: `Idempotency-Key` — an unclear result is not retried, it counts as sent (FR-004).
+The timeout of 10 seconds is the agent's call. A `500` is treated as unclear because the email may have left. Not used: `Idempotency-Key` — an unclear result is not retried, it counts as sent (FR-004). A connection that fails before the request is sent (connection refused, name not resolved) is refused as unavailable, not unclear: nothing left the server, so the earlier code stays valid.
 
 TLS to the recipient's mail server stays Resend's default, "Opportunistic": a server without TLS still gets the code email, unencrypted. "Enforced" would fail delivery to such servers, each failure a bounce against Resend's 4% threshold, for a code that lives 10 minutes.
 
@@ -70,7 +70,7 @@ Cross-site request forgery: `SameSite=Lax` keeps the cookie off cross-site `POST
 
 **Decision.**
 
-- **Code.** `RandomNumberGenerator.GetInt32(0, 1_000_000)` formatted as 6 digits. Stored as HMAC-SHA-256 over the lower-cased email and the code, keyed by a 32-byte server secret (`Identity__CodeHashKey`, R13); compared in constant time. A plain hash of a 6-digit code falls to a million guesses; the key keeps a database copy useless without the server's secret, and binding the email means a code presented for another email never matches.
+- **Code.** `RandomNumberGenerator.GetInt32(0, 1_000_000)` formatted as 6 digits. Stored as HMAC-SHA-256 over the lower-cased email and the code, keyed by a 32-byte server secret (`Identity__CodeHashKey`, R13); compared in constant time. Production does not start without the key. Development, when no key is configured, generates a random key at each start, so no key is in the repository (constitution VIII); codes issued before a restart of the development host stop matching, which development can afford. A plain hash of a 6-digit code falls to a million guesses; the key keeps a database copy useless without the server's secret, and binding the email means a code presented for another email never matches.
 - **One code per email.** `identity.one_time_codes` is keyed by email; storing a new code replaces the earlier one (FR-002). The sequence in "request a code": take the locks, check the limits, send, and only if the send is sent or unclear, store the code and the code request in the same transaction (FR-004).
 - **Limits.** Counted from `identity.code_requests` over the last 24 hours, by email and by IP address prefix, from configuration (`Identity__CodeRequestLimits__PerEmail = 5`, `__PerIpAddress = 10`, `__Window = 24:00:00`; FR-003). The check and the insert run in one transaction holding `pg_advisory_xact_lock` on the email and on the prefix, so concurrent requests cannot both pass the last free slot. The send happens inside that transaction; at most one request per email or prefix waits for it, bounded by the 10-second send timeout.
 - **Entry attempts.** "Sign in" increments `entry_attempts` with a row lock (`SELECT … FOR UPDATE`), so two concurrent entries cannot both be counted as the fifth.
@@ -81,13 +81,13 @@ Cross-site request forgery: `SameSite=Lax` keeps the cookie off cross-site `POST
 
 ## R6. Time zones
 
-**Decision.** The browser sends `Intl.DateTimeFormat().resolvedOptions().timeZone` at sign-in. The core accepts it when `TimeZoneInfo.TryFindSystemTimeZoneById` finds it, which on Linux reads the image's tzdata; otherwise the user gets `UTC` with "not recognized" (FR-009). The runtime image is the default ASP.NET Core 10 image (Ubuntu), never Alpine or Chiseled without `-extra`, never globalization-invariant mode (constraints check, 2.2).
+**Decision.** The browser sends `Intl.DateTimeFormat().resolvedOptions().timeZone` at sign-in. The core accepts it when `TimeZoneInfo.TryFindSystemTimeZoneById` finds it and the id is an IANA id (`HasIanaId`): on Linux .NET also finds Windows ids, converting them through ICU, which on Linux reads the image's tzdata; otherwise the user gets `UTC` with "not recognized" (FR-009). The runtime image is the default ASP.NET Core 10 image (Ubuntu), never Alpine or Chiseled without `-extra`, never globalization-invariant mode (constraints check, 2.2).
 
 **Alternatives.** NodaTime: a richer time zone library, with no case in this epic; epic 2 may bring one.
 
 ## R7. The client's IP address
 
-**Decision.** In production Caddy is the only entry point and sets `X-Forwarded-For` and `X-Forwarded-Proto`. ASP.NET Core's forwarded headers middleware trusts them only from the compose network of the proxy, a fixed subnet in `compose.prod.yaml`. The IP address prefix (data-model) is computed from the resulting remote address. In development and in CI there is no proxy and the remote address is used as is.
+**Decision.** In production Caddy is the only entry point and sets `X-Forwarded-For` and `X-Forwarded-Proto`. ASP.NET Core's forwarded headers middleware trusts them only from the compose network of the proxy, a fixed subnet in `compose.prod.yaml`. The IP address prefix (data-model) is computed from the resulting remote address. In development and in CI there is no proxy and the remote address is used as is. The trusted network is set through `ForwardedHeadersOptions.KnownIPNetworks` with `System.Net.IPNetwork`: `KnownNetworks` is obsolete in ASP.NET Core 10 (warning `ASPDEPR005`, an error under `TreatWarningsAsErrors`), and the default loopback entries are cleared.
 
 **Alternatives.** Trusting `X-Forwarded-For` from anyone: any client could pick its own IP address and bypass the per-IP limit.
 
@@ -113,7 +113,7 @@ Checks: an automated test runs the sign-in flow in the Production environment wi
 
 - `ops/backup.sh` runs `pg_dump --format=custom` through the `db` container into a timestamped directory under `/var/backups/habits/` and writes `manifest.tsv` next to it. The manifest is taken in the same repeatable-read snapshot as the dump (`pg_export_snapshot`) and holds, for every table in schemas `identity` and `operations`, the row count and `md5(string_agg(row::text, E'\n' ORDER BY row::text))`. The script then deletes backup directories older than 7 days.
 - A systemd timer on the server runs it daily (`ops/systemd/habits-backup.timer`); the deployment workflow runs it before the migration bundle.
-- `ops/restore-check.sh` creates a temporary database next to the live one, restores the newest backup into it with `pg_restore`, computes the same manifest from it, compares every table, prints `PASS` or `FAIL` with the comparison and the time from the start of the restore to the passed check, and drops the temporary database. It never connects to the live database.
+- `ops/restore-check.sh` creates a temporary database next to the live one, restores the newest backup into it with `pg_restore`, computes the same manifest from it, compares every table, prints `PASS` or `FAIL` with the comparison and the time from the start of the restore to the passed check, and drops the temporary database. It never connects to the live database. The live restore of R22 uses the same manifest to check the restored database before it is swapped in.
 - A CI job runs both scripts against a seeded database: a restore of an untouched backup passes; a manifest altered by the test fails; a backup directory dated 8 days back is deleted.
 
 **Rationale.** `pg_dump` and `pg_restore` come with the PostgreSQL image; the checksum is plain SQL. The manifest is taken from the same snapshot as the dump, so a write between the two cannot make a correct restore fail.
@@ -125,8 +125,8 @@ Checks: an automated test runs the sign-in flow in the Production environment wi
 **Decision.** Angular 22 (Node 24 LTS), standalone components, zoneless, signals; plain CSS with the system font stack, so no font file and no third-party request (FR-027). No component library.
 
 - **Translations: Transloco 8.4** with `@jsverse/transloco-messageformat` 8.4 (ICU MessageFormat, plural categories from CLDR through `Intl.PluralRules`), switching the language in place without a reload (FR-022), as the constraints check (2.1) requires. Translation files: `frontend/public/i18n/<code>.json`, one per language, each with `language.name`. The list of languages comes from `GET /api/locales`, which reads the same files, so a new file is a new language with no code change (FR-020). The backend composes the code email from the `email.*` keys of the same files; those keys use only simple `{placeholder}` substitution, so the backend needs no MessageFormat parser.
-- **Language before sign-in:** `navigator.languages` matched against the available codes, else `en`; the switcher's choice in `localStorage` (FR-021). After sign-in the user's locale wins and the switcher calls `PUT /api/me/locale` (FR-023).
-- **Content Security Policy** `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`, set by the host. Angular's critical-CSS inlining is turned off, since its `onload` handler would need `'unsafe-inline'` in `script-src`; `'unsafe-inline'` for styles covers the component styles Angular injects and allows no other server.
+- **Language before sign-in:** `navigator.languages` matched against the available codes, else `en`; the switcher's choice in `localStorage` (FR-021); a stored choice that is not among the available locales is ignored, so a removed language or an edited value falls back to the browser's languages. After sign-in the user's locale wins and the switcher calls `PUT /api/me/locale` (FR-023).
+- **Content Security Policy** `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`, set by the host. A text with links (the acceptance sentence of FR-025) is composed from translation keys around the links; no translation is rendered as HTML (R19, T2). Angular's critical-CSS inlining is turned off, since its `onload` handler would need `'unsafe-inline'` in `script-src`; `'unsafe-inline'` for styles covers the component styles Angular injects and allows no other server.
 
 **Alternatives.** Angular's built-in i18n: compile-time, a reload per language (constraints check 2.1). `@ngx-translate/core` with a MessageFormat compiler: equivalent; Transloco's plugin is maintained by the same project as the library. Angular Material: a component library for four simple pages.
 
@@ -146,11 +146,19 @@ Checks: an automated test runs the sign-in flow in the Production environment wi
 
 Commands, added to `CLAUDE.md` by the task that creates them:
 
-- **Fast** `scripts/test-fast.sh`: `dotnet test backend/HabitsTracker.slnx` and `npm --prefix frontend test`. About 2 minutes; Testcontainers needs Docker, which every developer machine and GitHub runner here has.
-- **Full** `scripts/test-full.sh`: fast, then the end-to-end tests, the backup and restore check, the HTTPS check.
+- **Fast** `scripts/test-fast.sh`: `dotnet test backend/HabitsTracker.slnx` and `npm --prefix frontend test`. Its time is measured once Task 1 creates it and written next to the command in `CLAUDE.md`; Testcontainers needs Docker, which every developer machine and GitHub runner here has.
+- **Full** `scripts/test-full.sh`: fast, then `npm --prefix frontend run lint`, the end-to-end tests, and every shell test under `scripts/tests/` and `ops/tests/` (backup and restore, live restore, deletion on request, HTTPS, latency, availability, test integrity, the development lock, the SubagentStop hook).
 - **Load** `scripts/load-test.sh`.
 
 No mocking library and no assertion library: fakes implement the core's ports, and xUnit's assertions suffice.
+
+Test harness:
+
+- One PostgreSQL Testcontainer per test assembly and one new database per test class; the fixture is one source file linked into both test projects that need it, so no test project references another.
+- API tests set the client's address with a test-only header, read by a startup filter registered only in the test host.
+- Tests pass `TestContext.Current.CancellationToken` to every async call: xUnit v3's analyzer `xUnit1051` warns otherwise, and warnings are errors.
+- **Contract tests of the ports** (constitution IV): one suite per driven port, one shared source file each, run against the test fake in the core tests and against every adapter in the adapter tests: storage and the transaction against PostgreSQL, the code email sender against the development log and against Resend behind a stubbed HTTP handler, the locales against the translation files. The in-memory transaction fake rolls back what the in-memory stores wrote when the work throws. The concurrency cases run against PostgreSQL only.
+- The end-to-end run starts its own `scripts/dev.sh` with the per-IP limit raised to 1000, since every test requests codes from one address; a developer instance must be stopped first.
 
 **Alternatives.** Only unit tests with an in-memory database: unique index, advisory locks and `cidr` would go untested. A shared PostgreSQL started by hand before tests: the fast command would depend on state outside it.
 
@@ -158,20 +166,31 @@ No mocking library and no assertion library: fakes implement the core's ports, a
 
 **Decision.**
 
-- **Image.** One multi-stage `Dockerfile`: Node builds the Angular app; the .NET SDK publishes the host and builds the migration bundle; the runtime stage is the default ASP.NET Core 10 image with the app, the static files and the translation files. Pushed to GitHub Container Registry, tagged with the commit SHA (free for public images).
+- **Image.** One multi-stage `Dockerfile`: Node builds the Angular app; the .NET SDK publishes the host and builds the migration bundles (`migrate-identity`, `migrate-operations`); the runtime stage is the default ASP.NET Core 10 image with the app, the static files and the translation files. Pushed to GitHub Container Registry, tagged with the commit SHA (free for public images).
 - **Compose.** `compose.yaml` runs `db` (PostgreSQL 18, volume at `/var/lib/postgresql`, the PostgreSQL 18 image's mount point) and `app` (development mode) with one command (constitution, Additional Constraints). `compose.prod.yaml` on the server adds `caddy` (2.11, volumes for `/data` and `/config`, never recreated by a deployment, constraints check 2.4) and runs `app` in production from the GHCR image.
 - **Workflows** (FR-034; process document, "Epic 1"):
-  - `pr-checks.yml` on `pull_request`: backend, frontend, end-to-end, load test, backup and restore check, HTTPS check, static analysis, test integrity (R15).
+  - `pr-checks.yml` on `pull_request`: backend, frontend, end-to-end, load test, the shell tests, static analysis, test integrity (R15), the dependency vulnerability checks (R19, P1).
   - `deploy-branch.yml` on `pull_request` `labeled` with `deploy`, only for branches of this repository: calls `deploy.yml`.
   - `deploy-main.yml` on `push` to `main`: calls `deploy.yml`.
-  - `deploy.yml` (`workflow_call`, environment `production`): build and push the image; over SSH run `ops/backup.sh`, the migration bundle, `docker compose up -d`; then the availability check once (R16).
+  - `deploy.yml` (`workflow_call`, environment `production`): build and push the image; over SSH run `ops/backup.sh`, the migration bundles, `docker compose up -d`; then the availability check once (R16).
   - `availability.yml` (R16).
-  - GitHub-hosted runners only, no `pull_request_target` (constraints check 2.5).
+  - GitHub-hosted runners only, no `pull_request_target` (constraints check 2.5). Every `uses:` is pinned to a commit SHA; workflows default to `permissions: contents: read` (R19, P2).
 - **Server (manual).** Docker with compose, a deploy user with key-only SSH, the Hetzner Cloud Firewall open on 22, 80, 443, the journald drop-in, the backup timer, `/opt/habits` with `compose.prod.yaml` and `.env`.
 - **Secrets**, in GitHub environment `production` and the server's `.env`, never in the repository (principle VIII): `RESEND_API_KEY`, `IDENTITY_CODE_HASH_KEY`, `POSTGRES_PASSWORD`, `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`. The contact email and the developer's full name are page text in the translation files (FR-028), not secrets.
 - **The GitHub repository** is created public by the developer before the first workflow runs.
 
 **Alternatives.** Building on the server: the build would compete with the running app for 2 vCPU. nginx with certbot: two tools for what Caddy does alone. A self-hosted runner: unsafe for a public repository.
+
+**Configuration keys** (the environment form replaces `:` with `__`): `ConnectionStrings:Habits`; `Database:MigrateOnStart`; `Identity:CodeHashKey` (base64 of 32 bytes); `Identity:CodeRequestLimits:PerEmail`, `PerIpAddress`, `Window`; `Resend:ApiKey`; `Translations:Path`; `ForwardedHeaders:KnownNetwork` (the proxy network's CIDR, `172.30.0.0/24` in `compose.prod.yaml`).
+
+**Rollback.** `deploy.yml` also runs by hand (`workflow_dispatch`) with the inputs `image_tag` (the SHA of an image already in GHCR) and `migrate` (`false` for a rollback): it takes the backup, starts that image without migrations and checks `/health` once. Expand-only migrations (constitution VI) let the previous image run on the newer schema. If GitHub is unavailable, the fallback is one command over SSH, in `docs/operations/runbook.md`. Task 22 rehearses it once (constitution XI).
+
+**Blue-green and canary deployment: not used.** Blue-green would run the new version next to the old one behind Caddy and switch only after its health check; canary would send it a share of the traffic first. Neither needs a load balancer here, since Caddy can switch upstreams, and the schema already allows two versions at once (constitution VI). Not taken:
+
+- No case under constitution I: no requirement asks for a deployment without downtime. The availability SLO is 99% a month, about 7 hours; a deployment recreates one container in seconds; checks run every 5 minutes.
+- Canary needs metrics per version and enough traffic to compare them; about 100 users give neither.
+- Blue-green shows an operations practice. This project demonstrates how a product is built with an agent under a stated process, and adding a deployment technique no requirement asks for would break the project's own principle I.
+- Revisit when the spec asks for deployments without downtime, or the availability SLO tightens: as a small change or an epic of its own, starting from the requirement.
 
 ## R14. Load test (FR-040)
 
@@ -221,6 +240,96 @@ No mocking library and no assertion library: fakes implement the core's ports, a
 - appends every line of both to `.dev/app.log`.
 
 `.dev/` is git-ignored; `CLAUDE.md` points to the log. In development the code email sender writes the recipient, the locale, the subject and the body, code included, to the log (FR-010).
+
+The log line of a code email is a contract between the sender, the end-to-end tests and the load test: `code-email to=<email> locale=<locale> code=<6 digits> subject=<subject>`, then the body. Ports: the host on `5080`, `ng serve` on `4200`, the compose `app` on `8080`, PostgreSQL on `127.0.0.1:5432`.
+
+The development database has no password: `POSTGRES_HOST_AUTH_METHOD: trust`, bound to `127.0.0.1` only, so no credential is in the repository (constitution VIII). The developer's ruling, 2026-10-31. The server's database keeps its password from `.env`.
+
+## R18. Validation rules shared by the core and the pages
+
+**Decision.** The core defines each rule the pages also check (constitution IX): the email pattern, the one-time code pattern and the locale code pattern, as constants of the value objects, matched with `[GeneratedRegex]` (the source generator ships with the .NET SDK). `frontend/src/app/validation/patterns.ts` holds the same literals and the email's maximum length, `EMAIL_MAX_LENGTH = 254`, since the length is part of the rule. Two tests keep them one rule: a backend test reads `patterns.ts` and compares each literal and the length with the core's constants; `testdata/validation-examples.json` lists inputs and whether each is valid, emails of 254 and 255 characters among them, and both the core tests and Vitest run every example. The patterns use only the syntax both engines read alike: ASCII classes such as `[a-z0-9]`, no `\w`, `\s`, Unicode classes or lookbehind, since .NET and JavaScript differ there. A length check runs before the email pattern, so a long input cannot make the engine work hard.
+
+The email pattern is the HTML standard's "valid e-mail address" (WHATWG), the rule a browser applies to `<input type="email">`:
+
+`` ^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ``
+
+**Alternatives.** The pattern in a shared file read at run time: the core reads no files. A source generator producing TypeScript from C#: a build tool for three constants. One literal text only: the engines may still disagree, which the shared examples catch.
+
+## R19. Threat model (constitution X)
+
+STRIDE over the epic. Each threat names what closes it and the test that attempts it.
+
+| # | Threat | Closed by | Test |
+|---|---|---|---|
+| S1 | guessing a code | 5 entry attempts per code, 5 codes per email a day: at most 25 guesses per email a day | Review Focus 2 |
+| S2 | a code presented for another email | the code hash binds the email | Review Focus 5 |
+| S3 | a stolen session cookie | `HttpOnly`, `Secure`, `SameSite=Lax`, HSTS; a 256-bit token; only its hash stored | cookie tests |
+| S4 | session fixation, and a session that outlives a sign-in | sign-in always issues a new token and never adopts one the client sent; a valid session the request carried is revoked | a sign-in with a `session` cookie already set returns a different token, and the old value is not signed in |
+| S5 | someone controls the user's inbox | accepted risk, stated in the Terms (FR-031) | — |
+| S6 | a spoofed `X-Forwarded-For` | trusted only from the proxy network (R7) | forwarded header test |
+| S7 | timing the comparison of a code | constant-time comparison of code hashes (`CryptographicOperations.FixedTimeEquals`, R5) | review |
+| T1 | cross-site request forgery | `SameSite=Lax`, and state-changing endpoints accept only `application/json`, which a cross-site page cannot send without a preflight | `text/plain` and form bodies → `415`, nothing changes |
+| T2 | cross-site scripting | Angular escapes output; CSP `script-src 'self'`; no translation is rendered as HTML | header test |
+| T3 | clickjacking | `frame-ancestors 'none'` | header test |
+| T4 | a redirect to another domain after sign-in | no return-address parameter: sign-in always opens `/`, and a signed-in user opening `/sign-in` goes to `/` | Review Focus 4 |
+| T5 | SQL injection | EF Core with parameters; the lock statements are parameterized | review |
+| R1 | a user denies an action | accepted: no action in this epic needs proof; logs carry `traceId` | — |
+| I1 | finding which emails have users | identical answers | Review Focus 3 |
+| I2 | another user's data | no endpoint takes a user id | cross-user tests |
+| I3 | codes, emails or tokens in logs | R20 | production log test |
+| I4 | a copy of the database | codes under a keyed hash, tokens only hashed | hash tests |
+| I5 | error details | `500` answers with `internal-error` and `traceId` only | error test |
+| I6 | personal answers in a shared cache | `Cache-Control: no-store` on `/api` (R21) | header test |
+| I7 | secrets reached from a fork's pull request | deployment runs only for branches of this repository; no `pull_request_target` | workflow review |
+| D1 | code emails flooding someone's inbox | 5 per email a day; the rest is an accepted risk of the spec | — |
+| D2 | the email service's daily quota used up | accepted risk of the spec | — |
+| D3 | a flood of requests to `POST /api/sessions` and `POST /api/code-requests` | **accepted risk** (the developer's ruling, 2026-10-31): requests refused by a limit and wrong codes are not limited by rate; each is one indexed read, and a rate limit in the application on one server only moves the point where 2 vCPU saturate. Visible through the availability check (FR-038); revisit if the SLO suffers, as a requirement of the spec | — |
+| D4 | a large request body | bodies under `/api` are limited to 16 KB → `413` with `invalid-request` | body size test |
+| D5 | a pattern that makes the regex engine work hard | the length check runs first; generated regexes with a timeout | email examples |
+| E1 | gaining rights | there are no roles; the `deploy` label is limited to collaborators | — |
+| P1 | a dependency with a known vulnerability | backend: NuGet Audit at restore, part of the SDK, with `NuGetAuditMode=all` and `NuGetAuditLevel=high` in `Directory.Build.props`; a high or critical vulnerability raises NU1903 or NU1904, which `TreatWarningsAsErrors` turns into a failed build, in every build including the fast command (`dotnet list package --vulnerable` is not used: it exits 0 even when it finds one). Frontend: `npm audit --audit-level=high` in the pull request checks. A newly published vulnerability fails the build until the package is updated, also in a pull request that did not touch it; that is intended | the check itself |
+| P2 | a changed GitHub Action | every `uses:` is pinned to a commit SHA; workflows default to `permissions: contents: read`, and only the image build gets `packages: write` | workflow review |
+
+## R20. Logs and the error id (constitution X)
+
+**Decision.** Production logs hold only the personal data the Privacy page names, IP addresses (FR-030).
+
+- The application writes time, level, category, message, method and route, status, duration and `traceId`, and exceptions with their stack. It never writes an email, a user id, a session token, a one-time code or a request or response body; `EnableSensitiveDataLogging` stays off outside Development.
+- Caddy writes its access log with the client's IP address; credential headers are redacted, its default.
+- Every error response carries `traceId`, the W3C trace id of the request, which `AddProblemDetails` adds. The console logger runs with `IncludeScopes: true`, so the same id is on every log line of the request. The page shows the id only for `internal-error`, so a user can send it to the contact email.
+- The production log test (SC-005) also checks that no email and no session token reaches the logs, and that a `500` and its log line carry the same `traceId`.
+
+**Alternatives.** No access log at Caddy: fewer personal data, but requests that never reach the application leave no trace. The user id in every log line: easier to search, but it is personal data the Privacy page does not name, a change to the spec.
+
+## R21. HTTP caching
+
+**Decision.** `index.html` and the application fallback: `Cache-Control: no-cache`, so the browser checks with the server each time and a deployment reaches it at once. Build files with a content hash in their name: `public, max-age=31536000, immutable`. Translation files under `/i18n/`, whose names carry no hash: `no-cache`. Every response under `/api` and `/health`: `no-store`. A host test checks each of the four.
+
+**Alternatives.** No explicit headers: after a deployment some browsers keep the previous frontend, and personal answers may be cached. Caching `/api/locales` for an hour: one small request saved, at the cost of a second rule and a new language appearing late.
+
+## R22. Recovery and manual duties (constitution XI)
+
+**Decision.** The procedures live in `docs/operations/runbook.md`, a living document outside the epic's folder.
+
+- **Rolling back a deployment:** `deploy.yml` by hand with the previous image's SHA and `migrate=false` (R13). Rehearsed in Task 22: deploy the branch, deploy a second commit, roll back to the first, check `/health` and the running image's tag, deploy the newest again.
+- **Restoring the live database:** `ops/restore-live.sh <backup directory>` never overwrites in place. It restores into a new database `habits_restored` and checks it against the backup's manifest; only on `PASS` it stops `app`, renames `habits` to `habits_broken_<time>` and `habits_restored` to `habits`, starts `app`, checks `/health` and prints the time; the site answers `502` for the seconds of the swap, and the availability check may record one failed run. The broken database stays for analysis, and swapping back is two statements. It asks for the database name before it changes anything. When a migration did the damage, the runbook rolls the image back first and then restores the backup taken before the migration. A CI test on compose shows that data changed after a backup equals the backup after the restore, and that `habits_broken_*` keeps the changed data. Rehearsed in Task 22, while the server holds only test data.
+- **Deleting a user's data on request** (FR-030, until account deletion in epic 8): the request is accepted only from the address of the account; `ops/delete-user.sh <email>` deletes, in one transaction, the user's sessions, the user, and the one-time code and code requests of that email, asks for the email again before it runs, and prints the rows it deleted. The reply goes from the contact email within a month of the request (GDPR art. 12(3)) and says that backups lose their copy within 7 days and the email service its copy within 30, as the Privacy page states. The script bypasses the core: it is an interim procedure until the account deletion use case. A CI test shows that no row of schema `identity` keeps that email or user id afterwards and that another user's data is untouched.
+
+**Alternatives.** `pg_restore --clean` into the live database: simpler, but it erases the broken state, and a failed restore leaves a half-empty database. Commands in the runbook without scripts: a dozen commands typed by hand during an outage. A host command for deletion through the core: the account deletion use case of epic 8, brought forward without a requirement.
+
+## R23. The domain model in C#
+
+How constitution IX and the error model of `data-model.md` are written in C#; the type model of the task plan follows it.
+
+- Value objects are `sealed record` classes with a private constructor and get-only properties: no positional syntax, `init` or `required`, so neither `with` nor an object initializer bypasses the factory. Factories: `Create(...)` for input, `FromStorage(...)` for loading (not `Restore`, a term of Habit Tracking). Both raise `DomainException`.
+- Aggregates are `sealed class`es with `private set` properties, a private constructor and static factories; they do not override `Equals`, and code compares them by id.
+- Results are `abstract record`s with `sealed record` cases; a `switch` over a result ends with `_ => throw new UnreachableException()`.
+- The storage adapter keeps its own record classes for EF Core and maps them through `FromStorage`; no core type carries a constructor or setter for EF Core.
+- `DomainException : Exception` with `DomainError Error`; one `IExceptionHandler` in the adapters turns it into problem details with the codes of the error model.
+- Background work runs on `new PeriodicTimer(period, timeProvider)`, so `FakeTimeProvider` drives it.
+- The core neither logs nor reads the request context; the acting user and session come in as parameters.
+
+**Alternatives.** `TryParse`-style factories returning a flag: replaced by the developer's rule that an invalid value raises a domain exception. Mapping the domain classes with EF Core directly: the domain would carry constructors for EF Core, and loading would bypass the factories' checks.
 
 ## Dependencies and their cases
 

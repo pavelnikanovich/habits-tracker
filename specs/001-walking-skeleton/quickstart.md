@@ -33,9 +33,9 @@ Starts PostgreSQL, the API in development mode and the Angular dev server; write
 ## 4. Tests
 
 ```bash
-scripts/test-fast.sh   # unit and integration tests, backend and frontend; about 2 minutes
+scripts/test-fast.sh   # unit and integration tests, backend and frontend; its time is in CLAUDE.md
 scripts/test-full.sh   # fast tests, then the end-to-end tests at 360 px and the backup/restore check
-scripts/load-test.sh   # the load test of FR-040 with the server's limits; about 12 minutes
+scripts/load-test.sh   # the load test of FR-040 with the server's limits: 100 sign-ins, then 10 minutes of measuring
 ```
 
 Expected: each exits with 0 and prints its summary. The load test prints the share of requests answered within 300 ms and fails below 95% (SC-006).
@@ -61,3 +61,7 @@ ops/restore-check.sh     # restores the newest backup into a temporary database,
 ```
 
 Expected: `ops/backup.sh` leaves a dump and its manifest (row count and content checksum of every table) under the backup directory, and deletes backups older than 7 days. `ops/restore-check.sh` prints `PASS`, the per-table comparison and the time from the start of the restore to the passed check (SC-010); the live database is untouched. The time goes into the project ledger at step 13.
+
+## 8. Recovery and manual duties
+
+The procedures for rolling back a deployment, restoring the live database and deleting a user's data on request are in `docs/operations/runbook.md` (research R22, constitution XI). The first two are rehearsed once in Task 22, while the server holds only test data.

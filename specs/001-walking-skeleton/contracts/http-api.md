@@ -1,16 +1,30 @@
 # HTTP API contract: Walking skeleton
 
-The Angular application and the API are served from one origin, `https://habits.cardlane.eu` (FR-016, FR-027). Every API path starts with `/api`; `/health` is outside it. Bodies are JSON (`application/json`); errors are RFC 9457 problem details (`application/problem+json`) with two extension members:
+The Angular application and the API are served from one origin, `https://habits.cardlane.eu` (FR-016, FR-027). Every API path starts with `/api`; `/health` is outside it. Bodies are JSON (`application/json`); errors are RFC 9457 problem details (`application/problem+json`) with three extension members:
 
 - `code` — a machine-readable reason from the closed list of each endpoint; the page maps it to a translated message (FR-020).
 - `retryAt` — an ISO 8601 UTC instant, present only where the spec says the user is told when to try again.
+- `traceId` — the W3C trace id of the request, on every error response; the same id is on the request's log lines (research R20). The page shows it only for `internal-error`.
 
-The error format is the same for every endpoint of every epic.
+`title` is the HTTP reason phrase and `type` is left at its default (`about:blank`) *(agent's call)*; the page shows its own translated text for `code` (FR-020). Every instant in a body is an ISO 8601 UTC instant *(agent's call)*.
+
+Codes every endpoint under `/api` can answer, besides those listed under it (`/health` answers plain text, below):
+
+| Status | `code` | When |
+|---|---|---|
+| `400` | `invalid-request` | the body is not JSON, a field is missing or of the wrong type |
+| `413` | `invalid-request` | the body is over 16 KB (research R19, D4) |
+| `415` | `invalid-request` | a body with a content type other than `application/json` (research R19, T1) |
+| `404` | `not-found` | a path under `/api` that no endpoint serves *(agent's call)* |
+| `405` | `invalid-request` | a path an endpoint serves, with another method *(agent's call)* |
+| `500` | `internal-error` | an unexpected failure; no details beyond `traceId` |
+
+The error format is the same for every endpoint of every epic. The API changes only by expansion (constitution VI): a field, a value or an endpoint is added, never renamed or given a new meaning.
 
 ## Authentication
 
 - Cookie `session`: the Session token (data-model, "Session token"), `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain` (FR-012). No `Expires` or `Max-Age` for a session that is not a Remembered session; `Max-Age` of 30 days for a Remembered session, renewed on every response that extends it (FR-014).
-- An endpoint marked **signed in** answers `401` with `code: "not-signed-in"` when the cookie is missing, unknown, expired or revoked, and clears the cookie. A request that passes authentication extends the session (FR-013).
+- An endpoint marked **signed in** answers `401` with `code: "not-signed-in"` when the cookie is missing, malformed, unknown, expired or revoked, and clears the cookie. A request that passes authentication extends the session (FR-013).
 - State-changing requests are `POST` or `PUT` with a JSON body; with `SameSite=Lax`, a cross-site page cannot send them with the cookie (research R4).
 - Every signed-in endpoint acts only on the signed-in user; no endpoint takes a user id (FR-017). The cross-user test of each endpoint is listed below.
 
@@ -32,7 +46,7 @@ Public. Request:
 | `400` | problem, `code: "invalid-email"` or `"invalid-locale"` | the email or the locale is not valid (data-model, value objects) |
 | `429` | problem, `code: "email-limit"`, `retryAt` | the per-email limit is reached (FR-005) |
 | `429` | problem, `code: "ip-limit"`, `retryAt` | the per-IP limit is reached; no remaining count (FR-005) |
-| `503` | problem, `code: "email-service-limit"`, `retryAt` if known | the email service's daily limit is used up (FR-005) |
+| `503` | problem, `code: "email-service-limit"`, `retryAt` if known | the email service's daily or monthly limit is used up; `retryAt` for the daily one only (FR-005, research R3) |
 | `503` | problem, `code: "email-service-unavailable"` | the email service refused for another reason or is unavailable (FR-005) |
 
 The client's IP address is taken from the reverse proxy's `X-Forwarded-For`, trusted only from the proxy (research R7).
@@ -45,11 +59,11 @@ Public. Request:
 { "email": "Ann@example.com", "code": "042917", "rememberMe": false, "timeZone": "Europe/Warsaw", "locale": "pl" }
 ```
 
-`timeZone` is the browser's IANA id, or `null` if the browser reports none. `timeZone` and `locale` are used only when this sign-in creates the user (FR-009).
+Every field is required; `timeZone` may be `null`; a missing field is `invalid-request`. `timeZone` is the browser's IANA id, or `null` if the browser reports none. `timeZone` and `locale` are used only when this sign-in creates the user (FR-009). A sign-in whose request carries a valid `session` cookie revokes that session once the new one opens, so a session this browser no longer holds does not outlive the sign-in *(agent's call)*.
 
 | Status | Body | When |
 |---|---|---|
-| `200` | the current user (below); `Set-Cookie: session=…` | the code is correct, unexpired and unused (FR-008) |
+| `200` | the current user (below); `Set-Cookie: session=…` with a new token, never one the request carried (research R19, S4) | the code is correct, unexpired and unused (FR-008) |
 | `400` | problem, `code: "invalid-email"`, `"invalid-code-format"` or `"invalid-locale"` | the input is malformed; no entry attempt is counted |
 | `401` | problem, `code: "code-incorrect"` | a wrong code; the code stays usable |
 | `401` | problem, `code: "new-code-required"` | the code expired, was used, ran out of entry attempts, or none exists for this email |
@@ -98,9 +112,15 @@ Routes of the Angular application, all served by the same origin; any other path
 |---|---|---|
 | `/sign-in` | visitor | US-1.1, US-1.2 |
 | `/` | signed in; a visitor is sent to `/sign-in` | US-1.6 |
-| `/privacy` | anyone | US-1.7 |
-| `/terms` | anyone | US-1.7 |
+| `/privacy` | anyone | US-1.7 (FR-024, FR-026, FR-030) |
+| `/terms` | anyone | US-1.7 (FR-024, FR-026, FR-031) |
+
+The sign-in page states under the sign-in button "By signing in you accept the Terms and acknowledge the Privacy notice", with links to both pages and no acceptance checkbox (FR-025); every signed-in screen links to both pages (FR-024).
+
+A signed-in user opening `/sign-in` is sent to `/` *(agent's call)*. The application takes no return-address parameter: after sign-in it always opens `/`, whatever the sign-in URL carries (research R19, T4).
 
 ## Response headers
+
+Caching (research R21): `index.html` and the application fallback `Cache-Control: no-cache`; build files with a content hash in their name `public, max-age=31536000, immutable`; files under `/i18n/` `no-cache`; every response under `/api` and `/health` `no-store`.
 
 Every response: `Strict-Transport-Security: max-age=31536000` (set by the reverse proxy in production), `Content-Security-Policy: default-src 'self'` with the additions the Angular build needs (research R11), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. The content security policy is how FR-027 is held in the browser; SC-013's end-to-end test checks it.
