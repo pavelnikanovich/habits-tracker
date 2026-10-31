@@ -10,7 +10,7 @@ When: a deployment broke the server and the previous version worked.
 2. From a machine with `gh`: `gh workflow run deploy.yml -f image_tag=<SHA> -f migrate=false`. The run backs up the database, starts that image without migrations and checks `/health`.
 3. Check: `curl -s https://habits.cardlane.eu/health` prints `Healthy`; `docker compose -f compose.prod.yaml ps --format '{{.Image}}' app` shows the SHA.
 
-If GitHub is unavailable: `ops/backup.sh`, then `IMAGE_TAG=<SHA> docker compose -f compose.prod.yaml up -d app`, then the check of step 3.
+If GitHub is unavailable, or before the workflow is on `main` (GitHub runs a manual workflow only from the default branch): `ops/backup.sh`, then `IMAGE_TAG=<SHA> docker compose -f compose.prod.yaml up -d app`, then the check of step 3.
 
 Migrations only expand the schema (constitution VI), so the previous image runs on the newer schema. If a migration damaged data, roll back first, then restore the backup taken before the migration (next section).
 

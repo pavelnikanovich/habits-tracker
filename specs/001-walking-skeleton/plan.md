@@ -48,7 +48,7 @@ Checked against constitution 1.1.0 before research and again after the design be
 | VIII. No secrets in the repository | pass | Secrets are named in research R13 and live in the GitHub environment `production` and the server's `.env`; development generates its code hash key at start and its database has no password, so no key is in the repository (research R5, R17); codes are never logged in production (research R8). |
 | IX. Tactical domain model | pass | data-model.md, "Domain model rules": valid-only value objects and aggregates, checked on load too; `DomainException` with the error model; one domain service; one read model (Code request counts) and deletions by condition named; three transactions over more than one aggregate, each with its reason; the concurrency rule of each aggregate; no domain events, no read models; shared validation rules (research R18). |
 | X. Security by design | pass | Threat model in research R19; dependency and workflow checks in the pull request checks; logs and `traceId` in research R20. |
-| XI. Operability | pass | Rollback, restore of the live database and deletion on request in `docs/operations/runbook.md` (research R22); rollback and restore rehearsed in Task 22. |
+| XI. Operability | pass | Rollback, restore of the live database and deletion on request in `docs/operations/runbook.md` (research R22); rollback (by SSH) and restore rehearsed in Task 23, the rollback workflow run once after merge. |
 | Development Workflow | pass | The developer approved the dependencies of research.md at the technical plan review on 2026-10-31; the schema is data-model.md. |
 
 No violation; Complexity Tracking stays empty.
@@ -67,7 +67,7 @@ No violation; Complexity Tracking stays empty.
 | NFR-13 (FR-019) | Playwright at 360 px on all four pages | — |
 | SLO Availability (FR-037, FR-038) | health endpoint API test (database up and down) | one check by the branch deployment; schedule after merge |
 | Security (constitution X) | a negative test for each threat of research R19 it names; NuGet Audit in every build; `npm audit` in the pull request checks | — |
-| Operability (constitution XI) | tests of `ops/restore-live.sh` and `ops/delete-user.sh` on compose | rollback and live restore rehearsed once in Task 22, while the server holds only test data |
+| Operability (constitution XI) | tests of `ops/restore-live.sh` and `ops/delete-user.sh` on compose | rollback by SSH and live restore rehearsed once in Task 23, while the server holds only test data; the rollback workflow run once after merge |
 
 ## Division of work
 

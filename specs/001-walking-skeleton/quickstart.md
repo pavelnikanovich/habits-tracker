@@ -64,4 +64,4 @@ Expected: `ops/backup.sh` leaves a dump and its manifest (row count and content 
 
 ## 8. Recovery and manual duties
 
-The procedures for rolling back a deployment, restoring the live database and deleting a user's data on request are in `docs/operations/runbook.md` (research R22, constitution XI). The first two are rehearsed once in Task 22, while the server holds only test data.
+The procedures for rolling back a deployment, restoring the live database and deleting a user's data on request are in `docs/operations/runbook.md` (research R22, constitution XI). The first two are rehearsed once in Task 23, while the server holds only test data; the rollback by a manual workflow run can only run from `main`, so it is rehearsed once after merge.
