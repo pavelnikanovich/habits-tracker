@@ -3,6 +3,8 @@ namespace HabitsTracker.Identity.Core.Tests.Fakes;
 // IIdentityTransaction in memory. The stores change their rows only through Write, which inside RunAsync remembers
 // the row it replaced; when the work throws, those rows are put back newest first and the exception goes on.
 // A write outside RunAsync is kept, as an autocommitted statement is.
+// One transaction at a time: RunAsync while another runs on the same instance throws, so the fakes serve
+// sequential tests only; concurrent cases live in the storage adapter's tests over PostgreSQL.
 public sealed class InMemoryTransaction : IIdentityTransaction
 {
     private readonly CallLog? calls;

@@ -31,7 +31,7 @@ public static class CodeRequestPolicy
         var consistent = oldest switch
         {
             null => count == 0,
-            { } moment => count > 0 && moment != default && moment.Offset == TimeSpan.Zero,
+            { } moment => count > 0 && Instant.IsSetUtc(moment),
         };
 
         if (!consistent)

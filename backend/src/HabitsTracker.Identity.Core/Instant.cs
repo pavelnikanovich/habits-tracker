@@ -6,12 +6,14 @@ namespace HabitsTracker.Identity.Core;
 // forgotten argument, not a moment. Both are programming errors.
 internal static class Instant
 {
+    // The rule itself, for a check that raises its own error (a stored value breaking it is CorruptRecord).
+    public static bool IsSetUtc(DateTimeOffset instant) => instant != default && instant.Offset == TimeSpan.Zero;
+
     public static void Require(DateTimeOffset instant, [CallerArgumentExpression(nameof(instant))] string? name = null)
     {
-        if (instant == default)
-            throw new ArgumentException("The instant is not set.", name);
+        if (IsSetUtc(instant))
+            return;
 
-        if (instant.Offset != TimeSpan.Zero)
-            throw new ArgumentException("The instant is not UTC.", name);
+        throw new ArgumentException(instant == default ? "The instant is not set." : "The instant is not UTC.", name);
     }
 }
