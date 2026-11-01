@@ -64,6 +64,12 @@ app.UseApiRequestRules();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// Placed here, behind the exception handler and the /api rules, rather than where WebApplication would add them, in
+// front of both. There is no default scheme, so authentication reads nothing by itself; authorization runs the session
+// scheme for an endpoint marked signed in.
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapHealthChecks("/health");
 app.MapIdentityEndpoints();
 

@@ -1,9 +1,12 @@
 using HabitsTracker.Identity.Adapters.CodeEmail;
+using HabitsTracker.Identity.Adapters.Http;
 using HabitsTracker.Identity.Adapters.Storage;
 using HabitsTracker.Identity.Adapters.Translations;
 using System.Security.Cryptography;
 using HabitsTracker.Identity.Core;
 using HabitsTracker.Identity.Core.UseCases;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +47,10 @@ public static class IdentityContextRegistration
 
         services.AddSingleton(CreateOptions(configuration, environment));
         services.AddScoped<RequestCode>();
+        services.AddScoped<SignIn>();
+        services.AddScoped<AuthenticateSession>();
+        services.AddScoped<GetCurrentUser>();
+        AddSessionAuthentication(services);
 
         // The code email sender reads the time; a host that registers its own clock (tests) keeps it.
         services.TryAddSingleton(TimeProvider.System);
@@ -87,6 +94,21 @@ public static class IdentityContextRegistration
             section.GetValue<TimeSpan?>("Window") ?? defaults.Window);
 
         return IdentityContextOptions.Create(key, limits);
+    }
+
+    // The session scheme runs only where an endpoint asks for it with RequireAuthorization(): the default policy names
+    // it, and it is not the default scheme, so the authentication middleware reads no session for a public request.
+    private static void AddSessionAuthentication(IServiceCollection services)
+    {
+        // ASP.NET Core makes the only registered scheme the default, and the authentication middleware would then
+        // read the session, and extend it, on every request. The switch is ASP.NET Core's own way to turn that off; it
+        // is process-wide, which is what it should be in a process that hosts this one application. Revisit when a
+        // second scheme is registered: the switch is then no longer needed.
+        AppContext.SetSwitch("Microsoft.AspNetCore.Authentication.SuppressAutoDefaultScheme", isEnabled: true);
+        services.AddAuthentication()
+            .AddScheme<AuthenticationSchemeOptions, SessionAuthenticationHandler>(SessionAuthenticationHandler.SchemeName, configureOptions: null);
+        services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder(SessionAuthenticationHandler.SchemeName).RequireAuthenticatedUser().Build());
     }
 
     // Development writes the code email to the log; any other environment sends it through Resend and does not

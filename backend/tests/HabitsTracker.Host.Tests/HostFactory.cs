@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using HabitsTracker.Identity.Core;
 using HabitsTracker.Tests;
 using Microsoft.AspNetCore.Builder;
@@ -112,6 +113,46 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
             // exception handler and the /api request rules; a startup filter would put them in front of both.
             services.AddSingleton<Action<IEndpointRouteBuilder>>(MapTestEndpoints);
         });
+    }
+
+    /// <summary>
+    /// Signs <paramref name="email"/> in through the API, as a browser does: requests a code (locale <c>en</c>, from
+    /// 127.0.0.1), reads it from <see cref="Sender"/> and enters it with time zone <c>UTC</c> and locale <c>en</c>.
+    /// Needs <see cref="WithCapturingSender"/>. Each call counts one code request against the email's limit of 5 and
+    /// 127.0.0.1's limit of 10 in 24 hours. The client sends the session's cookie on every request and keeps no
+    /// cookie of its own, so a cookie a response sets or clears does not change what it sends.
+    /// </summary>
+    public async Task<SignedInClient> SignInAsync(string email, bool rememberMe = false)
+    {
+        if (!capturesCodeEmails)
+            throw new InvalidOperationException("SignInAsync reads the code from Sender: call WithCapturingSender() first.");
+
+        var ct = TestContext.Current.CancellationToken;
+        using var browser = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        using (var requested = await browser.PostAsJsonAsync("/api/code-requests", new { email, locale = "en" }, ct))
+        {
+            if (requested.StatusCode != HttpStatusCode.Accepted)
+                throw new InvalidOperationException($"The code request answered {(int)requested.StatusCode}: {await requested.Content.ReadAsStringAsync(ct)}");
+        }
+
+        var code = Sender.LastCode(email.ToLowerInvariant());
+        using var signedIn = await browser.PostAsJsonAsync(
+            "/api/sessions", new { email, code, rememberMe, timeZone = "UTC", locale = "en" }, ct);
+        if (signedIn.StatusCode != HttpStatusCode.OK)
+            throw new InvalidOperationException($"The sign-in answered {(int)signedIn.StatusCode}: {await signedIn.Content.ReadAsStringAsync(ct)}");
+
+        var token = signedIn.Headers.GetValues("Set-Cookie")
+            .Select(header => Microsoft.Net.Http.Headers.SetCookieHeaderValue.Parse(header))
+            .Single(cookie => cookie.Name == "session").Value.ToString();
+        var client = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        client.DefaultRequestHeaders.Add("Cookie", $"session={token}");
+        return new SignedInClient(client, token);
+    }
+
+    /// <summary>A client of a signed-in browser: <see cref="Client"/> sends the cookie <c>session=</c><see cref="Token"/>.</summary>
+    public sealed record SignedInClient(HttpClient Client, string Token) : IDisposable
+    {
+        public void Dispose() => Client.Dispose();
     }
 
     // The test-only endpoints of the error format (Task 9) and of the log test (Task 12).
