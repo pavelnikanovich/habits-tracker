@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using HabitsTracker.Identity.Core;
 
 namespace HabitsTracker.Identity.Adapters.Translations;
@@ -9,7 +8,7 @@ namespace HabitsTracker.Identity.Adapters.Translations;
 /// file is a new language with no code change (FR-020, research R11). Read once, when the host starts; a file that
 /// is not named after a locale code, or that has no <c>language.name</c>, stops the start.
 /// </summary>
-public sealed partial class TranslationFiles : ILocales
+public sealed class TranslationFiles : ILocales
 {
     private const string LanguageNameKey = "language.name";
 
@@ -24,7 +23,7 @@ public sealed partial class TranslationFiles : ILocales
         {
             var fileName = Path.GetFileName(file);
             var code = Path.GetFileNameWithoutExtension(file);
-            if (!IsLocaleCode(code))
+            if (!Locale.IsCode(code))
                 throw new InvalidOperationException(
                     $"The translation file {fileName} in {path} is not named after a locale code ({Locale.Pattern}).");
 
@@ -55,9 +54,6 @@ public sealed partial class TranslationFiles : ILocales
         throw new KeyNotFoundException($"The translation file {locale.Code}.json has no {key}.");
     }
 
-    // In .NET "$" also matches before a final "\n" (see Locale), so the check refuses it as well.
-    private static bool IsLocaleCode(string code) => !code.EndsWith('\n') && LocalePattern().IsMatch(code);
-
     // Nested objects become dotted keys, as Transloco reads them: { "language": { "name": "Polski" } } is language.name.
     private static Dictionary<string, string> Read(string file, string fileName)
     {
@@ -85,7 +81,4 @@ public sealed partial class TranslationFiles : ILocales
             }
         }
     }
-
-    [GeneratedRegex(Locale.Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
-    private static partial Regex LocalePattern();
 }
