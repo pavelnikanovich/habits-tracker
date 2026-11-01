@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using HabitsTracker.Host.Health;
+using HabitsTracker.Host.Metrics;
 using HabitsTracker.Host.Operations;
 using HabitsTracker.Host.Web;
 using HabitsTracker.Identity.Adapters;
@@ -15,6 +16,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<OperationsDbContext>(options => options.UseNpgsql(
     builder.Configuration.GetConnectionString("Habits"),
     npgsql => npgsql.MigrationsHistoryTable(HistoryRepository.DefaultTableName, OperationsDbContext.Schema)));
+
+builder.Services.AddSingleton<RequestTimingHistogram>();
+builder.Services.AddHostedService<RequestTimingFlusher>();
 
 builder.Services.AddIdentityContext(builder.Configuration, builder.Environment);
 
@@ -49,7 +53,11 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStart"))
 {
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<OperationsDbContext>().Database.MigrateAsync();
 }
+
+// First, so the timing covers every other middleware (FR-039).
+app.UseRequestTiming();
 
 // Without a known network the middleware would trust every sender, so it is left out.
 if (!string.IsNullOrEmpty(app.Configuration["ForwardedHeaders:KnownNetwork"]))
@@ -79,7 +87,8 @@ foreach (var mapEndpoints in app.Services.GetServices<Action<IEndpointRouteBuild
     mapEndpoints(app);
 
 // Any other path outside /api and /health is a page of the application, which shows its own "not found".
-app.MapFallbackToFile("{*path:nonfile:regex(^(?!api(/|$)|health(/|$)))}", "index.html");
+app.MapFallbackToFile("{*path:nonfile:regex(^(?!api(/|$)|health(/|$)))}", "index.html")
+    .WithMetadata(new ApplicationFallbackMetadata());
 
 app.Run();
 

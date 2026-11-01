@@ -175,12 +175,18 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
         return SignedInClient.WithCookie(this, token) with { SetCookie = setCookie };
     }
 
-    // The test-only endpoints of the error format (Task 9) and of the log test (Task 12).
-    private static void MapTestEndpoints(IEndpointRouteBuilder endpoints)
+    // The test-only endpoints of the error format (Task 9), of the log test (Task 12) and of the timing test (Task 17).
+    private void MapTestEndpoints(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/test/echo", (EchoBody body) => body);
         endpoints.MapGet("/api/test/throw", Throw);
         endpoints.MapGet("/api/test/domain/{error}", (DomainError error) => ThrowDomain(error));
+        // A request that takes 5000.1 ms on the host's clock, the first beyond the last bucket bound (Task 17).
+        endpoints.MapGet("/api/test/slow", () =>
+        {
+            Time.Advance(TimeSpan.FromMilliseconds(5000.1));
+            return Results.NoContent();
+        });
     }
 
     private static IResult Throw() => throw new InvalidOperationException("secret detail");
