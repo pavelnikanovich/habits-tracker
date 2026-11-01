@@ -48,6 +48,8 @@ public sealed partial class RequestTimingFlusher(
         {
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<OperationsDbContext>();
+            // One transaction: all upserts or none, so a failure leaves nothing written and the put-back is exact.
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
             foreach (var timing in timings)
             {
                 await db.Database.ExecuteSqlInterpolatedAsync(
@@ -59,6 +61,8 @@ public sealed partial class RequestTimingFlusher(
                     """,
                     ct);
             }
+
+            await transaction.CommitAsync(ct);
         }
 #pragma warning disable CA1031 // Any failure keeps the counts for the next minute; a lost minute is not worth a crash.
         catch (Exception exception)

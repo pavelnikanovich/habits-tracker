@@ -41,8 +41,16 @@ public sealed class RequestTimingMiddleware(
         if (endpoint is not RouteEndpoint route || endpoint.Metadata.GetMetadata<ApplicationFallbackMetadata>() is not null)
             return StaticEndpoint;
 
-        return $"{context.Request.Method} {route.RoutePattern.RawText}";
+        return $"{MethodOf(context.Request.Method)} {route.RoutePattern.RawText}";
     }
+
+    // The client chooses the method, and an endpoint such as /health accepts any: only a fixed set is recorded, so the
+    // endpoint column stays bounded and holds nothing a client wrote (FR-039).
+    private static string MethodOf(string method) =>
+        KnownMethods.Contains(method) ? method : "OTHER";
+
+    private static readonly HashSet<string> KnownMethods =
+        new(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"], StringComparer.Ordinal);
 }
 
 /// <summary>Marks the endpoint that serves the application's pages, which is recorded as <c>static</c>.</summary>

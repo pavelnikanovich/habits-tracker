@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using HabitsTracker.Host.Metrics;
 using HabitsTracker.Tests;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 
@@ -114,6 +116,54 @@ public class RequestTimingTests(PostgresFixture postgres)
 
         var rows = await RowsWhenAsync(host, rows => rows.Count > 0, ct);
         Assert.Equal(new Row(StartHour, "GET /api/test/slow", 2147483647, 1), Assert.Single(rows));
+    }
+
+    [Fact]
+    public async Task A_method_outside_the_fixed_set_is_recorded_as_OTHER()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
+        using var client = host.CreateCookielessClient();
+
+        using var custom = new HttpRequestMessage(new HttpMethod("FOO-ann"), "/health");
+        (await client.SendAsync(custom, ct)).Dispose();
+        using var known = new HttpRequestMessage(HttpMethod.Options, "/health");
+        (await client.SendAsync(known, ct)).Dispose();
+        host.Time.Advance(TimeSpan.FromMinutes(1));
+
+        var rows = await RowsWhenAsync(host, rows => rows.Sum(row => row.Count) == 2, ct);
+        Assert.Equal(
+            ["OPTIONS /health", "OTHER /health"],
+            rows.Select(row => row.Endpoint).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_flush_that_fails_partway_writes_nothing_and_the_next_one_counts_each_request_once()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
+        var histogram = host.Services.GetRequiredService<RequestTimingHistogram>();
+        var flusher = host.Services.GetServices<IHostedService>().OfType<RequestTimingFlusher>().Single();
+        RequestTiming[] good =
+        [
+            new(StartHour, "GET /one", 10, 2),
+            new(StartHour, "GET /two", 25, 3),
+        ];
+        // PostgreSQL refuses a NUL character in text, so this row fails after the two before it were written.
+        histogram.Add([.. good, new RequestTiming(StartHour, "GET /bad\0", 10, 1)]);
+
+        await flusher.FlushAsync(ct);
+
+        Assert.Empty(await ReadRowsAsync(host, ct));
+        var putBack = histogram.Drain();
+        Assert.Equal(3, putBack.Count);
+        histogram.Add([.. putBack.Where(timing => !timing.Endpoint.Contains('\0', StringComparison.Ordinal))]);
+
+        await flusher.FlushAsync(ct);
+
+        Assert.Equal(
+            good.Select(timing => new Row(timing.Hour, timing.Endpoint, timing.BucketUpperMs, timing.Count)).OrderBy(row => row.Endpoint, StringComparer.Ordinal),
+            (await ReadRowsAsync(host, ct)).OrderBy(row => row.Endpoint, StringComparer.Ordinal));
     }
 
     private static void AtStart(HostFactory host) => host.Time.SetUtcNow(Start);
