@@ -1,0 +1,26 @@
+{
+  "language": {
+    "name": "English",
+    "switcher": "Language"
+  },
+  "nav": {
+    "privacy": "Privacy",
+    "terms": "Terms"
+  },
+  "signIn": {
+    "title": "Sign in",
+    "remaining": "{remaining, plural, one {# of {limit} left} other {# of {limit} left}}"
+  },
+  "main": {
+    "title": "Habits"
+  },
+  "privacy": {
+    "title": "Privacy policy"
+  },
+  "terms": {
+    "title": "Terms of use"
+  },
+  "notFound": {
+    "title": "Page not found"
+  }
+}

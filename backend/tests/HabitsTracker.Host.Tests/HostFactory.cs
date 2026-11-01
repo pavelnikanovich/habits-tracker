@@ -27,6 +27,12 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
         ["Database:MigrateOnStart"] = "true",
     };
 
+    // A stub of the frontend build: what the SPA tests need of the web root, without building the frontend.
+    public const string StubIndexHtml = "<!doctype html><html><body><app-root></app-root></body></html>";
+    public const string StubHashedFile = "main-ABC123.js";
+
+    private DirectoryInfo? webRoot;
+
     public FakeTimeProvider Time { get; } = new();
 
     public string EnvironmentName { get; init; } = Environments.Development;
@@ -35,6 +41,20 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
     public HostFactory WithSetting(string key, string? value)
     {
         settings[key] = value;
+        return this;
+    }
+
+    /// <summary>
+    /// Serves a stub build from a temporary web root: <c>index.html</c>, <see cref="StubHashedFile"/> and a translation
+    /// file, which the build copies from <c>public/i18n</c>.
+    /// </summary>
+    public HostFactory WithStubBuild()
+    {
+        webRoot = Directory.CreateTempSubdirectory("web-root-");
+        File.WriteAllText(Path.Combine(webRoot.FullName, "index.html"), StubIndexHtml);
+        File.WriteAllText(Path.Combine(webRoot.FullName, StubHashedFile), "console.log('stub');");
+        Directory.CreateDirectory(Path.Combine(webRoot.FullName, "i18n"));
+        File.WriteAllText(Path.Combine(webRoot.FullName, "i18n", "en.json"), """{ "language": { "name": "English" } }""");
         return this;
     }
 
@@ -53,6 +73,8 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
                 $"No {ConnectionStringKey} for the host: call InitializeAsync() or WithSetting(\"{ConnectionStringKey}\", ...) before creating a client.");
 
         builder.UseEnvironment(EnvironmentName);
+        if (webRoot is not null)
+            builder.UseWebRoot(webRoot.FullName);
         foreach (var (key, value) in settings)
             builder.UseSetting(key, value);
 
@@ -62,6 +84,12 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
             services.AddSingleton<TimeProvider>(Time);
             services.Insert(0, ServiceDescriptor.Transient<IStartupFilter, TestRemoteAddressStartupFilter>());
         });
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        webRoot?.Delete(recursive: true);
     }
 
     private sealed class TestRemoteAddressStartupFilter : IStartupFilter

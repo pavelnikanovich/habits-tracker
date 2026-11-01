@@ -1,0 +1,26 @@
+{
+  "language": {
+    "name": "Polski",
+    "switcher": "Język"
+  },
+  "nav": {
+    "privacy": "Prywatność",
+    "terms": "Regulamin"
+  },
+  "signIn": {
+    "title": "Zaloguj się",
+    "remaining": "{remaining, plural, one {Pozostała # prośba o kod z {limit}} few {Pozostały # prośby o kod z {limit}} many {Pozostało # próśb o kod z {limit}} other {Pozostało # prośby o kod z {limit}}}"
+  },
+  "main": {
+    "title": "Nawyki"
+  },
+  "privacy": {
+    "title": "Polityka prywatności"
+  },
+  "terms": {
+    "title": "Regulamin"
+  },
+  "notFound": {
+    "title": "Nie znaleziono strony"
+  }
+}

@@ -32,10 +32,15 @@ public sealed class IdentityDatabase : IAsyncDisposable
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Habits"] = await postgres.CreateDatabaseAsync(),
+                ["Translations:Path"] = Repository.PathTo("frontend/public/i18n"),
             })
             .Build();
         var services = new ServiceCollection()
-            .AddIdentityContext(configuration, new HostingEnvironment { EnvironmentName = Environments.Development });
+            .AddIdentityContext(configuration, new HostingEnvironment
+            {
+                EnvironmentName = Environments.Development,
+                ContentRootPath = AppContext.BaseDirectory,
+            });
         var database = new IdentityDatabase(services.BuildServiceProvider(validateScopes: true));
         await database.Get<IdentityDbContext>().Database.MigrateAsync(TestContext.Current.CancellationToken);
         return database;

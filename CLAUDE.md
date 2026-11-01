@@ -8,7 +8,7 @@
 
 ## Commands
 
-- Fast: `scripts/test-fast.sh` (`dotnet test backend/HabitsTracker.slnx`), about 6 s on the developer machine (5 tests, 2026-11-01); it needs Docker running, since Testcontainers starts PostgreSQL.
+- Fast: `scripts/test-fast.sh` (`dotnet test backend/HabitsTracker.slnx`, `npm --prefix frontend test`), about 9 s on the developer machine (169 tests, 2026-11-01); it needs Docker running, since Testcontainers starts PostgreSQL. Frontend lint: `npm --prefix frontend run lint`.
 
 ## Session start
 
