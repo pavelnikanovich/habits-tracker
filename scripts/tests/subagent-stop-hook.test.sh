@@ -20,7 +20,7 @@ new_repo() {
   git -C "$dir" config user.email test@example.com
   git -C "$dir" config user.name test
   mkdir -p "$dir/.claude/hooks" "$dir/scripts" "$dir/backend" "$dir/docs"
-  cp "$repo_root/.claude/hooks/subagent-start-record.sh" "$repo_root/.claude/hooks/subagent-stop-tests.sh" "$dir/.claude/hooks/"
+  cp "$repo_root/.claude/hooks/"*.sh "$dir/.claude/hooks/"
   printf '.dev/\nstub-exit\nstub-runs\n' > "$dir/.gitignore"
   cat > "$dir/scripts/test-fast.sh" <<'STUB'
 #!/usr/bin/env bash
@@ -71,6 +71,21 @@ case_no_change_under_source_folders() {
   stop_agent "$dir" agent-1
   [ "$status" -eq 0 ] || fail "no change under the source folders: exit $status, expected 0"
   [ "$(stub_runs "$dir")" -eq 0 ] || fail "no change under the source folders: the fast tests ran"
+  rm -rf "$dir"
+}
+
+# Edits already in the tree when the subagent starts are not the subagent's change.
+case_dirty_at_start_untouched_by_the_agent() {
+  local dir
+  dir="$(new_repo)"
+  echo 'class A { int x; }' > "$dir/backend/A.cs"
+  echo 'class B {}' > "$dir/backend/B.cs"
+  start_agent "$dir" agent-1
+  echo 1 > "$dir/stub-exit"
+  stop_agent "$dir" agent-1
+  [ "$status" -eq 0 ] || fail "dirty at start, untouched by the agent: exit $status, expected 0"
+  [ "$(stub_runs "$dir")" -eq 0 ] || fail "dirty at start, untouched by the agent: the fast tests ran"
+  [ "$(git -C "$dir" diff --cached --name-only)" = "" ] || fail "dirty at start: the hooks changed the real index"
   rm -rf "$dir"
 }
 
@@ -154,6 +169,7 @@ for hook in subagent-start-record.sh subagent-stop-tests.sh; do
 done
 
 case_no_change_under_source_folders
+case_dirty_at_start_untouched_by_the_agent
 case_changed_file_and_red_tests
 case_changed_file_and_green_tests
 case_red_tests_after_one_bounce
@@ -165,4 +181,4 @@ if [ "$failures" -gt 0 ]; then
   echo "subagent-stop-hook: $failures failed" >&2
   exit 1
 fi
-echo "subagent-stop-hook: 7 cases passed"
+echo "subagent-stop-hook: 8 cases passed"
