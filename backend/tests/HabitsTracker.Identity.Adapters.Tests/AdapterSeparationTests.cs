@@ -9,6 +9,9 @@ public class AdapterSeparationTests
     private const string AdaptersNamespace = "HabitsTracker.Identity.Adapters";
     private static readonly string[] AdapterFolders = ["Http", "Storage", "Email", "Translations"];
 
+    // The namespace of a folder; the Email folder's is CodeEmail, because a namespace Email would hide the core's Email type.
+    private static string NamespaceOf(string folder) => folder == "Email" ? "CodeEmail" : folder;
+
     [Fact]
     public void Adapters_meet_only_in_the_core()
     {
@@ -27,7 +30,7 @@ public class AdapterSeparationTests
 
                 var source = File.ReadAllText(file);
                 crossings.AddRange(AdapterFolders
-                    .Where(other => other != folder && source.Contains($"{AdaptersNamespace}.{other}", StringComparison.Ordinal))
+                    .Where(other => other != folder && source.Contains($"{AdaptersNamespace}.{NamespaceOf(other)}", StringComparison.Ordinal))
                     .Select(other => $"{Path.GetRelativePath(path, file)} in {folder} names {other}"));
             }
         }

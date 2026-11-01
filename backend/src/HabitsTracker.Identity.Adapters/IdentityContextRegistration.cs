@@ -1,3 +1,4 @@
+using HabitsTracker.Identity.Adapters.CodeEmail;
 using HabitsTracker.Identity.Adapters.Storage;
 using HabitsTracker.Identity.Adapters.Translations;
 using HabitsTracker.Identity.Core;
@@ -38,6 +39,30 @@ public static class IdentityContextRegistration
         services.AddSingleton<ILocales>(translationFiles);
         services.AddSingleton<Func<IReadOnlyList<LocaleResponse>>>(translationFiles.List);
 
+        services.AddSingleton(new CodeEmailText(translationFiles.Text));
+        AddCodeEmailSender(services, configuration, environment);
+
         return services;
+    }
+
+    // Development writes the code email to the log; any other environment sends it through Resend and does not
+    // start without the key.
+    private static void AddCodeEmailSender(IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
+    {
+        if (environment.IsDevelopment())
+        {
+            services.AddSingleton<ICodeEmailSender, DevelopmentLogCodeEmailSender>();
+            return;
+        }
+
+        var apiKey = configuration["Resend:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("Resend:ApiKey is not configured: the API key of the email service that sends the code email.");
+
+        services.AddHttpClient(ResendCodeEmailSender.HttpClientName, client => ResendCodeEmailSender.ConfigureClient(client, apiKey));
+        services.AddTransient<ICodeEmailSender>(provider => new ResendCodeEmailSender(
+            provider.GetRequiredService<IHttpClientFactory>().CreateClient(ResendCodeEmailSender.HttpClientName),
+            provider.GetRequiredService<CodeEmailText>(),
+            provider.GetRequiredService<TimeProvider>()));
     }
 }

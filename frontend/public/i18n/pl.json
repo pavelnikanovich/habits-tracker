@@ -32,5 +32,9 @@
   },
   "error": {
     "network": "Brak połączenia z serwerem. Spróbuj ponownie."
+  },
+  "email": {
+    "subject": "Twój kod logowania",
+    "body": "Twój kod: {code}\n\nKod jest ważny przez 10 minut. Jeśli ten kod nie był przez Ciebie zamówiony, zignoruj tę wiadomość."
   }
 }

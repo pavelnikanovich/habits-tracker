@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="xunit.v3" />
     <Using Include="Xunit" />
@@ -14,6 +15,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\PostgresFixture.cs" Link="Shared\PostgresFixture.cs" />
+    <Compile Include="..\Shared\CapturingLoggerProvider.cs" Link="Shared\CapturingLoggerProvider.cs" />
     <Compile Include="..\Shared\Repository.cs" Link="Shared\Repository.cs" />
     <Compile Include="..\Shared\PortContracts\*.cs" Link="Shared\PortContracts\%(Filename)%(Extension)" />
   </ItemGroup>
