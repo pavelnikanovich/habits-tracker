@@ -13,6 +13,13 @@ if ! flock -n 9; then
   exit 1
 fi
 
+# The font is not kept in the repository (research R24) and ng serve cannot build without it; `npm start` would fetch
+# it first, but this script starts ng serve directly. With the files in place this checks their sums and prints nothing.
+if ! bash frontend/scripts/fetch-fonts.sh; then
+  echo "dev.sh: the font could not be fetched; see the message above" >&2
+  exit 1
+fi
+
 # The same fallback as test-fast.sh: dotnet may be installed but not on PATH.
 if ! command -v dotnet > /dev/null 2>&1; then
   dotnet_root="${DOTNET_ROOT:-$HOME/.dotnet}"

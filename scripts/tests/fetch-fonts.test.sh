@@ -4,7 +4,8 @@
 # the license into public/fonts/; files already in place with their sums are not downloaded again; any mismatch exits 1
 # naming the file and leaves nothing in place. It runs a copy of the script in a temporary folder laid out like the
 # repository, with a stub `curl` first on PATH that serves files from a fixture folder by the URL's file name and
-# records each call. FONTS_SHA256_FILE points at the fixture's sums. The last case checks the real sums file.
+# records each call, after CURL_DELAY seconds when set. FONTS_SHA256_FILE points at the fixture's sums. The last case
+# checks the real sums file.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -23,6 +24,7 @@ mkdir -p "$dir/stubs"
 cat > "$dir/stubs/curl" << 'STUB'
 #!/usr/bin/env bash
 echo "curl $*" >> "$CURL_CALLS"
+[ -z "${CURL_DELAY:-}" ] || sleep "$CURL_DELAY"
 output=""
 url=""
 while [ $# -gt 0 ]; do
@@ -86,12 +88,43 @@ cmp -s "$good/frontend/src/assets/fonts/NordwandMono-Regular.woff2" "$dir/releas
   || fail "matching files: the Regular font in place is not the one from the zip"
 license="$(files_in "$good/frontend/public/fonts")"
 [ "$license" = "LICENSE-FONT.txt " ] || fail "matching files: public/fonts/ holds '$license', expected LICENSE-FONT.txt"
+# A stalled server must not hang npm test or scripts/dev.sh: every download gives up after 60 seconds.
+unbounded="$(grep -vc -- '--max-time 60 ' "$dir/calls")"
+[ "$unbounded" -eq 0 ] || fail "matching files: $unbounded curl calls without --max-time 60: $(tr '\n' ';' < "$dir/calls")"
 
 # A second run finds the files in place: no download, no output.
 run_fetch "$good" "$dir/release" "$dir/release.sha256"
 [ "$status" -eq 0 ] || fail "second run: exit $status, expected 0 ($output)"
 [ "$calls" -eq 0 ] || fail "second run: $calls curl calls, expected none"
 [ -z "$output" ] || fail "second run printed '$output', expected nothing"
+
+# Two runs at once (scripts/dev.sh and npm test): the second waits for the first, then finds the files in place, so
+# neither removes or moves a file while the other works.
+both="$dir/both"
+layout "$both"
+rm -f "$dir/calls"
+touch "$dir/calls"
+run_slowly() {
+  cd "$both" && PATH="$dir/stubs:$PATH" CURL_CALLS="$dir/calls" CURL_DELAY=1 FIXTURES="$dir/release" \
+    FONTS_SHA256_FILE="$dir/release.sha256" bash frontend/scripts/fetch-fonts.sh > /dev/null 2>&1
+}
+run_slowly &
+first_pid=$!
+for _ in $(seq 1 50); do
+  [ -s "$dir/calls" ] && break
+  sleep 0.1
+done
+run_slowly
+second_status=$?
+wait "$first_pid"
+first_status=$?
+calls="$(wc -l < "$dir/calls")"
+[ "$first_status" -eq 0 ] && [ "$second_status" -eq 0 ] \
+  || fail "two runs at once: exits $first_status and $second_status, expected 0 and 0"
+[ "$calls" -eq 2 ] || fail "two runs at once: $calls curl calls, expected 2 (the second run waits and downloads nothing)"
+fonts="$(files_in "$both/frontend/src/assets/fonts")"
+[ "$fonts" = "NordwandMono-Bold.woff2 NordwandMono-Regular.woff2 " ] \
+  || fail "two runs at once: src/assets/fonts/ holds '$fonts', expected the Bold and Regular fonts"
 
 # A zip whose sum differs: exit 1 naming the zip, nothing in place.
 bad_zip="$dir/bad-zip"
@@ -122,7 +155,7 @@ e0e493edae714ad5bb243a346f3fd45ecdd94a00584118297f2d05e0f6187d38  LICENSE-FONT.t
   || fail "frontend/scripts/fonts.sha256 does not hold the four sums of research R24"
 
 if [ "$failures" -eq 0 ]; then
-  echo "fetch-fonts: 5 cases passed"
+  echo "fetch-fonts: 6 cases passed"
 else
   echo "fetch-fonts: $failures checks failed" >&2
   exit 1
