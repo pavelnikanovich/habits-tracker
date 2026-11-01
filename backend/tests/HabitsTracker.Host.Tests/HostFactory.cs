@@ -1,8 +1,11 @@
 using System.Net;
+using HabitsTracker.Identity.Core;
 using HabitsTracker.Tests;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,7 +17,8 @@ namespace HabitsTracker.Host.Tests;
 /// <summary>
 /// The host in process (research R12): a fresh database, migrated on start, a <see cref="FakeTimeProvider"/> in place of
 /// <see cref="TimeProvider"/>, environment Development unless set, the translation files of the frontend,
-/// and the client's address taken from the test header <c>Test-Remote-Address</c> (default 127.0.0.1).
+/// the client's address taken from the test header <c>Test-Remote-Address</c> (default 127.0.0.1),
+/// and the test-only endpoints under <c>/api/test/</c>, mapped inside the host's own pipeline.
 /// </summary>
 public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -83,7 +87,30 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Time);
             services.Insert(0, ServiceDescriptor.Transient<IStartupFilter, TestRemoteAddressStartupFilter>());
+            // Program maps every Action<IEndpointRouteBuilder> after its own endpoints, so these run behind the
+            // exception handler and the /api request rules; a startup filter would put them in front of both.
+            services.AddSingleton<Action<IEndpointRouteBuilder>>(MapTestEndpoints);
         });
+    }
+
+    // The test-only endpoints of the error format (Task 9) and of the log test (Task 12).
+    private static void MapTestEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapPost("/api/test/echo", (EchoBody body) => body);
+        endpoints.MapGet("/api/test/throw", Throw);
+        endpoints.MapGet("/api/test/domain/{error}", (DomainError error) => ThrowDomain(error));
+    }
+
+    private static IResult Throw() => throw new InvalidOperationException("secret detail");
+
+    private static IResult ThrowDomain(DomainError error) => throw new DomainException(error, "Raised by the test endpoint.");
+
+    /// <summary>The body of <c>POST /api/test/echo</c>: two required fields.</summary>
+    public sealed record EchoBody
+    {
+        public required string Text { get; init; }
+
+        public required int Number { get; init; }
     }
 
     public override async ValueTask DisposeAsync()
