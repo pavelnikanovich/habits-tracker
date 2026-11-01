@@ -21,8 +21,12 @@ import { SignInFlow } from './sign-in-flow.service';
 export class SignIn {
   protected readonly flow = inject(SignInFlow);
   private readonly router = inject(Router);
-  /** Arriving after a request answered not-signed-in for a signed-in user: the reason is in the navigation state, not the URL. */
-  protected readonly sessionEnded = this.router.currentNavigation()?.extras.state?.['reason'] === SESSION_ENDED;
+  /**
+   * Arriving after a request answered not-signed-in for a signed-in user: the reason is in the navigation state, not the
+   * URL. Only the interceptor's own navigation says so: Back restores the state from the history, and no request
+   * answered then.
+   */
+  protected readonly sessionEnded = this.endedSession();
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('emailField');
 
   // Back from the code step, and "Use another email", come back with what the person had entered.
@@ -34,6 +38,11 @@ export class SignIn {
   constructor() {
     // The code step sends a person back here with `new-code-required`; its message stays until the next request.
     if (this.flow.refusal()?.code !== 'new-code-required') this.flow.clearRefusal();
+  }
+
+  private endedSession(): boolean {
+    const navigation = this.router.currentNavigation();
+    return navigation?.trigger === 'imperative' && navigation.extras.state?.['reason'] === SESSION_ENDED;
   }
 
   protected typeEmail(event: Event): void {

@@ -1,5 +1,6 @@
 import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Location } from '@angular/common';
 import { Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { TranslocoService } from '@jsverse/transloco';
@@ -195,6 +196,21 @@ describe('SignIn, arriving after a session ended', () => {
     expect(info()?.textContent?.trim()).toBe(signIn['sessionEnded']);
     expect(info()!.compareDocumentPosition(page.querySelector('form')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(TestBed.inject(Router).url).toBe('/sign-in');
+  });
+
+  // The state is restored from the history on Back, but no request answered not-signed-in then.
+  it('shows nothing of it when the history brings the page back', async () => {
+    const router = TestBed.inject(Router);
+    router.initialNavigation(); // listens to the history, as the application does
+    await router.navigateByUrl('/sign-in', { state: { reason: 'session-ended' } });
+    await router.navigateByUrl('/privacy');
+    await settle(harness);
+
+    TestBed.inject(Location).back();
+    await settle(harness);
+
+    expect(router.url).toBe('/sign-in');
+    expect(info()).toBeNull();
   });
 
   it('shows nothing of it on a plain visit', async () => {

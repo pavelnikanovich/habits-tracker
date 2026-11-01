@@ -98,20 +98,26 @@ describe('CurrentUserService', () => {
       expect(TestBed.inject(LanguageService).current()).toBe('en');
     });
 
-    // R-86: the last choice sent wins, on the server and on the page, whichever PUT answers last.
-    it('two switches whose first PUT answers last end in the latest choice', async () => {
+    // R-86, R-89: the PUTs are sent one at a time, so the server applies them in the order of the choices; a choice made
+    // while one is in flight waits, and only the latest waiting one is sent. The page ends in the latest choice.
+    it('sends the locale PUTs one at a time and only the latest waiting choice', async () => {
       const http = TestBed.inject(HttpTestingController);
+      const tick = () => new Promise((resolve) => setTimeout(resolve));
 
       const first = put('pl');
-      const second = put('ru');
-      const [firstRequest, secondRequest] = http.match(LOCALE_URL);
-      expect(firstRequest.request.body).toEqual({ locale: 'pl' });
-      expect(secondRequest.request.body).toEqual({ locale: 'ru' });
-      secondRequest.flush(null, NO_CONTENT);
-      await second;
-      firstRequest.flush(null, NO_CONTENT);
-      await first;
+      const second = put('en'); // dropped: a later choice overtakes it while the first is in flight
+      const third = put('ru');
+      const sent = http.match(LOCALE_URL);
+      expect(sent.map((request) => request.request.body)).toEqual([{ locale: 'pl' }]);
 
+      sent[0].flush(null, NO_CONTENT);
+      await tick();
+      const next = http.match(LOCALE_URL);
+      expect(next.map((request) => request.request.body)).toEqual([{ locale: 'ru' }]);
+      expect(TestBed.inject(LanguageService).current(), 'an overtaken choice shows nothing').toBe('en');
+
+      next[0].flush(null, NO_CONTENT);
+      expect(await Promise.all([first, second, third])).toEqual([null, null, null]);
       expect(TestBed.inject(LanguageService).current()).toBe('ru');
     });
   });

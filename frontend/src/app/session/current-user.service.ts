@@ -29,6 +29,8 @@ export class CurrentUserService {
   private pending: Promise<void> | null = null;
   /** Counts the locale changes; one whose number is no longer the latest when its PUT answers was overtaken. */
   private latestLocaleChange = 0;
+  private sendingLocale = false;
+  private waitingLocale: { code: string; turn: number; done: (problem: Problem | null) => void } | null = null;
 
   readonly status = this.state.asReadonly();
   readonly user = this.current.asReadonly();
@@ -58,18 +60,35 @@ export class CurrentUserService {
 
   /**
    * Changes the signed-in user's locale (`PUT /api/me/locale`, FR-023), then shows it; this browser's choice stays as it
-   * was. The latest change wins on the page whichever PUT answers last: an earlier one that answers later shows nothing
-   * and reports nothing. Returns why the change was refused, or null.
+   * was. The PUTs go one at a time, so the server applies them in the order of the choices (R-89): a choice made while
+   * one is in flight waits, and only the latest waiting choice is sent; an overtaken choice shows nothing and reports
+   * nothing. The page and the server both end in the latest choice. Returns why the change was refused, or null.
    */
-  async changeLocale(code: string): Promise<Problem | null> {
+  changeLocale(code: string): Promise<Problem | null> {
     const turn = ++this.latestLocaleChange;
-    try {
-      await firstValueFrom(this.http.put('/api/me/locale', { locale: code }));
-    } catch (error) {
-      return turn === this.latestLocaleChange ? problemOf(error) : null;
+    return new Promise((done) => {
+      this.waitingLocale?.done(null);
+      this.waitingLocale = { code, turn, done };
+      if (!this.sendingLocale) void this.sendLocales();
+    });
+  }
+
+  private async sendLocales(): Promise<void> {
+    this.sendingLocale = true;
+    while (this.waitingLocale !== null) {
+      const { code, turn, done } = this.waitingLocale;
+      this.waitingLocale = null;
+      try {
+        await firstValueFrom(this.http.put('/api/me/locale', { locale: code }));
+      } catch (error) {
+        done(turn === this.latestLocaleChange ? problemOf(error) : null);
+        continue;
+      }
+      // A choice that waits is newer than this one, so nothing is shown for this one.
+      if (turn === this.latestLocaleChange) await this.language.show(code);
+      done(null);
     }
-    if (turn === this.latestLocaleChange) await this.language.show(code);
-    return null;
+    this.sendingLocale = false;
   }
 
   /** Sign out (US-1.4): revokes this browser's session. Returns why it failed, or null once the user is forgotten. */

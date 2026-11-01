@@ -103,9 +103,12 @@ export class Main {
       return;
     }
 
+    // A session that ended is the interceptor's business: it moves the page on and says so; the screen is on its way
+    // out and is left as it is.
+    if (problem.code === 'not-signed-in') return;
+
     this.signingOut.set(false);
-    // A session that ended is the interceptor's business: it moves the page on and says so.
-    if (problem.code !== 'not-signed-in') this.actionProblem.set(problem);
+    this.actionProblem.set(problem);
     if (this.confirming()) this.cancel();
   }
 

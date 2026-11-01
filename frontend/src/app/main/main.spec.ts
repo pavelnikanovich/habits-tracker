@@ -13,6 +13,9 @@ import { Main } from './main';
 const main = texts('main');
 const errors = texts('error');
 const signIn = texts('signIn');
+const STATUS_MESSAGE = 'app-message[role="status"]';
+const NOT_SIGNED_IN_BODY = { code: 'not-signed-in' };
+const UNAUTHORIZED = { status: 401, statusText: 'Unauthorized' };
 const NO_CONTENT = { status: 204, statusText: 'No Content' };
 const CURRENT_URL = '/api/sessions/current';
 const SESSIONS_URL = '/api/sessions';
@@ -51,7 +54,7 @@ describe('Main', () => {
     const page = await openMain(false);
     await settle(harness);
 
-    expect(page.querySelector('app-message[role="status"]')?.textContent?.trim()).toBe(main['timeZoneNotRecognized']);
+    expect(page.querySelector(STATUS_MESSAGE)?.textContent?.trim()).toBe(main['timeZoneNotRecognized']);
   });
 
   it('says loading only after one second', async () => {
@@ -77,7 +80,7 @@ describe('Main', () => {
 
   it('a visitor who opens / is sent to /sign-in once GET /api/me answers not-signed-in', async () => {
     await harness.navigateByUrl('/', Main);
-    http.expectOne('/api/me').flush({ code: 'not-signed-in' }, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne('/api/me').flush(NOT_SIGNED_IN_BODY, UNAUTHORIZED);
     await settle(harness);
 
     expect(TestBed.inject(Router).url).toBe('/sign-in');
@@ -263,16 +266,33 @@ describe('Main, the sign-out actions', () => {
     expect(router().url).toBe('/');
   });
 
+  // The interceptor owns the way out of a session that ended: the screen touches nothing while it goes.
+  it('a sign out answered not-signed-in leaves the screen to the interceptor', async () => {
+    const main = harness.routeDebugElement!.componentInstance as Main;
+    await press('signOutEverywhere');
+    await press('confirm');
+
+    http.expectOne(SESSIONS_URL).flush(NOT_SIGNED_IN_BODY, UNAUTHORIZED);
+    await settle(harness);
+    await settle(harness);
+
+    expect(router().url).toBe('/sign-in');
+    expect(main['confirming'](), 'the confirmation is left as it was').toBe(true);
+    expect((harness.routeNativeElement as HTMLElement).querySelector(STATUS_MESSAGE)?.textContent?.trim()).toBe(
+      signIn['sessionEnded'],
+    );
+  });
+
   // Design review H4: a request answering not-signed-in while the page is open ends in the sign-in page with its
   // reason, whichever of the main screen and the interceptor navigates first.
   it('a session ended while the page is open brings /sign-in with the session-ended state', async () => {
     TestBed.inject(HttpClient).get('/api/habits').subscribe({ error: () => undefined });
-    http.expectOne('/api/habits').flush({ code: 'not-signed-in' }, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne('/api/habits').flush(NOT_SIGNED_IN_BODY, UNAUTHORIZED);
     await settle(harness);
     await settle(harness);
 
     expect(router().url).toBe('/sign-in');
     const sign = harness.routeNativeElement as HTMLElement;
-    expect(sign.querySelector('app-message[role="status"]')?.textContent?.trim()).toBe(signIn['sessionEnded']);
+    expect(sign.querySelector(STATUS_MESSAGE)?.textContent?.trim()).toBe(signIn['sessionEnded']);
   });
 });
