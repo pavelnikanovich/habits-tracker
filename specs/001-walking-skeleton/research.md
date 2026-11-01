@@ -122,7 +122,7 @@ Checks: an automated test runs the sign-in flow in the Production environment wi
 
 ## R11. Frontend
 
-**Decision.** Angular 22 (Node 24 LTS), standalone components, zoneless, signals; plain CSS with the system font stack, so no font file and no third-party request (FR-027). No component library.
+**Decision.** Angular 22 (Node 24 LTS), standalone components, zoneless, signals; plain CSS on the design tokens of `contracts/ui.md`, with the Nordwand Mono font served by the application itself, so no third-party request (FR-027; R24). No component library.
 
 - **Translations: Transloco 8.4** with `@jsverse/transloco-messageformat` 8.4 (ICU MessageFormat, plural categories from CLDR through `Intl.PluralRules`), switching the language in place without a reload (FR-022), as the constraints check (2.1) requires. Translation files: `frontend/public/i18n/<code>.json`, one per language, each with `language.name`. The list of languages comes from `GET /api/locales`, which reads the same files, so a new file is a new language with no code change (FR-020). The backend composes the code email from the `email.*` keys of the same files; those keys use only simple `{placeholder}` substitution, so the backend needs no MessageFormat parser.
 - **Language before sign-in:** `navigator.languages` matched against the available codes, else `en`; the switcher's choice in `localStorage` (FR-021); a stored choice that is not among the available locales is ignored, so a removed language or an edited value falls back to the browser's languages. After sign-in the user's locale wins and the switcher calls `PUT /api/me/locale` (FR-023).
@@ -139,7 +139,7 @@ Checks: an automated test runs the sign-in flow in the Production environment wi
 | Identity core unit tests, parameterized from the spec's example tables | xUnit v3, `FakeTimeProvider`, hand-written fakes of the ports | fast |
 | Adapters and API: EF Core storage, endpoints, cookie, cross-user tests (FR-017), log and metrics tests | xUnit v3, `WebApplicationFactory`, Testcontainers PostgreSQL 18 | fast |
 | Frontend units: translation key parity across files (SC-012), plural forms of 1, 2 and 5 in `pl` and `ru`, components | Vitest (the Angular 22 default) | fast |
-| End-to-end at 360 px: sign-in with the code read from the development log, sign out, sign out everywhere with two browser contexts, language switch without reload, no third-party requests (SC-011, SC-013), cookie expiry in a fresh context (SC-004) | Playwright 1.64, Chromium | full |
+| End-to-end as a phone at 360 px: sign-in with the code read from the development log, sign out, sign out everywhere with two browser contexts, language and theme switch without reload, keyboard-only flows, no third-party requests (SC-011, SC-013, SC-015, SC-016), cookie expiry in a fresh context (SC-004); the widths 320 px and 1280 px; the main path in WebKit | Playwright 1.64, Chromium and WebKit | full |
 | Backup and restore check | `ops/` scripts against compose | full |
 | HTTPS only: Caddy with `tls internal` in front of the app; `http://` answers with a redirect and no page (SC-004) | `curl` against compose | full |
 | Load test (R14) | k6 | own command, every pull request |
@@ -158,6 +158,7 @@ Test harness:
 - API tests set the client's address with a test-only header, read by a startup filter registered only in the test host.
 - Tests pass `TestContext.Current.CancellationToken` to every async call: xUnit v3's analyzer `xUnit1051` warns otherwise, and warnings are errors.
 - **Contract tests of the ports** (constitution IV): one suite per driven port, one shared source file each, run against the test fake in the core tests and against every adapter in the adapter tests: storage and the transaction against PostgreSQL, the code email sender against the development log and against Resend behind a stubbed HTTP handler, the locales against the translation files. The in-memory transaction fake rolls back what the in-memory stores wrote when the work throws. The concurrency cases run against PostgreSQL only.
+- **Playwright projects** (`frontend/playwright.config.ts`): `phone-360`, Chromium, 360 × 740, `isMobile: true`, `hasTouch: true`, `deviceScaleFactor: 2`, runs every end-to-end test; `phone-320`, the same at 320 × 640, runs the width tests (reflow, every action reachable); `desktop-1280`, Chromium, 1280 × 800, not mobile, runs the width tests; `webkit-360`, WebKit with the settings of `phone-360`, runs the tests tagged `@main-path` (sign in with both steps, the main screen, sign out, switch the language and the theme). `isMobile` makes the browser honour `<meta name="viewport">`: a desktop browser with a narrow window ignores it, so a missing or wrong viewport tag would pass at 360 px and still show the page zoomed out on a phone. WebKit is the engine of every browser on an iPhone; on Linux it approximates Safari, it is not Safari. CI installs both browsers with `npx playwright install --with-deps chromium webkit`. Firefox is not tested in epic 1 *(agent's call: no phone requirement names it, and its engine is the third to cost CI time)*. If WebKit refuses the `Secure` session cookie over `http://localhost`, the `webkit-360` project runs against Caddy with `tls internal`, as the HTTPS check does, and the implementer reports it.
 - The end-to-end run starts its own `scripts/dev.sh` with the per-IP limit raised to 1000, since every test requests codes from one address; a developer instance must be stopped first.
 
 **Alternatives.** Only unit tests with an in-memory database: unique index, advisory locks and `cidr` would go untested. A shared PostgreSQL started by hand before tests: the fast command would depend on state outside it.
@@ -183,7 +184,7 @@ Test harness:
 
 **Configuration keys** (the environment form replaces `:` with `__`): `ConnectionStrings:Habits`; `Database:MigrateOnStart`; `Identity:CodeHashKey` (base64 of 32 bytes); `Identity:CodeRequestLimits:PerEmail`, `PerIpAddress`, `Window`; `Resend:ApiKey`; `Translations:Path`; `ForwardedHeaders:KnownNetwork` (the proxy network's CIDR, `172.30.0.0/24` in `compose.prod.yaml`).
 
-**Rollback.** `deploy.yml` also runs by hand (`workflow_dispatch`) with the inputs `image_tag` (the SHA of an image already in GHCR) and `migrate` (`false` for a rollback): it takes the backup, starts that image without migrations and checks `/health` once. Expand-only migrations (constitution VI) let the previous image run on the newer schema. If GitHub is unavailable, the fallback is one command over SSH, in `docs/operations/runbook.md`. GitHub runs `workflow_dispatch` only for a workflow on the default branch, so before merge Task 23 rehearses the SSH path, and the manual workflow run is rehearsed once after merge (constitution XI).
+**Rollback.** `deploy.yml` also runs by hand (`workflow_dispatch`) with the inputs `image_tag` (the SHA of an image already in GHCR) and `migrate` (`false` for a rollback): it takes the backup, starts that image without migrations and checks `/health` once. Expand-only migrations (constitution VI) let the previous image run on the newer schema. If GitHub is unavailable, the fallback is one command over SSH, in `docs/operations/runbook.md`. GitHub runs `workflow_dispatch` only for a workflow on the default branch, so before merge Task 24 rehearses the SSH path, and the manual workflow run is rehearsed once after merge (constitution XI).
 
 **Blue-green and canary deployment: not used.** Blue-green would run the new version next to the old one behind Caddy and switch only after its health check; canary would send it a share of the traffic first. Neither needs a load balancer here, since Caddy can switch upstreams, and the schema already allows two versions at once (constitution VI). Not taken:
 
@@ -311,8 +312,8 @@ STRIDE over the epic. Each threat names what closes it and the test that attempt
 
 **Decision.** The procedures live in `docs/operations/runbook.md`, a living document outside the epic's folder.
 
-- **Rolling back a deployment:** `deploy.yml` by hand with the previous image's SHA and `migrate=false` (R13). Rehearsed in Task 23 by the SSH path: deploy the branch, deploy a second commit, roll back to the first, check `/health` and the running image's tag, deploy the newest again; the manual workflow run is rehearsed once after merge (R13).
-- **Restoring the live database:** `ops/restore-live.sh <backup directory>` never overwrites in place. It restores into a new database `habits_restored` and checks it against the backup's manifest; only on `PASS` it stops `app`, renames `habits` to `habits_broken_<time>` and `habits_restored` to `habits`, starts `app`, checks `/health` and prints the time; the site answers `502` for the seconds of the swap, and the availability check may record one failed run. The broken database stays for analysis, and swapping back is two statements. It asks for the database name before it changes anything. When a migration did the damage, the runbook rolls the image back first and then restores the backup taken before the migration. A CI test on compose shows that data changed after a backup equals the backup after the restore, and that `habits_broken_*` keeps the changed data. Rehearsed in Task 23, while the server holds only test data.
+- **Rolling back a deployment:** `deploy.yml` by hand with the previous image's SHA and `migrate=false` (R13). Rehearsed in Task 24 by the SSH path: deploy the branch, deploy a second commit, roll back to the first, check `/health` and the running image's tag, deploy the newest again; the manual workflow run is rehearsed once after merge (R13).
+- **Restoring the live database:** `ops/restore-live.sh <backup directory>` never overwrites in place. It restores into a new database `habits_restored` and checks it against the backup's manifest; only on `PASS` it stops `app`, renames `habits` to `habits_broken_<time>` and `habits_restored` to `habits`, starts `app`, checks `/health` and prints the time; the site answers `502` for the seconds of the swap, and the availability check may record one failed run. The broken database stays for analysis, and swapping back is two statements. It asks for the database name before it changes anything. When a migration did the damage, the runbook rolls the image back first and then restores the backup taken before the migration. A CI test on compose shows that data changed after a backup equals the backup after the restore, and that `habits_broken_*` keeps the changed data. Rehearsed in Task 24, while the server holds only test data.
 - **Deleting a user's data on request** (FR-030, until account deletion in epic 8): the request is accepted only from the address of the account; `ops/delete-user.sh <email>` deletes, in one transaction, the user's sessions, the user, and the one-time code and code requests of that email, asks for the email again before it runs, and prints the rows it deleted. The reply goes from the contact email within a month of the request (GDPR art. 12(3)) and says that backups lose their copy within 7 days and the email service its copy within 30, as the Privacy page states. The script bypasses the core: it is an interim procedure until the account deletion use case. A CI test shows that no row of schema `identity` keeps that email or user id afterwards and that another user's data is untouched.
 
 **Alternatives.** `pg_restore --clean` into the live database: simpler, but it erases the broken state, and a failed restore leaves a half-empty database. Commands in the runbook without scripts: a dozen commands typed by hand during an outage. A host command for deletion through the core: the account deletion use case of epic 8, brought forward without a requirement.
@@ -331,6 +332,37 @@ How constitution IX and the error model of `data-model.md` are written in C#; th
 
 **Alternatives.** `TryParse`-style factories returning a flag: replaced by the developer's rule that an invalid value raises a domain exception. Mapping the domain classes with EF Core directly: the domain would carry constructors for EF Core, and loading would bypass the factories' checks.
 
+## R24. The user interface baseline
+
+Decided when step 5 was reopened for the user interface (process document, step 5 checklist, "User interface"); the result is `contracts/ui.md`.
+
+**Decision.**
+
+- **One baseline, created once.** Task 6 of the task plan creates the tokens (`frontend/src/styles/tokens.css`), the global rules, the page frame, the switchers and the message component; every later page task only uses them. Without it, five page tasks run by separate implementers would each choose their own spacing, buttons and error display, and no single task review would see the drift.
+- **Token-only rule, held by a test.** A Vitest test reads every component CSS file under `frontend/src/app/` and fails on a colour literal (`#…`, `rgb(`, `hsl(`, a CSS colour name) or a font size in `px`. It reads files; no dependency.
+- **Accessibility as a named subset of WCAG 2.2 AA** (FR-041): keyboard use, visible focus, labels, announced errors, contrast, reflow at 320 px, each with a test (`contracts/ui.md`, "Accessibility checks"). Contrast is computed in a unit test by the WCAG relative luminance formula over the token pairs of both themes; no library.
+- **Style: a minimalist neon text terminal**, chosen by the developer. Monospace text, square corners, 1 px borders, a `>` prompt before each heading, a static glow in the dark theme, no motion.
+- **Two themes, dark by default** (FR-042), chosen by the developer. `data-theme` on `<html>`, `dark` in `index.html`, so the default does not depend on `prefers-color-scheme`. The choice is kept in `localStorage["theme"]`, the same way as the language before sign-in (R11): a user-chosen interface setting, exempt from consent (legal pages design, "Languages"; WP194, "user-interface customisation"), listed on the Privacy page (FR-030). It is not stored with the user: no column beyond `data-model.md`, no endpoint.
+- **Font: Nordwand Mono 1.5.0** (`github.com/tywr/Nordwand-Mono`, SIL Open Font License 1.1, no Reserved Font Name), chosen by the developer. It covers Latin with Polish letters and Cyrillic (`fc-query`: `pl`, `ru`, `en`), and the punctuation of the three translations (`«»`, `„“`, `—`). Only Regular and Bold are used, 37 052 and 36 964 bytes as WOFF2.
+- **The font is fetched at build time, not kept in the repository.** `frontend/scripts/fetch-fonts.sh` downloads `https://github.com/tywr/Nordwand-Mono/releases/download/1.5.0/NordwandMono-WOFF2.zip` and `https://raw.githubusercontent.com/tywr/Nordwand-Mono/1.5.0/LICENSE-FONT.txt`, checks each against its pinned SHA-256, and stops the build on a mismatch; it extracts `NordwandMono-Regular.woff2` and `NordwandMono-Bold.woff2` into `frontend/src/assets/fonts/` and the license into `frontend/public/fonts/`, both git-ignored. `npm run build`, `npm start` and the frontend tests run it first, so it runs on a developer machine, in CI and in the image build. `styles.css` refers to the fonts with relative `url()` paths, so the Angular build copies them with a content hash in the name and they get the immutable cache of R21; the license is served at `/fonts/LICENSE-FONT.txt`, as the license asks of a font distributed with software. An end-to-end test checks that the font is applied (`document.fonts.check('16px "Nordwand Mono"')`); SC-013's test still finds no request to another server.
+
+  | File | SHA-256 |
+  |---|---|
+  | `NordwandMono-WOFF2.zip` (release 1.5.0) | `10fac057fcc90e99b50ad9cced0b3aa9ba97e62cc174f320082b254ef2f79141` |
+  | `LICENSE-FONT.txt` (tag 1.5.0) | `e0e493edae714ad5bb243a346f3fd45ecdd94a00584118297f2d05e0f6187d38` |
+  | `NordwandMono-Regular.woff2` | `23e1721165a9c770f98afbe202fd92b3ddb022fdaf0393850ea03124fa06ebc3` |
+  | `NordwandMono-Bold.woff2` | `77a855a23ecf34bb06dafdbd62dbf8080b0b8a5b80b302d99b06a7e7dfad4223` |
+
+- **Screen states** (`contracts/ui.md`, "Screens and states"), with three decisions of the developer: a button is disabled while its request runs, so a second press sends nothing; the code step offers "Send a new code" and "Use another email", so a mistyped address or a lost email needs no page reload; a session that ends while a page is open brings the sign-in page with "Your session has ended" (spec, Edge Cases). Four more, asked after the baseline: an explanation next to "Remember me", so the consent to the persistent cookie is informed (FR-014); sign out everywhere confirmed on the page (FR-015); the code step at its own route `/sign-in/code`, so the browser's Back returns to the email step, with the email kept in memory, never in the URL; a moment such as `retryAt` shown as an absolute time in the browser's time zone, rounded up to the minute, since a relative time goes stale while the page is open.
+- **Widths:** 320 px (reflow), 360 px (FR-019), 1280 px (a desktop).
+
+**Alternatives.**
+
+- Loading the font in the browser from GitHub or a CDN: the release holds only zip archives, which a browser cannot use as a font; a CDN copy of the repository has no built font files; either breaks FR-027 and the content security policy, and sends every visitor's IP address to a third party, which the Privacy page would have to list. Keeping the two WOFF2 files in the repository: no network at build time, at the cost of binary files in the history; the developer chose the build-time fetch. The system monospace stack alone: no file at all, at the cost of the look the developer chose.
+- Following `prefers-color-scheme` for the default theme: the developer chose dark by default. Keeping the theme with the user on the server: it would follow the user across devices, at the cost of a column, an endpoint and still a browser value before sign-in.
+- The whole WCAG 2.2 AA with `@axe-core/playwright`: a new dependency, and an automated audit finds only part of the failures, so a test could not prove the whole standard.
+- Checking the token-only rule by review alone: the rule would hold only as long as each reviewer remembers it (constitution II).
+
 ## Dependencies and their cases
 
 Everything here beyond ASP.NET Core, Angular, PostgreSQL and docker compose; each needs the developer's approval at the technical plan review (constitution, Development Workflow).
@@ -345,7 +377,8 @@ Everything here beyond ASP.NET Core, Angular, PostgreSQL and docker compose; eac
 | `Microsoft.Extensions.TimeProvider.Testing` 10.x | backend tests | tests of 10 minutes, 24 hours and 30 days without waiting (FR-002, FR-003, FR-013) |
 | angular-eslint 22 | frontend build | the static analysis check of every pull request (FR-034) |
 | `SonarAnalyzer.CSharp` 10.35, `eslint-plugin-sonarjs` 4.2 | backend build, frontend build | the duplication rules of the static analysis ratchet (process step 11); only those rules are on (R15) |
-| Playwright 1.64 | frontend tests | the end-to-end tests at 360 px and the no-third-party check (FR-019, SC-011, SC-013) |
+| Nordwand Mono 1.5.0 (font, SIL OFL 1.1), fetched at build time | frontend build | the look the developer chose for the interface (R24); nothing functional breaks without it: the fallback is the system monospace stack |
+| Playwright 1.64, with its Chromium and WebKit | frontend tests | the end-to-end tests as a phone at 320 and 360 px, on a desktop at 1280 px and in Safari's engine, and the no-third-party check (FR-019, FR-041, SC-011, SC-013, SC-015) |
 | k6 2.3 (container image) | CI | the load test (FR-040, SC-006) |
 | Caddy 2.11 (container image) | server | HTTPS only with automatic Let's Encrypt certificates (FR-016) |
 | Resend (service) | production | the code email (FR-006), chosen in the email service design |
@@ -366,6 +399,7 @@ Pinned as read on 2026-10-30; the implementing task takes the latest patch of th
 | Angular / Angular CLI | 22.2.4 / 22.2.5 |
 | Node.js | 24 LTS (Angular 22 accepts `^24.15.0`) |
 | Transloco / transloco-messageformat | 8.4.0 / 8.4.0 |
+| Nordwand Mono | 1.5.0 (exact: the build checks SHA-256 sums, R24) |
 | Playwright | 1.64.1 |
 | angular-eslint | 22.6.0 |
 | SonarAnalyzer.CSharp / eslint-plugin-sonarjs | 10.35.0.4138 / 4.2.2 |

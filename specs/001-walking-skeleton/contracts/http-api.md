@@ -110,14 +110,15 @@ Routes of the Angular application, all served by the same origin; any other path
 
 | Route | Who | Story |
 |---|---|---|
-| `/sign-in` | visitor | US-1.1, US-1.2 |
+| `/sign-in` | visitor | US-1.1 |
+| `/sign-in/code` | visitor, after a code request on `/sign-in` in this tab; otherwise sent to `/sign-in` (contracts/ui.md) | US-1.2 |
 | `/` | signed in; a visitor is sent to `/sign-in` | US-1.6 |
 | `/privacy` | anyone | US-1.7 (FR-024, FR-026, FR-030) |
 | `/terms` | anyone | US-1.7 (FR-024, FR-026, FR-031) |
 
 The sign-in page states under the sign-in button "By signing in you accept the Terms and acknowledge the Privacy notice", with links to both pages and no acceptance checkbox (FR-025); every signed-in screen links to both pages (FR-024).
 
-A signed-in user opening `/sign-in` is sent to `/` *(agent's call)*. The application takes no return-address parameter: after sign-in it always opens `/`, whatever the sign-in URL carries (research R19, T4).
+A signed-in user opening `/sign-in` or `/sign-in/code` is sent to `/` *(agent's call)*. The application takes no return-address parameter: after sign-in it always opens `/`, whatever the sign-in URL carries (research R19, T4).
 
 ## Response headers
 

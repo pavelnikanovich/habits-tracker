@@ -6,6 +6,7 @@ How to run epic 1 and check that it works, locally and on the server. Paths and 
 
 - Docker with the compose plugin.
 - .NET SDK and Node.js at the versions of `plan.md`, "Technical Context" (for the development loop; the compose run needs only Docker).
+- Access to `github.com` on the first frontend build: `frontend/scripts/fetch-fonts.sh` downloads the font and checks its SHA-256 (research R24); later builds reuse the files.
 - For the server: SSH access to the VPS, the A record of `habits.cardlane.eu`, the Resend account and the DNS records of `mail.cardlane.eu`, the GitHub secrets of research R13.
 
 ## 1. Run the application with one command
@@ -64,4 +65,4 @@ Expected: `ops/backup.sh` leaves a dump and its manifest (row count and content 
 
 ## 8. Recovery and manual duties
 
-The procedures for rolling back a deployment, restoring the live database and deleting a user's data on request are in `docs/operations/runbook.md` (research R22, constitution XI). The first two are rehearsed once in Task 23, while the server holds only test data; the rollback by a manual workflow run can only run from `main`, so it is rehearsed once after merge.
+The procedures for rolling back a deployment, restoring the live database and deleting a user's data on request are in `docs/operations/runbook.md` (research R22, constitution XI). The first two are rehearsed once in Task 24, while the server holds only test data; the rollback by a manual workflow run can only run from `main`, so it is rehearsed once after merge.
