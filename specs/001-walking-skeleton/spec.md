@@ -24,6 +24,18 @@ Domain terms are those of `docs/domain/ubiquitous-language.md`. The NFR and SLO 
 - Q: What is the stored record of a code request called, given that "code request" and "limit record" had no term in the glossary? → A: "Code request" is added to `docs/domain/ubiquitous-language.md`, Identity: a request for a one-time code for an email, from an IP address. It counts against the limits when the code is sent or the result is unclear; a request refused by a limit or by the email service does not count. Its email and IP address are kept 24 hours. "Limit records" becomes "code requests".
 - Q: Is the load test (FR-040) one of the checks of every pull request? → A: Yes: it is a required check of every pull request; a load test that misses SC-006 blocks the pull request as a failing test does.
 
+### Session 2026-10-31
+
+Asked when step 5 was reopened for the user interface (process document, step 5 checklist, "User interface").
+
+- Q: Is accessibility a requirement of the product, or a layout rule? → A: A requirement, with its criteria named: a subset of WCAG 2.2 level AA that automated tests check (FR-041), not the whole standard, which automated tests cannot prove.
+- Q: Which colour themes does the interface have? → A: A dark and a light theme; the dark theme is shown until the person chooses, whatever the browser or system prefers (FR-042).
+- Q: Where is the theme choice kept? → A: In the browser, before and after sign-in alike; it is not stored with the user, so it does not follow the user to other devices. The Privacy page lists it next to the language choice (FR-030).
+- Q: Is the label "Remember me" enough for the consent of FR-014 to be informed? → A: No: a short explanation sits next to the checkbox, saying how long the user stays signed in and to tick it only on a trusted device (FR-014; US-1.3, scenario 5).
+- Q: Is sign out everywhere confirmed, given that a stray tap on a phone signs out every device and each new sign-in spends a code? → A: Yes, on the page itself, with no browser dialog; plain sign out is not confirmed, since it ends only this browser's session (FR-015; US-1.5, scenario 3).
+- Q: How do the checks of FR-019 stand for a phone, when a desktop browser with a narrow window is not one? → A: The end-to-end tests run as a phone with touch, in two browser engines (SC-011), and the developer signs in on their own phone after the branch deployment (SC-014).
+- Q: Where do the interface rules live once epic 1's spec is history? → A: In the product design: "Interface" (the look, the font, the shared baseline), NFR-14 (accessibility) and NFR-15 (themes), each for every epic with a screen; FR-041 and FR-042 are epic 1's share of them.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story US-1.1 - Request a one-time code (Priority: P1)
@@ -99,6 +111,7 @@ As a user, I want to stay signed in while I keep using the app, across browser r
 2. **Given** a Remembered session, **When** the browser is closed and opened again, **Then** the user is still signed in.
 3. **Given** a session with a request made by the user 29 days ago, **When** the user makes a request, **Then** the user is still signed in and the 30 days start again.
 4. **Given** a session without any request by the user for 30 days, **When** the user makes a request, **Then** the session has expired and the user is asked to sign in.
+5. **Given** the sign-in page, **Then** the "Remember me" checkbox is explained next to it: the user stays signed in on this device for up to 30 days without activity, and should tick it only on a device they trust.
 
 ---
 
@@ -129,6 +142,7 @@ As a user, I want to sign out everywhere, so that a lost device loses access at 
 
 1. **Given** a user signed in on browsers A and B, **When** they sign out everywhere on A, **Then** every session of the user is revoked, and the next request from A or from B is not signed in.
 2. **Given** a Remembered session on B, **When** the user signs out everywhere on A, **Then** B is not signed in after a browser restart either.
+3. **Given** a signed-in user, **When** they choose sign out everywhere, **Then** the page asks them to confirm on the page itself, and no session is revoked until they confirm; **when** they cancel, every session stays signed in.
 
 ---
 
@@ -169,6 +183,25 @@ This story is new in this spec: the legal pages design made the interface Englis
 
 ---
 
+### User Story US-1.9 - Choose a dark or light theme (Priority: P3)
+
+As a visitor or a user, I want to switch between a dark and a light theme on any page, so that I can read the app comfortably in my light.
+
+This story is new in this spec: the developer added the themes when step 5 was reopened for the user interface, after the story map was frozen.
+
+**Why this priority**: The dark theme alone makes every other story usable; the switcher is a comfort.
+
+**Independent Test**: Open the sign-in page in a browser whose system prefers a light appearance: the page is dark; switch to the light theme, reload, sign in: the light theme stays throughout, and no page reloaded on the switch.
+
+**Acceptance Scenarios**:
+
+1. **Given** a browser that has never chosen a theme, **When** any page opens, **Then** it is dark, whatever the browser or system prefers.
+2. **Given** any page, **When** the theme is switched on it, **Then** that page shows the new theme at once, without a page reload.
+3. **Given** a visitor who chose the light theme, **When** they come back later in the same browser, or sign in, **Then** the pages are light.
+4. **Given** a user who chose the light theme on browser A, **When** they open the app on browser B, **Then** B shows the theme chosen on B, dark if none.
+
+---
+
 ### Edge Cases
 
 - A new code is requested while an earlier one is valid, and the email service refuses the new send: the earlier code stays valid (US-1.1, scenario 4).
@@ -178,6 +211,7 @@ This story is new in this spec: the legal pages design made the interface Englis
 - The browser reports no time zone, or one that the system does not know, at the first sign-in: the user's time zone is UTC and the main screen says so (FR-009; US-1.2, scenario 7).
 - A browser restores its session on restart ("continue where you left off"): the cookie of a session that is not a Remembered session survives, and the session lives until it expires or is revoked. Accepted risk: the product cannot tell a restored browser session from a running one; the Terms say to sign in with "Remember me" only on trusted devices (FR-031).
 - The user signs in at a later time on a browser whose language differs from their locale: the interface follows the stored locale (see Assumptions).
+- The browser does not let the page keep anything (a private window that blocks storage, storage turned off): the language and the theme switch on the page as usual, and the next page load starts again from the browser's languages and the dark theme.
 - Someone requests 5 codes for another person's email: that email cannot request a code for 24 hours. Accepted risk (email service design, "Accepted risk").
 - The email service's daily limit is used up by code requests for many emails from many IP addresses: nobody can sign in until it resets; users who already have a session are not affected. Accepted risk (email service design, "Accepted risk").
 
@@ -203,14 +237,14 @@ This story is new in this spec: the legal pages design made the interface Englis
 
 - **FR-012**: A session MUST be stored on the server; the `HttpOnly`, `Secure` cookie carries only its opaque id. (NFR-9)
 - **FR-013**: A session MUST be sliding: it expires after 30 days without activity, and any activity extends it. Activity is a request the user makes; an open connection alone is not activity. (NFR-9)
-- **FR-014**: The cookie of a session that is not a Remembered session MUST have no expiry, so it ends with the browser session; a browser that restores its session on restart keeps it (Edge Cases). The cookie of a Remembered session MUST persist. Ticking "Remember me" is the user's consent to the persistent cookie. (NFR-9)
-- **FR-015**: Sign out MUST revoke the current session; sign out everywhere MUST revoke every session of the user. Revocation and expiry MUST take effect on the next request. Closing open connections belongs to epic 3. (NFR-9)
+- **FR-014**: The cookie of a session that is not a Remembered session MUST have no expiry, so it ends with the browser session; a browser that restores its session on restart keeps it (Edge Cases). The cookie of a Remembered session MUST persist. Ticking "Remember me" is the user's consent to the persistent cookie; so that the consent is informed, the checkbox MUST be explained next to it: the user stays signed in on this device for up to 30 days without activity, and should tick it only on a device they trust. (NFR-9)
+- **FR-015**: Sign out MUST revoke the current session; sign out everywhere MUST revoke every session of the user, after the user confirms it on the page. Revocation and expiry MUST take effect on the next request. Closing open connections belongs to epic 3. (NFR-9)
 - **FR-016**: The product MUST be served over HTTPS only. (NFR-9)
 - **FR-017**: Every request MUST see only the signed-in user's data. An automated test MUST cover every endpoint of this epic: user B can neither read nor change user A's data. The live-update channel belongs to epic 3. (NFR-6)
 
 **Main screen**
 
-- **FR-018**: After sign-in, the main screen MUST say that the user has no habits yet, and offer sign out, sign out everywhere, the language switcher, and links to the Privacy and Terms pages.
+- **FR-018**: After sign-in, the main screen MUST say that the user has no habits yet, and offer sign out, sign out everywhere, the language switcher, the theme switcher, and links to the Privacy and Terms pages.
 - **FR-019**: At a viewport width of 360 px, every action of every screen of this epic (the sign-in page, the main screen, the Privacy page, the Terms page) MUST be reachable, and no page has a horizontal scroll; checked by the end-to-end tests at that width. (NFR-13)
 
 **Interface language**
@@ -220,6 +254,11 @@ This story is new in this spec: the legal pages design made the interface Englis
 - **FR-022**: Switching the language MUST apply at once, without a page reload, on the page where it is switched.
 - **FR-023**: After sign-in, the switcher MUST change the user's locale. The user's other open devices MUST show the new language at their next page load. Delivering the change at once to the user's open connections, without a reload, belongs to epic 3 (`docs/domain/ubiquitous-language.md`, context map, "Locale changed").
 
+**Accessibility and themes**
+
+- **FR-041**: Every page of this epic MUST meet these accessibility criteria, a named subset of WCAG 2.2 level AA, in both themes: every action can be done with the keyboard alone, and the control that has the keyboard focus is visibly marked; every input field has a label; every error message is announced by a screen reader when it appears; text has a contrast of at least 4.5:1 against its background, and controls and input field borders at least 3:1; at a viewport width of 320 px the content reflows with no horizontal scroll and no loss of content or function. Criteria of WCAG 2.2 level AA beyond these are not promised. (NFR-14)
+- **FR-042**: The interface MUST have a dark and a light theme. The dark theme MUST be shown until the person chooses a theme, whatever the browser or system prefers. A theme switcher MUST be on every page, next to the language switcher; switching MUST apply at once, without a page reload. The choice MUST be kept in the browser, the same before and after sign-in; it is not stored with the user. (NFR-15)
+
 **Privacy and Terms**
 
 - **FR-024**: The Privacy page and the Terms page MUST be public and readable before sign-in, and linked from the sign-in page and from every signed-in screen.
@@ -228,7 +267,7 @@ This story is new in this spec: the legal pages design made the interface Englis
 - **FR-027**: Every page MUST load everything from `habits.cardlane.eu`: no fonts, scripts, styles or images from other servers.
 - **FR-028**: The contact email and the developer's full name on both pages are supplied by the developer in this epic.
 - **FR-029**: A record of processing under GDPR art. 30 MUST be kept in the repository at `docs/legal/record-of-processing.md`, with the same purposes, data, recipients, transfers and retention as the Privacy page.
-- **FR-030**: The Privacy page MUST state the items of `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Privacy page", 1 to 15: the controller (the developer's full name and a contact email); no data protection officer; the purposes and legal basis (the account, habits and check-ins, sessions, the session cookie, the one-time code and its email: art. 6(1)(b); IP addresses in logs and in code request limits: art. 6(1)(f)); the legitimate interest; the closed list of recipients (the hosting provider in Germany, EU, and the email service in the USA, each named on the page); the transfer outside the EU and its safeguards; the retention periods (account data, habits and check-ins until the account is deleted; the periods of FR-033; deleted data stays in backups for up to 7 days; the email service keeps the code email, address and content, for 30 days); the rights and how to use them; the complaint to the President of the Personal Data Protection Office or the supervisory authority of the user's own EU country; that an email is required to sign in; no automated decisions; the session cookie and the language choice kept in the browser, and that there are no other cookies, no analytics, no ads; that habits and check-ins are never shown to another user; the request not to put health or other sensitive data in habit names; the effective date and how changes are announced. It MUST say how to have the data deleted: on request to the contact email, until account deletion exists (epic 8).
+- **FR-030**: The Privacy page MUST state the items of `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Privacy page", 1 to 15: the controller (the developer's full name and a contact email); no data protection officer; the purposes and legal basis (the account, habits and check-ins, sessions, the session cookie, the one-time code and its email: art. 6(1)(b); IP addresses in logs and in code request limits: art. 6(1)(f)); the legitimate interest; the closed list of recipients (the hosting provider in Germany, EU, and the email service in the USA, each named on the page); the transfer outside the EU and its safeguards; the retention periods (account data, habits and check-ins until the account is deleted; the periods of FR-033; deleted data stays in backups for up to 7 days; the email service keeps the code email, address and content, for 30 days); the rights and how to use them; the complaint to the President of the Personal Data Protection Office or the supervisory authority of the user's own EU country; that an email is required to sign in; no automated decisions; the session cookie, the language choice and the theme choice kept in the browser, and that there are no other cookies, no analytics, no ads; that habits and check-ins are never shown to another user; the request not to put health or other sensitive data in habit names; the effective date and how changes are announced. It MUST say how to have the data deleted: on request to the contact email, until account deletion exists (epic 8).
 - **FR-031**: The Terms page MUST state the items of `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Terms page": who provides the service (the developer's full name and contact email, no home address); what the service is (a free habit tracker, a non-commercial showcase project); the technical requirements (a current browser with JavaScript and cookies, an email inbox); that users must not enter unlawful content; how the agreement starts and ends; complaints and reports of unlawful content to the contact email, answered within 14 days; the risks (whoever controls the user's email inbox can sign in; sign in only on trusted devices with "Remember me"); "as is", free, no guarantee of availability or of keeping data beyond the backup policy, liability limited as far as the law allows, never for intentional harm; that sign-in can be unavailable for up to 24 hours if the email service's daily limit is used up; how changes to the Terms are announced, with an effective date; Polish governing law; a link to the Privacy page.
 - **FR-032**: Logs MUST be kept for 7 days. (NFR-10)
 - **FR-033**: Retention periods MUST be deletion deadlines: sessions until sign out, sign out everywhere, or 30 days without activity; one-time codes valid 10 minutes; code requests, with their email and IP address, 24 hours; logs 7 days. The system MUST delete expired codes, code requests, sessions and logs at most one day after their period ends. (NFR-10)
@@ -245,7 +284,7 @@ This story is new in this spec: the legal pages design made the interface Englis
 
 ### Key Entities *(include if feature involves data)*
 
-- **Visitor**: a person using the app in a browser without a session: not signed up yet, or signed out. The system keeps no record of a visitor; their language choice is kept in the browser.
+- **Visitor**: a person using the app in a browser without a session: not signed up yet, or signed out. The system keeps no record of a visitor; their language and theme choices are kept in the browser.
 - **User**: a person signed up to the app, identified by their email; holds the email, the time zone and the locale. Created on the first successful sign-in.
 - **Email**: the address a user signs in with; compared case-insensitively, unique among users.
 - **Code request**: a request for a one-time code for an email, from an IP address. Counts against the limits of FR-003 when the code is sent or the result is unclear; a request refused by a limit or by the email service does not count (FR-004). Its email and IP address are kept 24 hours.
@@ -269,14 +308,16 @@ This story is new in this spec: the legal pages design made the interface Englis
 - **SC-008**: 95% of requests are answered within 300 ms, server side, live-update connections excluded, per calendar month, from the metrics of FR-039; before merge, the automated test of FR-039 passes, and the 95th percentile read from the server after the branch deployment is in the project ledger. (SLO API latency)
 - **SC-009**: At most 24 hours of data can be lost in a failure that leaves the server's disk intact: there is a backup from the last 24 hours and one taken before each migration. (NFR-5, SLO Data loss)
 - **SC-010**: The one restore from backup, done as in FR-036, passes its check (row count and content checksum of every table equal those the backup carries) and takes at most 4 hours from the start of the restore to the passed check; its time is in the project ledger. (NFR-5, SLO Recovery)
-- **SC-011**: The end-to-end tests at a viewport width of 360 px reach every action of the sign-in page, the main screen, the Privacy page and the Terms page, with no horizontal scroll. (NFR-13)
+- **SC-011**: The end-to-end tests, run as a phone with touch at a viewport width of 360 px, in two browser engines, reach every action of the sign-in page, the main screen, the Privacy page and the Terms page, with no horizontal scroll. (NFR-13)
 - **SC-012**: Every user-visible string of this epic exists in all three languages, checked by an automated test; switching the language changes the page without a reload; Polish and Russian counts use their plural forms.
 - **SC-013**: Loading any page of this epic makes no request to a server other than `habits.cardlane.eu`, checked by an end-to-end test.
-- **SC-014**: After the branch deployment, the subdomain responds over HTTPS and a real sign-in with a one-time code works on the server.
+- **SC-014**: After the branch deployment, the subdomain responds over HTTPS and a real sign-in with a one-time code works on the server, from a desktop browser and from the developer's own phone.
+- **SC-015**: Automated tests check the criteria of FR-041 in both themes: the end-to-end tests sign in, switch the language and the theme and sign out with the keyboard alone, see a visible focus on every control they reach, find a label for every input field, find every error message announced to screen readers, and find no horizontal scroll and every action reachable at 320 px; a unit test computes the contrast of every text and control colour against its background and finds each at its threshold or above.
+- **SC-016**: The end-to-end tests show that a browser that has never chosen a theme gets the dark theme even when it prefers a light appearance, that switching the theme changes the page without a reload, and that the chosen theme stays after a reload and after sign-in.
 
 ## Assumptions
 
-- The NFR and SLO rows with Epic = 1 are NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11 and the SLOs Availability, API latency, Data loss and Recovery. NFR-13 ("every epic with a screen") is included because epic 1 has screens.
+- The NFR and SLO rows with Epic = 1 are NFR-5, NFR-6, NFR-7, NFR-8, NFR-9, NFR-10, NFR-11 and the SLOs Availability, API latency, Data loss and Recovery. NFR-13 ("every epic with a screen") is included because epic 1 has screens. NFR-14 and NFR-15 were added to the product design with Epic = 1 when step 5 was reopened for the user interface (session 2026-10-31).
 - Parts of those rows that name a later epic are out of scope here: closing open connections on revocation and expiry (NFR-9), the live-update channel (NFR-6) and delivering a locale change to the user's open connections (FR-023) belong to epic 3, two open connections per user in the load test (NFR-11) to epic 3, account deletion (NFR-10) to epic 8.
 - Out of scope: habits and everything about them (epics 2 and later), changing the time zone and deleting the account (epic 8), closing open connections (epic 3).
 - At a later sign-in the stored locale is kept and the interface follows it; only the first sign-in takes the current language as the locale. Likewise the time zone is taken from the browser only at the first sign-in.

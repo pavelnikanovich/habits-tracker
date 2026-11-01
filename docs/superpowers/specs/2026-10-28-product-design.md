@@ -1,6 +1,6 @@
 # habits-tracker product design
 
-Date: 2026-10-28, revised 2026-10-30 by the epic 1 design fork (`docs/superpowers/specs/2026-10-30-email-service-design.md`, `docs/superpowers/specs/2026-10-30-legal-pages-design.md`): the email service, NFR-7, NFR-9, the interface languages, the Privacy and Terms pages; revised again 2026-10-30 by the external constraints check (`docs/superpowers/specs/2026-10-30-external-constraints-check.md`): goal 8, the language switch, NFR-5, NFR-11, the SLO measurements, third-party requests. Stage 1, step 1 of the development process (`docs/superpowers/specs/2026-10-28-development-process-design.md`).
+Date: 2026-10-28, revised 2026-10-30 by the epic 1 design fork (`docs/superpowers/specs/2026-10-30-email-service-design.md`, `docs/superpowers/specs/2026-10-30-legal-pages-design.md`): the email service, NFR-7, NFR-9, the interface languages, the Privacy and Terms pages; revised again 2026-10-30 by the external constraints check (`docs/superpowers/specs/2026-10-30-external-constraints-check.md`): goal 8, the language switch, NFR-5, NFR-11, the SLO measurements, third-party requests; revised 2026-10-31 by the epic 1 user interface review (`specs/001-walking-skeleton/spec.md`, "Clarifications", session 2026-10-31): "Interface", NFR-14, NFR-15, "Left to the builder" (interaction design moves to a UX design before epic 2). Stage 1, step 1 of the development process (`docs/superpowers/specs/2026-10-28-development-process-design.md`).
 
 Domain terms in this document are defined in `docs/domain/ubiquitous-language.md`, the only source of domain terms. Items marked *(agent's call)* were proposed by the agent without a separate question and are confirmed by the developer's review of this document.
 
@@ -144,6 +144,15 @@ Rules differ by type of data:
 - **Delete** wins over everything: a check-in or edit for a deleted habit is rejected with a message. To tell "deleted" from "never existed", deletion leaves a tombstone holding only the habit id, its owner and the deletion time, no user content; account deletion erases tombstones too *(agent's call)*.
 - After any of these, every open connection of the user shows the same final state.
 
+### Interface
+
+Decided by the developer on 2026-10-31, with epic 1; every screen of every epic follows it.
+
+- The look is a minimalist neon text terminal: monospace text in the Nordwand Mono font, served by the application itself; square corners, thin borders, no shadows, no motion; a `>` prompt before each page heading.
+- Two themes, dark and light; the dark one is shown until the person chooses (NFR-15).
+- Accessibility is a named subset of WCAG 2.2 level AA (NFR-14).
+- One shared baseline: the design tokens (colours, type, spacing) and the shared components (page frame, switchers, message) that epic 1 creates in the frontend. A new screen uses them and adds no colour, size or font of its own; a new colour gets its contrast checks in both themes.
+
 ### Interface language
 
 English, Polish and Russian, from epic 1. Every user-visible string, the code email and the Privacy and Terms pages included, comes from translation files, with plural rules handled by the translation format. Adding a language means adding a file, with no code change. Switching the language applies at once, without a page reload (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-external-constraints-check.md`). Before sign-in the language follows the browser and a switcher on every page; at the first sign-in it becomes the user's locale (see `docs/superpowers/specs/2026-10-30-legal-pages-design.md`, "Languages").
@@ -167,6 +176,8 @@ Numbers in brackets are anti-goals the requirement guards. The Epic column names
 | NFR-11 | Sized for about 100 users on one VPS; no horizontal scaling: a load test with 100 users, two open connections each, keeps the API latency SLO. The load test runs in CI, with the application and database containers limited together to the CPU and memory of the server, a Hetzner Cloud CX23 (2 vCPU, 4 GB) (revised 2026-10-30, see `docs/superpowers/specs/2026-10-30-external-constraints-check.md`). (6) | 1; open connections: 3 |
 | NFR-12 | The main screen with 20 habits opens within 2 seconds, measured by an end-to-end test in CI. | 4 |
 | NFR-13 | At a viewport width of 360 px every action of the screen is reachable and the page has no horizontal scroll except the calendar: checked by the end-to-end tests at that width. | every epic with a screen |
+| NFR-14 | Every screen meets a named subset of WCAG 2.2 level AA in both themes: every action can be done with the keyboard alone, with a visible focus; every input field has a label; every error message is announced by a screen reader; text has a contrast of at least 4.5:1, and controls and input field borders at least 3:1; at a viewport width of 320 px the content reflows with no horizontal scroll and no loss of content or function, except the calendar, as in NFR-13. Checked by end-to-end tests and a contrast unit test (revised 2026-10-31). | 1; every epic with a screen |
+| NFR-15 | The interface has a dark and a light theme; the dark theme is shown until the person chooses, whatever the browser or system prefers; a theme switcher is on every page; the choice is kept in the browser, not with the user. Checked by end-to-end tests (revised 2026-10-31). | 1; every epic with a screen |
 
 ## Service level objectives
 
@@ -287,6 +298,6 @@ What the user gets from each epic, one line per story. The map checks that the e
 - The email service: decided 2026-10-30, Resend (`docs/superpowers/specs/2026-10-30-email-service-design.md`). The criterion "someone requesting codes for many addresses must not lock other users out" (anti-goal 4) holds against a single source; distributed abuse is an accepted risk recorded there.
 - The tools that measure the SLOs, except the availability check (see "Service level objectives").
 - The database schema and the API shape.
-- Visual design: colors, spacing, components, beyond what "Main screen" fixes.
-- How the Archive view and the delete confirmation look.
+- The layout of each new screen, within "Interface", "Main screen" and the UX design (revised 2026-10-31: the look, the themes and accessibility are now in "Interface").
+- Interaction design, the Archive view and the delete confirmation included: not left to the builder since 2026-10-31; decided in the UX design before epic 2 (process document, "Before epic 2").
 - The order of a Partial week and an archive reset for a Commitment with a Weekly target (a week that met its target before an archive period began in a Commitment period): decided in epic 7 `speckit-clarify`.

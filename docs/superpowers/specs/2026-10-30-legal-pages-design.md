@@ -68,7 +68,7 @@ Required by GDPR art. 13 unless marked. Each item says what the page states.
 9. **Complaint** (art. 13(2)(d), art. 77): to the President of the Personal Data Protection Office (Prezes UODO), ul. Stanisława Moniuszki 1A, 00-014 Warszawa, or to the supervisory authority of the user's own EU country.
 10. **Is the data required** (art. 13(2)(e)): an email is needed to sign in; without it there is no account.
 11. **Automated decisions** (art. 13(2)(f)): none, no profiling.
-12. **The session cookie**: one `HttpOnly` cookie holding an opaque session id; its purpose; that it ends with the browser unless "Remember me" is ticked, then 30 days without activity; no other cookies, no analytics, no ads (GDPR transparency, art. 12; WP194).
+12. **The session cookie**: one `HttpOnly` cookie holding an opaque session id; its purpose; that it ends with the browser unless "Remember me" is ticked, then 30 days without activity; the language choice and the theme choice kept in the browser's local storage, user-chosen interface settings exempt from consent like the cookie (WP194, "user-interface customisation"; the theme added on 2026-10-31 with the epic 1 spec, FR-042); no other cookies, no analytics, no ads (GDPR transparency, art. 12; WP194).
 13. **Privacy of habits**: a user's habits and check-ins are never shown to another user (prudent).
 14. **What not to enter**: habit names are free text; the page asks users not to put health or other sensitive data in them (see "Accepted risk") *(agent's call)*.
 15. **Effective date** and how changes are announced (prudent).
