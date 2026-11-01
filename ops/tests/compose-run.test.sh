@@ -20,7 +20,8 @@ dir="$(mktemp -d)"
 export COMPOSE_PROJECT_NAME="habits-compose-run-test-$$"
 export HABITS_COMPOSE_FILES="$repo_root/compose.yaml:$dir/ports.yaml"
 cleanup() {
-  docker compose -f "$repo_root/compose.yaml" -f "$dir/ports.yaml" down --volumes --timeout 1 --remove-orphans > /dev/null 2>&1
+  docker rm --force "$COMPOSE_PROJECT_NAME-production" > /dev/null 2>&1
+  docker compose -f "$repo_root/compose.yaml" -f "$dir/ports.yaml" down --volumes --rmi local --timeout 1 --remove-orphans > /dev/null 2>&1
   rm -rf "$dir"
 }
 trap cleanup EXIT
@@ -38,13 +39,16 @@ YAML
 
 source "$repo_root/ops/lib/compose.sh"
 
+# Prints a JavaScript expression of the JSON on standard input, named d (Node is required by the frontend anyway).
+js() { node -e 'let t="";process.stdin.on("data",c=>t+=c).on("end",()=>{const d=JSON.parse(t);console.log(eval(process.argv[1]))})' "$1"; }
+
 # compose.yaml itself: the app is built from the Dockerfile, in Development, on 8080, after the healthy db.
 config="$(docker compose -f "$repo_root/compose.yaml" config --format json 2> /dev/null)"
-[ "$(jq -r '.services.app.build.dockerfile' <<< "$config")" = "Dockerfile" ] || fail "compose.yaml: app is not built from Dockerfile"
-[ "$(jq -r '.services.app.ports[0] | "\(.published):\(.target)"' <<< "$config")" = "8080:8080" ] || fail "compose.yaml: app does not publish 8080:8080"
-[ "$(jq -r '.services.app.environment.ASPNETCORE_ENVIRONMENT' <<< "$config")" = "Development" ] || fail "compose.yaml: app is not in Development"
-[ "$(jq -r '.services.app.environment.ConnectionStrings__Habits' <<< "$config")" = "Host=db;Database=habits;Username=habits" ] || fail "compose.yaml: the connection string differs"
-[ "$(jq -r '.services.app.depends_on.db.condition' <<< "$config")" = "service_healthy" ] || fail "compose.yaml: app does not wait for a healthy db"
+[ "$(js 'd.services.app.build.dockerfile' <<< "$config")" = "Dockerfile" ] || fail "compose.yaml: app is not built from Dockerfile"
+[ "$(js 'd.services.app.ports[0].published+":"+d.services.app.ports[0].target' <<< "$config")" = "8080:8080" ] || fail "compose.yaml: app does not publish 8080:8080"
+[ "$(js 'd.services.app.environment.ASPNETCORE_ENVIRONMENT' <<< "$config")" = "Development" ] || fail "compose.yaml: app is not in Development"
+[ "$(js 'd.services.app.environment.ConnectionStrings__Habits' <<< "$config")" = "Host=db;Database=habits;Username=habits" ] || fail "compose.yaml: the connection string differs"
+[ "$(js 'd.services.app.depends_on.db.condition' <<< "$config")" = "service_healthy" ] || fail "compose.yaml: app does not wait for a healthy db"
 
 # Waits up to 60 s for the URL to answer 200.
 wait_for() {
@@ -88,6 +92,12 @@ for bundle in migrate-identity migrate-operations; do
   done
 done
 
+# The bundles migrated: each context's history holds at least one migration.
+for schema in identity operations; do
+  [ "$(db_psql --no-psqlrc --quiet --tuples-only --no-align -c "select count(*) from $schema.\"__EFMigrationsHistory\"")" -ge 1 ] 2> /dev/null \
+    || fail "$schema.__EFMigrationsHistory holds no migration after the bundles"
+done
+
 # The image in Production: no Development appsettings, so the translation files come from Translations__Path alone, and
 # the page is served under the host's CSP. The database is migrated by the bundles above.
 key="$(head -c 32 /dev/zero | base64)"
@@ -96,7 +106,7 @@ compose run --detach --no-deps --name "$COMPOSE_PROJECT_NAME-production" --publi
   || fail "the Production container did not start"
 production="http://127.0.0.1:$(docker port "$COMPOSE_PROJECT_NAME-production" 8080/tcp | head -1 | sed 's/.*://')"
 wait_for "$production/health" || { docker logs "$COMPOSE_PROJECT_NAME-production" 2>&1 | tail -20 >&2; fail "Production /health did not answer 200"; }
-locales="$(curl -s "$production/api/locales" | jq -r '[.[].code] | sort | join(",")')"
+locales="$(curl -s "$production/api/locales" | js 'd.map(x=>x.code).sort().join(",")')"
 [ "$locales" = "en,pl,ru" ] || fail "Production /api/locales answered '$locales', expected en,pl,ru"
 policy="$(grep -A1 'const string ContentSecurityPolicy =' "$repo_root/backend/src/HabitsTracker.Host/Web/SecurityHeaders.cs" | tail -1 | sed 's/^ *"//; s/";$//')"
 [ -n "$policy" ] || fail "the CSP was not read from SecurityHeaders.cs"
@@ -109,15 +119,15 @@ docker rm --force "$COMPOSE_PROJECT_NAME-production" > /dev/null 2>&1
 prod="$repo_root/ops/compose.prod.yaml"
 prod_env=(IMAGE_OWNER=owner IMAGE_TAG=abc123 POSTGRES_PASSWORD=pw IDENTITY_CODE_HASH_KEY="$key" RESEND_API_KEY=re_test)
 prod_config="$(env "${prod_env[@]}" docker compose -f "$prod" config --format json 2> "$dir/prod.err")" || { cat "$dir/prod.err" >&2; fail "ops/compose.prod.yaml does not render"; }
-[ "$(jq -r '.services | keys | join(",")' <<< "$prod_config")" = "app,caddy,db" ] || fail "compose.prod.yaml: services are not app, caddy, db"
-[ "$(jq -r '[.services[] | .logging.driver] | unique | join(",")' <<< "$prod_config")" = "journald" ] || fail "compose.prod.yaml: a service does not log to journald"
-[ "$(jq -r '.services.caddy.image' <<< "$prod_config")" = "caddy:2.11.7" ] || fail "compose.prod.yaml: caddy is not caddy:2.11.7"
-[ "$(jq -r '.services.app.image' <<< "$prod_config")" = "ghcr.io/owner/habits-tracker:abc123" ] || fail "compose.prod.yaml: the app image differs"
-[ "$(jq -r '.services.app.environment.ASPNETCORE_ENVIRONMENT' <<< "$prod_config")" = "Production" ] || fail "compose.prod.yaml: app is not in Production"
-[ "$(jq -r '.services.app.environment.ForwardedHeaders__KnownNetwork' <<< "$prod_config")" = "172.30.0.0/24" ] || fail "compose.prod.yaml: the known network differs"
-[ "$(jq -r '.networks.edge.ipam.config[0].subnet' <<< "$prod_config")" = "172.30.0.0/24" ] || fail "compose.prod.yaml: the edge subnet differs"
-[ "$(jq -r '[.services.caddy.volumes[].target] | sort | join(",")' <<< "$prod_config")" = "/config,/data,/etc/caddy/Caddyfile" ] || fail "compose.prod.yaml: caddy volumes differ"
-[ "$(jq -r '.services.db.ports // [] | length' <<< "$prod_config")" = "0" ] || fail "compose.prod.yaml: the database publishes a port"
+[ "$(js 'Object.keys(d.services).sort().join(",")' <<< "$prod_config")" = "app,caddy,db" ] || fail "compose.prod.yaml: services are not app, caddy, db"
+[ "$(js '[...new Set(Object.values(d.services).map(x=>x.logging&&x.logging.driver))].join(",")' <<< "$prod_config")" = "journald" ] || fail "compose.prod.yaml: a service does not log to journald"
+[ "$(js 'd.services.caddy.image' <<< "$prod_config")" = "caddy:2.11.7" ] || fail "compose.prod.yaml: caddy is not caddy:2.11.7"
+[ "$(js 'd.services.app.image' <<< "$prod_config")" = "ghcr.io/owner/habits-tracker:abc123" ] || fail "compose.prod.yaml: the app image differs"
+[ "$(js 'd.services.app.environment.ASPNETCORE_ENVIRONMENT' <<< "$prod_config")" = "Production" ] || fail "compose.prod.yaml: app is not in Production"
+[ "$(js 'd.services.app.environment.ForwardedHeaders__KnownNetwork' <<< "$prod_config")" = "172.30.0.0/24" ] || fail "compose.prod.yaml: the known network differs"
+[ "$(js 'd.networks.edge.ipam.config[0].subnet' <<< "$prod_config")" = "172.30.0.0/24" ] || fail "compose.prod.yaml: the edge subnet differs"
+[ "$(js 'd.services.caddy.volumes.map(v=>v.target).sort().join(",")' <<< "$prod_config")" = "/config,/data,/etc/caddy/Caddyfile" ] || fail "compose.prod.yaml: caddy volumes differ"
+[ "$(js '(d.services.db.ports||[]).length' <<< "$prod_config")" = "0" ] || fail "compose.prod.yaml: the database publishes a port"
 for missing in IMAGE_OWNER IMAGE_TAG POSTGRES_PASSWORD IDENTITY_CODE_HASH_KEY RESEND_API_KEY; do
   rest=()
   for entry in "${prod_env[@]}"; do [[ "$entry" == "$missing="* ]] || rest+=("$entry"); done

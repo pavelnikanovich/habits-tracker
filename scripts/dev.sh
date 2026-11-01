@@ -39,7 +39,7 @@ if ! docker compose up --detach --wait db >> "$log" 2>&1; then
   exit 1
 fi
 # The host migrates at start, so PostgreSQL must accept connections first; its first start initialises the cluster,
-# which `docker compose up --wait` does not wait for: the image has no health check.
+# which the db healthcheck can pass early (it checks the socket of the temporary init server), so this checks over TCP.
 database_ready() {
   docker compose exec -T db pg_isready --quiet --host 127.0.0.1 --username habits --dbname habits
 }

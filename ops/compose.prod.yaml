@@ -33,7 +33,7 @@ services:
     volumes:
       - db-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD", "pg_isready", "--username", "habits", "--dbname", "habits"]
+      test: ["CMD", "pg_isready", "--host", "127.0.0.1", "--username", "habits", "--dbname", "habits"]
       interval: 5s
       timeout: 3s
       retries: 20

@@ -18,7 +18,7 @@ dir="$(mktemp -d)"
 export COMPOSE_PROJECT_NAME="habits-https-only-test-$$"
 export HABITS_COMPOSE_FILES="$repo_root/compose.yaml:$repo_root/ops/tests/compose.https-test.yaml"
 cleanup() {
-  docker compose -f "$repo_root/compose.yaml" -f "$repo_root/ops/tests/compose.https-test.yaml" down --volumes --timeout 1 --remove-orphans > /dev/null 2>&1
+  docker compose -f "$repo_root/compose.yaml" -f "$repo_root/ops/tests/compose.https-test.yaml" down --volumes --rmi local --timeout 1 --remove-orphans > /dev/null 2>&1
   rm -rf "$dir"
 }
 trap cleanup EXIT
@@ -57,7 +57,8 @@ curl -sk -H 'Cookie: session=abc-secret-cookie-value' https://localhost/health >
 sleep 1
 log="$(compose logs --no-log-prefix caddy 2>&1 | grep '"logger":"http.log.access' | grep '/health')"
 [ -n "$log" ] || fail "Caddy wrote no access log line to standard output"
-grep -q '"remote_ip":"[0-9a-f.:]*"' <<< "$log" || fail "the access log has no client address"
+grep -q '"remote_ip":"[0-9a-f.:]\+"' <<< "$log" || fail "the access log has no client address"
+grep -q '"Cookie":\["REDACTED"\]' <<< "$log" || fail "no access log line shows the Cookie header redacted"
 grep -q 'abc-secret-cookie-value' <<< "$log" && fail "the access log holds the cookie's value"
 grep -q 'abc-secret-cookie-value' < <(compose logs --no-log-prefix 2>&1) && fail "a log holds the cookie's value"
 

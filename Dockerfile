@@ -14,8 +14,8 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# --- The host and the migration bundles. dotnet-ef is the local tool of backend/.config/dotnet-tools.json (pinned).
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS backend
+# --- The host and the migration bundles. The SDK tag is pinned to the band global.json accepts (10.0.403, latestPatch). dotnet-ef is the local tool of backend/.config/dotnet-tools.json (pinned).
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403 AS backend
 WORKDIR /src
 COPY global.json ./
 COPY backend/ backend/
@@ -24,6 +24,9 @@ COPY frontend/public/i18n/ frontend/public/i18n/
 WORKDIR /src/backend
 RUN dotnet tool restore
 RUN dotnet publish src/HabitsTracker.Host/HabitsTracker.Host.csproj --configuration Release --output /out/app
+# Development, because dotnet-ef builds the host to find the contexts: in Production that build would demand the
+# secrets (Identity__CodeHashKey, Resend__ApiKey), which an image build must not have. MigrateOnStart is off so the
+# build touches no database. The runtime stage does not inherit these.
 ENV DOTNET_ENVIRONMENT=Development Database__MigrateOnStart=false Translations__Path=/src/frontend/public/i18n
 RUN dotnet tool run dotnet-ef -- migrations bundle --configuration Release --context IdentityDbContext \
       --project src/HabitsTracker.Identity.Adapters --startup-project src/HabitsTracker.Host \
