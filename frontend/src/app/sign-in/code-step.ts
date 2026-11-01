@@ -1,12 +1,13 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
+import { ProblemCode } from '../api/problem';
 import { MessageComponent } from '../message/message';
 import { ONE_TIME_CODE_PATTERN } from '../validation/patterns';
 import { SignInFlow } from './sign-in-flow.service';
 
 /** The refusals that belong to the code field: the field names the message in `aria-describedby`. */
-const FIELD_REFUSALS = new Set(['invalid-code-format', 'code-incorrect']);
+const FIELD_REFUSALS = new Set<ProblemCode>(['invalid-code-format', 'code-incorrect']);
 
 /**
  * The code step of the sign-in (contracts/ui.md, "Sign-in, code step"): where the code went, how many requests are
@@ -27,7 +28,10 @@ export class CodeStep {
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('codeField');
 
   protected readonly code = signal('');
-  protected readonly fieldInvalid = computed(() => FIELD_REFUSALS.has(this.flow.refusal()?.code ?? ''));
+  protected readonly fieldInvalid = computed(() => {
+    const refusal = this.flow.refusal();
+    return refusal !== null && FIELD_REFUSALS.has(refusal.code);
+  });
 
   constructor() {
     this.flow.clearRefusal();

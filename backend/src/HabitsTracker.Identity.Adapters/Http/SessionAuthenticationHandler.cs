@@ -24,8 +24,6 @@ public sealed class SessionAuthenticationHandler(
 {
     public const string SchemeName = "session";
 
-    private const string NotSignedIn = "not-signed-in";
-
     /// <summary>The claim of the user id.</summary>
     public const string UserIdClaim = "sub";
 
@@ -68,6 +66,6 @@ public sealed class SessionAuthenticationHandler(
     protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
     {
         SessionCookie.Clear(Response);
-        await Problems.Create(StatusCodes.Status401Unauthorized, NotSignedIn, retryAt: null).ExecuteAsync(Context);
+        await Problems.Create(StatusCodes.Status401Unauthorized, ProblemCodes.NotSignedIn, retryAt: null).ExecuteAsync(Context);
     }
 }

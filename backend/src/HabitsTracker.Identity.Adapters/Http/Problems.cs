@@ -7,15 +7,11 @@ namespace HabitsTracker.Identity.Adapters.Http;
 
 /// <summary>
 /// The error format of contracts/http-api.md: an RFC 9457 problem whose <c>title</c> is the reason phrase and whose
-/// <c>type</c> is its default, with the extension members <c>code</c>, <c>retryAt</c> (only when given) and
-/// <c>traceId</c>.
+/// <c>type</c> is its default, with the extension members <c>code</c> (one of <see cref="ProblemCodes"/>),
+/// <c>retryAt</c> (only when given) and <c>traceId</c>.
 /// </summary>
 public static class Problems
 {
-    public const string InvalidRequest = "invalid-request";
-    public const string NotFound = "not-found";
-    public const string InternalError = "internal-error";
-
     public static IResult Create(int status, string code, DateTimeOffset? retryAt)
     {
         ArgumentException.ThrowIfNullOrEmpty(code);

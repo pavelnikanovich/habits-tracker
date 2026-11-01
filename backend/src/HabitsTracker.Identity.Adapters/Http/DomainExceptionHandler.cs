@@ -13,7 +13,7 @@ namespace HabitsTracker.Identity.Adapters.Http;
 /// </summary>
 public sealed partial class DomainExceptionHandler(ILogger<DomainExceptionHandler> logger) : IExceptionHandler
 {
-    private static readonly (int Status, string Code) InternalError = (StatusCodes.Status500InternalServerError, Problems.InternalError);
+    private static readonly (int Status, string Code) InternalError = (StatusCodes.Status500InternalServerError, ProblemCodes.InternalError);
 
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
@@ -33,10 +33,10 @@ public sealed partial class DomainExceptionHandler(ILogger<DomainExceptionHandle
     // InvalidConfiguration stops the host before any request; raised during one, it is an unexpected failure.
     private static (int Status, string Code) ProblemOf(DomainError error) => error switch
     {
-        DomainError.InvalidEmail => (StatusCodes.Status400BadRequest, "invalid-email"),
-        DomainError.InvalidLocale => (StatusCodes.Status400BadRequest, "invalid-locale"),
-        DomainError.InvalidOneTimeCode => (StatusCodes.Status400BadRequest, "invalid-code-format"),
-        DomainError.InvalidSessionToken => (StatusCodes.Status401Unauthorized, "not-signed-in"),
+        DomainError.InvalidEmail => (StatusCodes.Status400BadRequest, ProblemCodes.InvalidEmail),
+        DomainError.InvalidLocale => (StatusCodes.Status400BadRequest, ProblemCodes.InvalidLocale),
+        DomainError.InvalidOneTimeCode => (StatusCodes.Status400BadRequest, ProblemCodes.InvalidCodeFormat),
+        DomainError.InvalidSessionToken => (StatusCodes.Status401Unauthorized, ProblemCodes.NotSignedIn),
         _ => InternalError,
     };
 }

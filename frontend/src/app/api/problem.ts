@@ -1,7 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-/** The problem codes of `contracts/http-api.md` that a page of the sign-in shows; each has a text `error.<code>`. */
-export const knownCodes = new Set([
+/**
+ * The problem codes of `contracts/http-api.md`, each with a text `error.<code>`. The backend's `ProblemCodes` holds the
+ * same codes; a Host test keeps the two lists equal.
+ */
+export const knownCodes = [
   'invalid-email',
   'invalid-locale',
   'invalid-code-format',
@@ -15,11 +18,14 @@ export const knownCodes = new Set([
   'invalid-request',
   'not-found',
   'internal-error',
-]);
+] as const;
+
+/** A code the API answers, or `network` when nothing usable came back. */
+export type ProblemCode = (typeof knownCodes)[number] | 'network';
 
 /** What the page keeps of an error response: `code` (or `network` when nothing usable came back), `retryAt`, `traceId`. */
 export interface Problem {
-  code: string;
+  code: ProblemCode;
   retryAt?: string;
   traceId?: string;
 }
@@ -37,11 +43,15 @@ export function problemOf(error: unknown): Problem {
   if (typeof body !== 'object' || body === null) return NETWORK_PROBLEM;
 
   const { code, retryAt, traceId } = body as Record<string, unknown>;
-  if (typeof code !== 'string' || !knownCodes.has(code)) return NETWORK_PROBLEM;
+  if (!isKnownCode(code)) return NETWORK_PROBLEM;
 
   return {
     code,
     retryAt: typeof retryAt === 'string' ? retryAt : undefined,
     traceId: typeof traceId === 'string' ? traceId : undefined,
   };
+}
+
+function isKnownCode(code: unknown): code is (typeof knownCodes)[number] {
+  return (knownCodes as readonly unknown[]).includes(code);
 }

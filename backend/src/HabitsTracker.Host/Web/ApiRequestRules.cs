@@ -28,7 +28,7 @@ public static class ApiRequestRules
 
             if (await RefusalOfBodyAsync(context) is { } refusal)
             {
-                await Problems.Create(refusal, Problems.InvalidRequest, retryAt: null).ExecuteAsync(context);
+                await Problems.Create(refusal, ProblemCodes.InvalidRequest, retryAt: null).ExecuteAsync(context);
                 return;
             }
 
@@ -50,9 +50,9 @@ public static class ApiRequestRules
 
     private static string CodeOf(int status) => status switch
     {
-        StatusCodes.Status404NotFound => Problems.NotFound,
-        >= 500 => Problems.InternalError,
-        _ => Problems.InvalidRequest,
+        StatusCodes.Status404NotFound => ProblemCodes.NotFound,
+        >= 500 => ProblemCodes.InternalError,
+        _ => ProblemCodes.InvalidRequest,
     };
 
     // Routing counts the application's fallback route (GET and HEAD, any path) as a candidate before its constraint

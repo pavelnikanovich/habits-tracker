@@ -43,12 +43,12 @@ public static class IdentityEndpoints
         return result switch
         {
             CodeRequestResult.Sent sent => TypedResults.Json(new CodeRequestAccepted(sent.Remaining, sent.Limit), statusCode: StatusCodes.Status202Accepted),
-            CodeRequestResult.RefusedByEmailLimit refused => Problems.Create(StatusCodes.Status429TooManyRequests, "email-limit", refused.RetryAt),
-            CodeRequestResult.RefusedByIpLimit refused => Problems.Create(StatusCodes.Status429TooManyRequests, "ip-limit", refused.RetryAt),
+            CodeRequestResult.RefusedByEmailLimit refused => Problems.Create(StatusCodes.Status429TooManyRequests, ProblemCodes.EmailLimit, refused.RetryAt),
+            CodeRequestResult.RefusedByIpLimit refused => Problems.Create(StatusCodes.Status429TooManyRequests, ProblemCodes.IpLimit, refused.RetryAt),
             CodeRequestResult.RefusedByEmailService { Reason: EmailServiceRefusal.Unavailable } =>
-                Problems.Create(StatusCodes.Status503ServiceUnavailable, "email-service-unavailable", retryAt: null),
+                Problems.Create(StatusCodes.Status503ServiceUnavailable, ProblemCodes.EmailServiceUnavailable, retryAt: null),
             CodeRequestResult.RefusedByEmailService refused =>
-                Problems.Create(StatusCodes.Status503ServiceUnavailable, "email-service-limit", refused.RetryAt),
+                Problems.Create(StatusCodes.Status503ServiceUnavailable, ProblemCodes.EmailServiceLimit, refused.RetryAt),
             _ => throw new System.Diagnostics.UnreachableException(),
         };
     }
@@ -70,9 +70,9 @@ public static class IdentityEndpoints
                 SessionCookie.Append(context.Response, signedIn.Token, signedIn.Session.Remembered);
                 return TypedResults.Json(CurrentUserResponse.Of(signedIn.User));
             case SignInResult.CodeIncorrect:
-                return Problems.Create(StatusCodes.Status401Unauthorized, "code-incorrect", retryAt: null);
+                return Problems.Create(StatusCodes.Status401Unauthorized, ProblemCodes.CodeIncorrect, retryAt: null);
             case SignInResult.NewCodeRequired:
-                return Problems.Create(StatusCodes.Status401Unauthorized, "new-code-required", retryAt: null);
+                return Problems.Create(StatusCodes.Status401Unauthorized, ProblemCodes.NewCodeRequired, retryAt: null);
             default:
                 throw new System.Diagnostics.UnreachableException();
         }
