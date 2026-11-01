@@ -1,8 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, TitleStrategy } from '@angular/router';
-import { provideTransloco, TranslocoService } from '@jsverse/transloco';
-import { firstValueFrom } from 'rxjs';
+import { provideTransloco } from '@jsverse/transloco';
 import { routes } from './app.routes';
 import { provideIcuTranspiler } from './i18n/icu-transpiler';
 import { LanguageService } from './i18n/language.service';
@@ -23,12 +22,8 @@ export const appConfig: ApplicationConfig = {
       loader: TranslocoHttpLoader,
     }),
     provideIcuTranspiler(),
-    // The page renders once the current language's translation file has loaded, so no key ever shows.
-    provideAppInitializer(async () => {
-      const language = inject(LanguageService);
-      const transloco = inject(TranslocoService);
-      await language.start();
-      await firstValueFrom(transloco.load(language.current()));
-    }),
+    // The page renders once the current language's translation file has loaded, so no key ever shows. When no file
+    // loads, the start fails and the static text of index.html stays.
+    provideAppInitializer(() => inject(LanguageService).start()),
   ],
 };

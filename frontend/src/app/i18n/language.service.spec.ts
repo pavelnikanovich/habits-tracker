@@ -1,16 +1,44 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideTransloco, TranslocoService } from '@jsverse/transloco';
-import { FileTranslationLoader } from '../../testing/translation-files';
+import { provideTransloco, Translation, TranslocoLoader, TranslocoService } from '@jsverse/transloco';
+import { Observable, of, Subject, throwError } from 'rxjs';
+import { readTranslation } from '../../testing/translation-files';
 import { LocaleResponse } from '../api/locale-response';
 import { LanguageService } from './language.service';
 
+const localesUrl = '/api/locales';
 const locales: LocaleResponse[] = [
   { code: 'en', name: 'English' },
   { code: 'pl', name: 'Polski' },
   { code: 'ru', name: 'Русский' },
 ];
+
+// The translation files from disk, except a file named in `failing`, whose load fails, and one held in `held` until
+// the test releases it.
+const failing = new Set<string>();
+const held = new Map<string, Subject<Translation>>();
+
+class TestLoader implements TranslocoLoader {
+  getTranslation(code: string): Observable<Translation> {
+    if (failing.has(code)) return throwError(() => new Error(`${code}.json: no connection`));
+    return held.get(code) ?? of(readTranslation(code));
+  }
+}
+
+function failLoading(code: string): void {
+  failing.add(code);
+  vi.spyOn(console, 'error').mockImplementation(() => undefined); // Transloco reports the failed load
+}
+
+function hold(code: string): () => void {
+  const subject = new Subject<Translation>();
+  held.set(code, subject);
+  return () => {
+    subject.next(readTranslation(code));
+    subject.complete();
+  };
+}
 
 function browserLanguages(languages: string[]): void {
   Object.defineProperty(navigator, 'languages', { configurable: true, get: () => languages });
@@ -26,22 +54,25 @@ describe('LanguageService', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideTransloco({ config: { defaultLang: 'en' }, loader: FileTranslationLoader }),
+        provideTransloco({ config: { defaultLang: 'en' }, loader: TestLoader }),
       ],
     });
     http = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     Reflect.deleteProperty(navigator, 'languages');
     localStorage.clear();
+    failing.clear();
+    held.clear();
     http.verify();
   });
 
   async function start(): Promise<LanguageService> {
     const service = TestBed.inject(LanguageService);
     const started = service.start();
-    http.expectOne('/api/locales').flush(locales);
+    http.expectOne(localesUrl).flush(locales);
     await started;
     return service;
   }
@@ -86,20 +117,106 @@ describe('LanguageService', () => {
     const service = await start();
     expect(service.current()).toBe('ru');
 
-    service.use('pl');
+    await service.use('pl');
     expect(service.current()).toBe('pl');
-    vi.restoreAllMocks();
   });
 
   it('use writes the choice and the document language', async () => {
     browserLanguages(['ru']);
     const service = await start();
 
-    service.use('pl');
+    await service.use('pl');
 
     expect(localStorage.getItem('locale')).toBe('pl');
     expect(document.documentElement.lang).toBe('pl');
     expect(service.current()).toBe('pl');
     expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('pl');
+  });
+
+  // Review M7: the page changes language only once the new file is in, so a failed load leaves it as it was.
+  it('use changes nothing until the file has loaded', async () => {
+    browserLanguages(['ru']);
+    const service = await start();
+    const release = hold('pl');
+
+    const switching = service.use('pl');
+
+    expect(service.current()).toBe('ru');
+    expect(document.documentElement.lang).toBe('ru');
+    expect(localStorage.getItem('locale')).toBeNull();
+    expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('ru');
+
+    release();
+    await switching;
+
+    expect(service.current()).toBe('pl');
+    expect(document.documentElement.lang).toBe('pl');
+    expect(localStorage.getItem('locale')).toBe('pl');
+  });
+
+  // contracts/ui.md, "Start of the application": the switch fails, the page stays in its language and says so.
+  it('a switch whose file fails to load keeps the current language', async () => {
+    browserLanguages(['ru']);
+    const service = await start();
+    failLoading('pl');
+
+    await service.use('pl');
+
+    expect(service.current()).toBe('ru');
+    expect(document.documentElement.lang).toBe('ru');
+    expect(localStorage.getItem('locale')).toBeNull();
+    expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('ru');
+    expect(service.switchFailed()).toBe(true);
+  });
+
+  it('a later switch that loads clears the failure', async () => {
+    browserLanguages(['ru']);
+    const service = await start();
+    failLoading('pl');
+    await service.use('pl');
+
+    await service.use('en');
+
+    expect(service.current()).toBe('en');
+    expect(service.switchFailed()).toBe(false);
+  });
+
+  it('a failed locale list leaves English', async () => {
+    localStorage.setItem('locale', 'ru');
+    browserLanguages(['pl-PL']);
+    const service = TestBed.inject(LanguageService);
+
+    const started = service.start();
+    http.expectOne(localesUrl).error(new ProgressEvent('error'));
+    await started;
+
+    expect(service.current()).toBe('en');
+    expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    expect(service.available()).toEqual([{ code: 'en', name: 'English' }]);
+  });
+
+  it("a detected language whose file fails to load falls back to English", async () => {
+    browserLanguages(['ru']);
+    failLoading('ru');
+
+    const service = await start();
+
+    expect(service.current()).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('en');
+  });
+
+  // Then nothing can be shown in any language: the start fails and index.html's static text stays.
+  it('the start fails when even English fails to load', async () => {
+    browserLanguages(['ru']);
+    failLoading('ru');
+    failLoading('en');
+    const service = TestBed.inject(LanguageService);
+
+    const started = service.start();
+    http.expectOne(localesUrl).flush(locales);
+
+    await expect(started).rejects.toThrow();
   });
 });

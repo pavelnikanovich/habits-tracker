@@ -7,6 +7,7 @@ import { collectForeignRequests } from './support/network';
 // The page <title> is not translated yet, so each test reads the visible page heading (h1), whose text comes from
 // the translation file named in the test.
 interface Translation {
+  error: { network: string };
   language: { switcher: string };
   nav: { privacy: string; terms: string };
   signIn: { title: string };
@@ -38,6 +39,15 @@ test.describe('a browser preferring Polish', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'pl');
     await expect(heading(page)).toHaveText(pl.signIn.title); // the h1 text from pl.json
   });
+
+  test('without the list of languages the page is in English', async ({ page }) => {
+    await page.route('**/api/locales', (route) => route.abort());
+
+    await page.goto('/sign-in');
+
+    await expect(heading(page)).toHaveText(en.signIn.title);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  });
 });
 
 test.describe('a browser preferring German', () => {
@@ -64,6 +74,19 @@ test.describe('a browser preferring English', () => {
     await expect(heading(page)).toHaveText(ru.signIn.title); // the h1 text from ru.json
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
     expect(await page.evaluate(() => (window as unknown as { __marker?: string }).__marker)).toBe('kept');
+  });
+
+  test('a switch whose file fails to load keeps the language and says so', async ({ page }) => {
+    await page.route('**/i18n/ru.json', (route) => route.abort());
+    await page.goto('/sign-in');
+    await expect(heading(page)).toHaveText(en.signIn.title);
+
+    await switchLanguage(page, 'ru');
+
+    await expect(page.getByRole('alert')).toHaveText(en.error.network);
+    await expect(heading(page)).toHaveText(en.signIn.title);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(page.getByRole('combobox', { name: en.language.switcher })).toHaveValue('en');
   });
 
   test('the chosen language is kept for a later visit', async ({ page, context }) => {

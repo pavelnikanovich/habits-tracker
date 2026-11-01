@@ -61,6 +61,26 @@ app-root {
   padding: 0 var(--space-4);
 }
 
+/*
+ * The static text inside app-root in index.html, for a start that fails: shown only after 2 s, so a normal start,
+ * which replaces it, does not flash it. Without JavaScript the <noscript> text shows instead, so it is not shown twice.
+ */
+.startup-failure {
+  animation: startup-failure-shown 0s 2s backwards;
+}
+
+@keyframes startup-failure-shown {
+  from {
+    visibility: hidden;
+  }
+}
+
+@media (scripting: none) {
+  app-root {
+    display: none;
+  }
+}
+
 app-root > header,
 app-root > footer {
   display: flex;
@@ -80,6 +100,11 @@ app-language-switcher {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+}
+
+/* A failed switch's message sits under the list. */
+app-language-switcher > app-message {
+  flex-basis: 100%;
 }
 
 h1,

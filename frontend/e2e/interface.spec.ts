@@ -10,6 +10,12 @@ import { Translation, translation } from './support/translations';
 const en = translation('en');
 const ru = translation('ru');
 const shellRoutes = ['/sign-in', '/privacy', '/terms'];
+// The static text of index.html, for a browser without JavaScript and for a start that fails.
+const staticTexts = [
+  ['en', 'This app needs JavaScript.'],
+  ['pl', 'Ta aplikacja wymaga JavaScriptu.'],
+  ['ru', 'Для работы приложения нужен JavaScript.'],
+];
 
 test.use({ locale: 'en-US' });
 
@@ -164,29 +170,45 @@ test('the shell at every width in both themes @width', async ({ page }) => {
   });
 });
 
+test('without any translation file the page shows its static text', async ({ page }) => {
+  await page.route('**/i18n/*.json', (route) => route.abort());
+
+  await page.goto('/sign-in');
+
+  for (const [code, text] of staticTexts) {
+    const shown = page.locator(`app-root p[lang="${code}"]`);
+    await expect(shown).toBeVisible();
+    await expect(shown).toHaveText(text);
+  }
+});
+
+test('the application removes the static text once it starts', async ({ page }) => {
+  await page.goto('/sign-in');
+
+  await expect(heading(page)).toHaveText(en.signIn.title);
+  await expect(page.locator('app-root p[lang]')).toHaveCount(0);
+});
+
 test.describe('a browser without JavaScript', () => {
   test.use({ javaScriptEnabled: false });
 
   test('the page explains itself without JavaScript', async ({ page }) => {
     const paths: string[] = [];
     page.on('request', (request) => paths.push(new URL(request.url()).pathname));
-    const texts = [
-      ['en', 'This app needs JavaScript.'],
-      ['pl', 'Ta aplikacja wymaga JavaScriptu.'],
-      ['ru', 'Для работы приложения нужен JavaScript.'],
-    ];
 
     const response = await page.goto('/sign-in');
 
     const html = (await response?.text()) ?? '';
     const noscript = /<noscript>([\s\S]*?)<\/noscript>/.exec(html)?.[1] ?? '';
-    for (const [code, text] of texts) {
+    for (const [code, text] of staticTexts) {
       expect(noscript, 'the <noscript> of index.html').toContain(text);
       // Playwright's text matching skips <noscript>, so each text is found by its language.
       const shown = page.locator(`noscript p[lang="${code}"]`);
       await expect(shown).toBeVisible();
       await expect(shown).toHaveText(text);
     }
+    // The copy for a start that fails is not shown a second time.
+    expect(await page.locator('app-root').evaluate((root) => getComputedStyle(root).display)).toBe('none');
     expect(html).toContain('<link rel="icon" href="/icon.svg" type="image/svg+xml">');
     const icon = await page.request.get('/icon.svg');
     expect(icon.status()).toBe(200);
