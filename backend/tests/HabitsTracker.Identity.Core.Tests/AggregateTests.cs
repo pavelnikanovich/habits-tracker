@@ -151,6 +151,7 @@ public class AggregateTests
         AssertCorruptRecord(() => CodeRequest.FromStorage(0, Ann, Prefix, T));
         AssertCorruptRecord(() => CodeRequest.FromStorage(-1, Ann, Prefix, T));
         AssertCorruptRecord(() => Session.FromStorage(new byte[31], Guid.CreateVersion7(T), false, T, T));
+        AssertCorruptRecord(() => Session.FromStorage(new byte[32], Guid.Empty, false, T, T));
         AssertCorruptRecord(() => Session.FromStorage(new byte[32], Guid.CreateVersion7(T), false, T, T - TimeSpan.FromTicks(1)));
     }
 

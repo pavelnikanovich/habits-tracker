@@ -83,7 +83,6 @@ public class ValueObjectRulesTests
         var now = DateTimeOffset.UnixEpoch;
 
         Assert.Throws<ArgumentException>(() => Session.Open(Guid.Empty, false, now));
-        Assert.Throws<ArgumentException>(() => Session.FromStorage(new byte[32], Guid.Empty, false, now, now));
 
         Assert.Throws<ArgumentException>(() => User.SignUp(email, zone, locale, default));
         Assert.Throws<ArgumentException>(() => OneTimeCode.Issue(email, hash, default));

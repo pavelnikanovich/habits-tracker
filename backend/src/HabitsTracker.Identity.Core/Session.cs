@@ -16,7 +16,7 @@ public sealed class Session
         Instant.Require(lastActivityAt);
 
         if (userId == Guid.Empty)
-            throw new ArgumentException("The user id is not set.", nameof(userId));
+            throw new DomainException(DomainError.CorruptRecord, "A session has an empty user id.");
 
         if (id.Length != IdLength)
             throw new DomainException(DomainError.CorruptRecord, "A session id is not 32 bytes.");
@@ -46,6 +46,10 @@ public sealed class Session
 
     public static (Session Session, SessionToken Token) Open(Guid userId, bool remembered, DateTimeOffset now)
     {
+        // An empty id here is the caller's mistake, not a stored record, so it is not CorruptRecord (as in User).
+        if (userId == Guid.Empty)
+            throw new ArgumentException("The user id is not set.", nameof(userId));
+
         var token = SessionToken.Generate();
 
         return (new Session(token.ComputeId(), userId, remembered, now, now), token);
