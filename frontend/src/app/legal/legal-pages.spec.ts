@@ -88,6 +88,12 @@ describe('Privacy and Terms pages', () => {
         TestBed.resetTestingModule();
         const { page } = await open(url, code);
         expect(page.textContent, `${code} ${url}`).toContain(CONTROLLER_NAME);
+        expect(page.textContent, `${code} ${url} has an unfilled placeholder`).not.toContain('{');
+        if (url === '/privacy') {
+          const first = page.querySelectorAll('section')[0].textContent;
+          expect(first, `${code} privacy section 1`).toContain(CONTROLLER_NAME);
+          expect(first, `${code} privacy section 1`).toContain(CONTACT_EMAIL);
+        }
         expect(page.querySelector(`a[href="mailto:${CONTACT_EMAIL}"]`), `${code} ${url}`).not.toBeNull();
       }
     }

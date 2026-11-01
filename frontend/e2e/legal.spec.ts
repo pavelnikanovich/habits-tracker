@@ -64,6 +64,7 @@ test('both pages at every width in both themes @width', async ({ page }) => {
     for (const { url } of pages) {
       await page.goto(url);
       await expect(heading(page)).toBeVisible();
+      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(SECTIONS[url]);
       await expectNoHorizontalScroll(page);
       await expectControlsInViewport(page);
       await expect(languageSwitcher(page)).toBeInViewport();
@@ -77,7 +78,7 @@ test('both pages at every width in both themes @width', async ({ page }) => {
 });
 
 test('both pages by keyboard alone', async ({ page }) => {
-  for (const { url, title, link } of pages) {
+  for (const { url, title } of pages) {
     await page.goto('/sign-in');
     const target = acceptance(page).locator(`a[href="${url}"]`);
     await pressTabUntil(page, target);
@@ -87,7 +88,6 @@ test('both pages by keyboard alone', async ({ page }) => {
     await expect(page).toHaveURL(url);
     await expect(heading(page)).toHaveText(title);
     await expect(heading(page)).toBeFocused();
-    expect(link).toBeTruthy();
   }
 });
 
