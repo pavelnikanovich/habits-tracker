@@ -6,9 +6,9 @@
 
 **Architecture:** An ASP.NET Core 10 modular monolith; Identity is a hexagonal package (`HabitsTracker.Identity.Core` with no references, `HabitsTracker.Identity.Adapters`), composed by `HabitsTracker.Host`, which also serves the Angular 22 single-page application from the same origin. One container image, delivered by GitHub Actions to the VPS behind Caddy.
 
-**Tech Stack:** C# / .NET 10, ASP.NET Core 10, EF Core 10 + Npgsql, PostgreSQL 18.6, Angular 22 + Transloco 8.4 (MessageFormat), xUnit v3, Testcontainers, Vitest, Playwright 1.64, k6 2.3, Caddy 2.11, Resend HTTP API, GitHub Actions.
+**Tech Stack:** C# / .NET 10, ASP.NET Core 10, EF Core 10 + Npgsql, PostgreSQL 18.6, Angular 22 + Transloco 8.4 (MessageFormat), the Nordwand Mono 1.5.0 font, xUnit v3, Testcontainers, Vitest, Playwright 1.64 (Chromium and WebKit), k6 2.3, Caddy 2.11, Resend HTTP API, GitHub Actions.
 
-**Spec:** `specs/001-walking-skeleton/spec.md`, with `plan.md`, `data-model.md`, `contracts/http-api.md`, `research.md` (R1–R23) and `quickstart.md` of the same folder, as of commit `ab6ee7f` (step 5 reopened for constitution 1.2.0). Procedures: `docs/operations/runbook.md`. Domain terms: `docs/domain/ubiquitous-language.md`. Legal page items: `docs/superpowers/specs/2026-10-30-legal-pages-design.md`.
+**Spec:** `specs/001-walking-skeleton/spec.md`, with `plan.md`, `data-model.md`, `contracts/http-api.md`, `contracts/ui.md`, `research.md` (R1–R24) and `quickstart.md` of the same folder, as of step 5 reopened for the user interface (2026-11-01). Product-wide interface rules: `docs/superpowers/specs/2026-10-28-product-design.md`, "Interface", NFR-13 to NFR-15. Procedures: `docs/operations/runbook.md`. Domain terms: `docs/domain/ubiquitous-language.md`. Legal page items: `docs/superpowers/specs/2026-10-30-legal-pages-design.md`.
 
 **Execution:** Subagent-driven only (process document, step 8: epic 1). Developer-owned tasks (`Executor: developer`) run in the main session in plan order, never at the same time as a subagent task; the agent proposes the code and the developer accepts it line by line, with the Explanatory or Learning output style and terse styles off. Manual tasks (`Executor: manual`) run in the main session with the developer and skip the per-task reviewer.
 
@@ -26,7 +26,8 @@ Copied from the constitution, `plan.md`, `spec.md` and `data-model.md`. Every ta
 - Backend: `TreatWarningsAsErrors`, `AnalysisLevel` `latest-recommended`, nullable reference types, CA1502 threshold 25; `SonarAnalyzer.CSharp` with only S4144 and S1192 on. Frontend: `ng lint --max-warnings 0`, ESLint `complexity` 20, `eslint-plugin-sonarjs` with only `no-identical-functions` and `no-duplicate-string` on.
 - No mocking library, no assertion library: hand-written fakes of the core's ports, xUnit assertions.
 - Every user-visible string, the code email and the Privacy and Terms texts included, lives in `frontend/public/i18n/{en,pl,ru}.json`; no other translation files (FR-020).
-- Nothing is loaded from another server: no fonts, scripts, styles or images from outside the origin; plain CSS with the system font stack (FR-027).
+- Nothing is loaded from another server: no fonts, scripts, styles or images from outside the origin (FR-027). The only font is Nordwand Mono 1.5.0, fetched at build time by `frontend/scripts/fetch-fonts.sh` against the SHA-256 sums of research R24 and served by the application — Task 6.
+- Every page follows `contracts/ui.md`: component CSS uses only `var(--…)` tokens; every message goes through `app-message`; no field takes the focus when a page opens; a button is disabled while its request runs; each page's `h1` has `tabindex="-1"` and takes the focus after a navigation — Task 6 creates them, every later page task uses them.
 - Migrations and the HTTP API only expand (constitution VI). No secret in the repository (constitution VIII): the code hash key, the Resend API key and the database password come from configuration supplied at deployment; development generates its code hash key at start and its database has no password.
 - Logs hold only IP addresses as personal data: never an email, a user id, a session token, a one-time code or a body (research R20).
 - Domain names in code are the glossary terms: `User`, `Email`, `OneTimeCode`, `CodeRequest`, `Session`, `TimeZone`, `Locale`; "Remembered session" is `Session.Remembered`. Technical names from data-model.md and research R23: `IpAddressPrefix`, `CodeHash`, `SessionToken`, `OneTimeCodeValue`, `CodeRequestLimits`, `IdentityContextOptions`, `CodeRequestCounts`, `DomainException`, `DomainError`, `FromStorage`.
@@ -34,57 +35,66 @@ Copied from the constitution, `plan.md`, `spec.md` and `data-model.md`. Every ta
 **Values, each with the task that asserts it:**
 
 - One-time code: 6 decimal digits, leading zeros kept — Task 2.
-- One-time code valid 10 minutes; an entry at or after `expires at` is refused — Task 10 (core), Task 11 (API).
-- At most 5 entry attempts per code; the 5th wrong entry, and any entry after 5, requires a new code — Task 10, Task 11.
+- One-time code valid 10 minutes; an entry at or after `expires at` is refused — Task 11 (core), Task 12 (API).
+- At most 5 entry attempts per code; the 5th wrong entry, and any entry after 5, requires a new code — Task 11, Task 12.
 - Code stored only as HMAC-SHA-256 over the email and the code, keyed by a 32-byte server secret — Task 2 (hash), Task 3 (no code column).
-- A code is used once — Task 10, Task 11.
-- A new code invalidates the earlier one only once sent or unclear; a refused send keeps the earlier code valid — Task 6.
-- At most 5 code requests per email and 10 per IP address prefix in any 24 hours, sliding — Task 6 (policy), Task 9 (API with default configuration).
+- A code is used once — Task 11, Task 12.
+- A new code invalidates the earlier one only once sent or unclear; a refused send keeps the earlier code valid — Task 7.
+- At most 5 code requests per email and 10 per IP address prefix in any 24 hours, sliding — Task 7 (policy), Task 10 (API with default configuration).
 - IP address prefix: IPv4 the whole address (/32), IPv6 the /64 prefix, IPv4-mapped IPv6 counts as its IPv4 address — Task 2.
-- A request refused by a limit or by the email service is not stored and does not count; an unclear result counts — Task 6.
-- Remaining after a send = 5 − (counted for the email + 1); the response carries `limit: 5` — Task 6, Task 9.
-- When both limits are reached, the per-email refusal is reported — Task 6.
-- Next possible request (`retryAt`) = oldest counted request in the window + 24 hours — Task 6.
-- Resend: `500`, a timeout after 10 seconds, or a connection lost after sending is unclear; `429 daily_quota_exceeded` is refused with `retryAt` next 00:00 UTC — Task 7.
-- Code email from `no-reply@mail.cardlane.eu`, text only, in the page's locale — Task 7.
-- Email: at most 254 characters, checked first, then the WHATWG pattern of research R18; ASCII only, no whitespace, no trimming; lower-cased — Task 2 (core), Task 9 (the page's copy and its parity).
+- A request refused by a limit or by the email service is not stored and does not count; an unclear result counts — Task 7.
+- Remaining after a send = 5 − (counted for the email + 1); the response carries `limit: 5` — Task 7, Task 10.
+- When both limits are reached, the per-email refusal is reported — Task 7.
+- Next possible request (`retryAt`) = oldest counted request in the window + 24 hours — Task 7.
+- Resend: `500`, a timeout after 10 seconds, or a connection lost after sending is unclear; `429 daily_quota_exceeded` is refused with `retryAt` next 00:00 UTC — Task 8.
+- Code email from `no-reply@mail.cardlane.eu`, text only, in the page's locale — Task 8.
+- Email: at most 254 characters, checked first, then the WHATWG pattern of research R18; ASCII only, no whitespace, no trimming; lower-cased — Task 2 (core), Task 10 (the page's copy and its parity).
 - Locale code: `^[a-z]{2}$` and a translation file; a translation file with another name stops the start — Task 2, Task 4.
-- Code hash key: exactly 32 bytes — Task 2; required outside Development, generated at start in Development — Task 9.
+- Code hash key: exactly 32 bytes — Task 2; required outside Development, generated at start in Development — Task 10.
 - User id: a version 7 UUID — Task 2.
-- Request bodies under `/api`: at most 16 KB (`413`), `application/json` only (`415`), both `invalid-request`; unknown path `404` `not-found`; wrong method `405` `invalid-request`; unexpected failure `500` `internal-error`; every problem carries `traceId` — Task 8, Task 11 (`traceId` in the logs).
+- Request bodies under `/api`: at most 16 KB (`413`), `application/json` only (`415`), both `invalid-request`; unknown path `404` `not-found`; wrong method `405` `invalid-request`; unexpected failure `500` `internal-error`; every problem carries `traceId` — Task 9, Task 12 (`traceId` in the logs).
 - Session token: 32 random bytes, base64url without padding (43 characters); session id = SHA-256 of the token — Task 2.
-- Cookie `session`: `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain` — Task 11.
-- A session that is not a Remembered session: cookie without `Expires` and `Max-Age`; a Remembered session: `Max-Age=2592000` (30 days), renewed on every response that extends the session — Task 11.
-- Session expires after 30 days without a request by the user (expired at exactly 30 days); any request extends it — Task 10 (core), Task 11 (API).
-- Sign out and sign out everywhere take effect on the next request — Task 13, Task 14.
-- Retention: codes deleted once expired or exhausted, code requests 24 hours after `requested at`, sessions 30 days after last activity, request timings after 13 months; cleanup runs hourly — Task 13 (core), Task 17 (hourly job).
-- Logs 7 days: journald `MaxRetentionSec=7day`, `MaxFileSec=1day` — Task 17.
-- Latency bucket upper bounds (ms): 10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, +∞ — Task 16.
-- Backups daily and before every migration, kept 7 days; a backup 8 days old is deleted — Task 18 (script), Task 23 (timer and deployment).
-- Restore from backup at most 4 hours, measured once on the server — Task 23 (measurement, recorded at step 13).
+- Cookie `session`: `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain` — Task 12.
+- A session that is not a Remembered session: cookie without `Expires` and `Max-Age`; a Remembered session: `Max-Age=2592000` (30 days), renewed on every response that extends the session — Task 12.
+- Session expires after 30 days without a request by the user (expired at exactly 30 days); any request extends it — Task 11 (core), Task 12 (API).
+- Sign out and sign out everywhere take effect on the next request — Task 14, Task 15.
+- Retention: codes deleted once expired or exhausted, code requests 24 hours after `requested at`, sessions 30 days after last activity, request timings after 13 months; cleanup runs hourly — Task 14 (core), Task 18 (hourly job).
+- Logs 7 days: journald `MaxRetentionSec=7day`, `MaxFileSec=1day` — Task 18.
+- Latency bucket upper bounds (ms): 10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 2000, 5000, +∞ — Task 17.
+- Backups daily and before every migration, kept 7 days; a backup 8 days old is deleted — Task 19 (script), Task 24 (timer and deployment).
+- Restore from backup at most 4 hours, measured once on the server — Task 24 (measurement, recorded at step 13).
 - `GET /health`: `200` `Healthy` when the database is reachable, `503` `Unhealthy` otherwise — Task 1.
-- Availability check every 5 minutes, `curl --fail --max-time 10` — Task 24.
-- Load test: 100 users, signed in before measuring, 10 minutes, a uniformly random 1–5 s pause before each request, every 10th request switches the language, p95 of `http_req_duration` < 300 ms; app 1 vCPU / 2 GB and database 1 vCPU / 2 GB — Task 20.
-- Viewport 360 px wide, every action reachable, no horizontal scroll — Task 5 (shell), Task 12 (sign-in and main), Task 14 (main actions), Task 15 (Privacy and Terms).
+- Availability check every 5 minutes, `curl --fail --max-time 10` — Task 25.
+- Load test: 100 users, signed in before measuring, 10 minutes, a uniformly random 1–5 s pause before each request, every 10th request switches the language, p95 of `http_req_duration` < 300 ms; app 1 vCPU / 2 GB and database 1 vCPU / 2 GB — Task 21.
+- Widths: every screen as a phone with touch at 320 px and 360 px and on a desktop at 1280 px, every action reachable, no horizontal scroll, in both themes; the main path also in WebKit at 360 px — Task 5 (projects), Task 6 (shell), Task 10 and Task 13 (sign-in and main), Task 15 (main actions), Task 16 (Privacy and Terms).
+- Themes: dark until the person chooses, whatever the browser prefers; `localStorage["theme"]` `light` or `dark`, any other value ignored, a storage failure leaves the page working — Task 6; the choice stays after sign-in — Task 13.
+- Contrast: text at least 4.5:1, controls, input borders and the focus outline at least 3:1, in both themes, with the palette of `contracts/ui.md` — Task 6.
+- Focus outline 3 px with a 2 px offset on every interactive element; buttons and input fields at least 44 px high; input text at least 16 px — Task 6.
+- Keyboard alone: sign in (both steps), switch the language and the theme, sign out and sign out everywhere, open Privacy and Terms — Task 6 (shell), Task 10, Task 13, Task 15, Task 16.
+- "Remember me" explained under the checkbox, linked by `aria-describedby` (FR-014) — Task 10.
+- The code step at `/sign-in/code`: the email, the checkbox and the remaining count in memory only, never in the URL; Back returns to `/sign-in` with them filled in; opened without them, `/sign-in` — Task 10.
+- `retryAt` in the browser's time zone and the page's language, the time alone when it is today, else the date and the time, rounded up to the next minute — Task 10.
+- Sign out everywhere only after an on-page confirmation, the focus on "Cancel", `Escape` cancels (FR-015) — Task 15.
+- "Session ended" shown only when a request after a successful `GET /api/me` answers `not-signed-in` — Task 15.
 - Locales `en`, `pl`, `ru`; before sign-in the browser's preferred languages, falling back to `en` — Task 4.
 - Polish and Russian plural forms for 1, 2 and 5 — Task 4.
-- Response headers: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` — Task 4; `Strict-Transport-Security: max-age=31536000` — Task 19.
-- `http://` serves no page, only a redirect to `https://` — Task 19.
+- Response headers: `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` — Task 4; `Strict-Transport-Security: max-age=31536000` — Task 20.
+- `http://` serves no page, only a redirect to `https://` — Task 20.
 - Caching: `index.html`, the application fallback and `/i18n/*` `no-cache`; hashed build files `public, max-age=31536000, immutable`; `/api/*` and `/health` `no-store` — Task 4.
-- A sign-in that carries a valid session cookie revokes that session and issues a new token — Task 10, Task 11.
-- Privacy page items 1–15 and Terms page items 1–12 of the legal pages design; complaints answered within 14 days; deleted data stays in backups up to 7 days; the email service keeps the code email 30 days — Task 15.
+- A sign-in that carries a valid session cookie revokes that session and issues a new token — Task 11, Task 12.
+- Privacy page items 1–15 and Terms page items 1–12 of the legal pages design; complaints answered within 14 days; deleted data stays in backups up to 7 days; the email service keeps the code email 30 days — Task 16.
 
 ## Review Focus
 
 The inputs where an error costs most in this epic (process document, "Task plan format"). Each is a negative test that attempts the attack, in the task named.
 
-1. **An expired or reused code.** A code entered at exactly 10 minutes after issue, or a second time after a successful sign-in, must not open a session — Task 10 (table rows), Task 11 (`Reused_code_requires_a_new_code`, `Code_at_ten_minutes_requires_a_new_code`).
-2. **Code guessing.** After 5 entries the correct code must not sign in; 10 concurrent wrong entries must count as at most 5 attempts — Task 10 (rows), Task 3 (`Concurrent_attempt_updates_are_not_lost`), Task 11 (`Correct_code_after_five_wrong_entries_requires_a_new_code`).
-3. **Email enumeration.** The answers to a code request, and to a code entry, must be the same for an email that has a user and one that has none — Task 9 (`Code_request_answer_does_not_reveal_whether_a_user_exists`), Task 11 (`Sign_in_answer_does_not_reveal_whether_a_user_exists`).
-4. **Redirect after sign-in to another domain.** The application has no return-address parameter: after sign-in it always opens `/`, whatever the sign-in URL carries — Task 12 (`sign-in ignores a return address to another domain`).
-5. **A code presented for another email.** A code sent to A, entered with email B, must not sign in either user, and must leave A's code valid — Task 2 (`Hash_binds_the_email`), Task 10 (row), Task 11 (`Code_of_another_email_does_not_sign_in`).
+1. **An expired or reused code.** A code entered at exactly 10 minutes after issue, or a second time after a successful sign-in, must not open a session — Task 11 (table rows), Task 12 (`Reused_code_requires_a_new_code`, `Code_at_ten_minutes_requires_a_new_code`).
+2. **Code guessing.** After 5 entries the correct code must not sign in; 10 concurrent wrong entries must count as at most 5 attempts — Task 11 (rows), Task 3 (`Concurrent_attempt_updates_are_not_lost`), Task 12 (`Correct_code_after_five_wrong_entries_requires_a_new_code`).
+3. **Email enumeration.** The answers to a code request, and to a code entry, must be the same for an email that has a user and one that has none — Task 10 (`Code_request_answer_does_not_reveal_whether_a_user_exists`), Task 12 (`Sign_in_answer_does_not_reveal_whether_a_user_exists`).
+4. **Redirect after sign-in to another domain.** The application has no return-address parameter: after sign-in it always opens `/`, whatever the sign-in URL carries — Task 13 (`sign-in ignores a return address to another domain`).
+5. **A code presented for another email.** A code sent to A, entered with email B, must not sign in either user, and must leave A's code valid — Task 2 (`Hash_binds_the_email`), Task 11 (row), Task 12 (`Code_of_another_email_does_not_sign_in`).
 
-Also attacked by tests, though not on the process list (research R19): a spoofed `X-Forwarded-For` from outside the proxy network (S6, Task 9); a session cookie set before sign-in (S4, Task 11); a form or `text/plain` post standing in for cross-site request forgery (T1, Task 8); an oversized body (D4, Task 8); a row written past the model (Task 3); a cookie of user B never reading or changing user A's data (Tasks 11 and 14); a Windows time zone id passed as a browser time zone (Task 2).
+Also attacked by tests, though not on the process list (research R19, R24): an email in the URL of the code step (Task 10); a font file whose sum differs from the pinned one (Task 6); a stored theme value other than `light` or `dark` (Task 6); a spoofed `X-Forwarded-For` from outside the proxy network (S6, Task 10); a session cookie set before sign-in (S4, Task 12); a form or `text/plain` post standing in for cross-site request forgery (T1, Task 9); an oversized body (D4, Task 9); a row written past the model (Task 3); a cookie of user B never reading or changing user A's data (Tasks 12 and 15); a Windows time zone id passed as a browser time zone (Task 2).
 
 ## Entity and type model
 
@@ -127,7 +137,7 @@ Aggregates:
 | Type | State | Behavior |
 |---|---|---|
 | `User` | `Guid Id`, `Email Email`, `TimeZone TimeZone`, `Locale Locale`, `DateTimeOffset CreatedAt` | `static User SignUp(Email, TimeZone, Locale, DateTimeOffset now)` (`Id = Guid.CreateVersion7(now)`); `static User FromStorage(Guid id, Email, TimeZone, Locale, DateTimeOffset createdAt)` (`CorruptRecord` on an empty id); `void ChangeLocale(Locale)` |
-| `OneTimeCode` | `Email Email`, `CodeHash CodeHash`, `DateTimeOffset IssuedAt`, `DateTimeOffset ExpiresAt`, `int EntryAttempts`, `bool IsUsed` (in memory only) | `static readonly TimeSpan Lifetime` = 10 min; `const int MaxEntryAttempts = 5`; `static OneTimeCode Issue(Email, CodeHash, DateTimeOffset now)`; `static OneTimeCode FromStorage(Email, CodeHash, DateTimeOffset issuedAt, DateTimeOffset expiresAt, int entryAttempts)` (`CorruptRecord` unless `expiresAt == issuedAt + Lifetime` and `0 ≤ entryAttempts ≤ 5`); `CodeVerification Verify(CodeHash entered, DateTimeOffset now)` (Task 10) |
+| `OneTimeCode` | `Email Email`, `CodeHash CodeHash`, `DateTimeOffset IssuedAt`, `DateTimeOffset ExpiresAt`, `int EntryAttempts`, `bool IsUsed` (in memory only) | `static readonly TimeSpan Lifetime` = 10 min; `const int MaxEntryAttempts = 5`; `static OneTimeCode Issue(Email, CodeHash, DateTimeOffset now)`; `static OneTimeCode FromStorage(Email, CodeHash, DateTimeOffset issuedAt, DateTimeOffset expiresAt, int entryAttempts)` (`CorruptRecord` unless `expiresAt == issuedAt + Lifetime` and `0 ≤ entryAttempts ≤ 5`); `CodeVerification Verify(CodeHash entered, DateTimeOffset now)` (Task 11) |
 | `CodeRequest` | `long Id` (0 until stored), `Email Email`, `IpAddressPrefix IpAddressPrefix`, `DateTimeOffset RequestedAt` | `static CodeRequest Create(Email, IpAddressPrefix, DateTimeOffset now)`; `static CodeRequest FromStorage(long id, Email, IpAddressPrefix, DateTimeOffset requestedAt)`; immutable |
 | `Session` | `byte[] Id`, `Guid UserId`, `bool Remembered`, `DateTimeOffset CreatedAt`, `DateTimeOffset LastActivityAt` | `static readonly TimeSpan IdleTimeout` = 30 days; `static (Session Session, SessionToken Token) Open(Guid userId, bool remembered, DateTimeOffset now)`; `static Session FromStorage(byte[] id, Guid userId, bool remembered, DateTimeOffset createdAt, DateTimeOffset lastActivityAt)` (`CorruptRecord` unless the id is 32 bytes and `lastActivityAt >= createdAt`); `bool IsExpired(DateTimeOffset now)` (`now >= LastActivityAt + IdleTimeout`); `void RecordActivity(DateTimeOffset now)` (`InvalidOperationException` on an expired session) |
 
@@ -181,10 +191,10 @@ Use cases (driving ports; application services: one class each, constructor-inje
 | `UserRecord`, `OneTimeCodeRecord`, `CodeRequestRecord`, `SessionRecord` | `Identity.Adapters/Storage/Records` | plain classes with one property per column of data-model.md; the stores turn them into aggregates through `FromStorage` and back |
 | `OperationsDbContext` | `Host/Operations` | default schema `operations`; history table `operations.__EFMigrationsHistory` |
 | `TranslationFiles` | `Identity.Adapters/Translations` | implements `ILocales`; `IReadOnlyList<LocaleResponse> List()`; `string Text(Locale, string key)`; reads `*.json` in `Translations:Path`; a file whose name does not match `Locale.Pattern` stops the start |
-| `DevelopmentLogCodeEmailSender`, `ResendCodeEmailSender` | `Identity.Adapters/Email` | `ICodeEmailSender` (Task 7) |
-| `SessionAuthenticationHandler` | `Identity.Adapters/Http` | scheme `session`; claim `sub` = user id, claim `sid` = base64url session id; a malformed cookie (`DomainException(InvalidSessionToken)`) is not signed in (Task 11) |
-| `DomainExceptionHandler` | `Identity.Adapters/Http` | `IExceptionHandler`: `DomainException` → problem details with the status and `code` of data-model.md, "Error model"; anything else → `500` `internal-error` (Task 8) |
-| `Problems` | `Identity.Adapters/Http` | `Problems.Create(int status, string code, DateTimeOffset? retryAt)`; every problem carries `traceId` (Task 8) |
+| `DevelopmentLogCodeEmailSender`, `ResendCodeEmailSender` | `Identity.Adapters/Email` | `ICodeEmailSender` (Task 8) |
+| `SessionAuthenticationHandler` | `Identity.Adapters/Http` | scheme `session`; claim `sub` = user id, claim `sid` = base64url session id; a malformed cookie (`DomainException(InvalidSessionToken)`) is not signed in (Task 12) |
+| `DomainExceptionHandler` | `Identity.Adapters/Http` | `IExceptionHandler`: `DomainException` → problem details with the status and `code` of data-model.md, "Error model"; anything else → `500` `internal-error` (Task 9) |
+| `Problems` | `Identity.Adapters/Http` | `Problems.Create(int status, string code, DateTimeOffset? retryAt)`; every problem carries `traceId` (Task 9) |
 | `IdentityContextRegistration.AddIdentityContext(IServiceCollection, IConfiguration, IHostEnvironment)` | `Identity.Adapters` | every Identity registration, and the only choice of an adapter by environment; not `AddIdentity`, which ASP.NET Core Identity defines |
 | `IdentityEndpoints.MapIdentityEndpoints(IEndpointRouteBuilder)` | `Identity.Adapters/Http` | the endpoints of `contracts/http-api.md` |
 
@@ -199,9 +209,14 @@ Configuration keys (research R13): `ConnectionStrings:Habits`; `Database:Migrate
 | `LanguageService` | `i18n/language.service.ts` | `current: Signal<string>`, `available: Signal<LocaleResponse[]>`, `use(code: string): void`; `localStorage` key `locale` before sign-in; a stored value that is not available is ignored |
 | `CurrentUserService` | `session/current-user.service.ts` | `user: Signal<CurrentUser \| null>`, `load(): Promise<CurrentUser \| null>`, `signOut()`, `signOutEverywhere()`, `changeLocale(code)` |
 | `signedInGuard` | `session/signed-in.guard.ts` | `/` only; a visitor goes to `/sign-in` |
-| `notSignedInInterceptor` | `session/not-signed-in.interceptor.ts` | a `401` with `code: "not-signed-in"` navigates to `/sign-in` |
-| `AppShell` | `app.ts` | header with the language switcher, footer with links to `/privacy` and `/terms`, on every route |
-| `EMAIL_PATTERN`, `EMAIL_MAX_LENGTH`, `ONE_TIME_CODE_PATTERN` | `validation/patterns.ts` | copies of `Email.Pattern`, `Email.MaxLength` and `OneTimeCodeValue.Pattern` (research R18; Task 9) |
+| `notSignedInInterceptor` | `session/not-signed-in.interceptor.ts` | a `401` with `code: "not-signed-in"` navigates to `/sign-in` (Task 13); with the session-ended state when a user was loaded (Task 15) |
+| `AppShell` | `app.ts` | header with the language switcher (Task 4) and the theme switcher (Task 6), `<main>`, footer with links to `/privacy` and `/terms`, on every route |
+| `ThemeService` | `theme/theme.service.ts` | `current: Signal<'dark' \| 'light'>`, `use(theme)`; `localStorage` key `theme`; sets `data-theme` and `theme-color` (Task 6) |
+| `MessageComponent` | `message/message.ts` | `app-message`, inputs `kind: 'error' \| 'info'`, `id`; `role="alert"` or `role="status"` (Task 6) |
+| `TranslatedTitleStrategy` | `shell/translated-title.strategy.ts` | route `title` = translation key; `document.title` = `<page title> — <app.name>` (Task 6) |
+| `SignInFlow` | `sign-in/sign-in-flow.service.ts` | in memory only: `email`, `rememberMe`, `remaining`, `limit` signals; `clear()` (Task 10) |
+| `formatMoment` | `time/format-moment.ts` | `formatMoment(moment: Date, now: Date, locale: string, timeZone: string): string` (Task 10) |
+| `EMAIL_PATTERN`, `EMAIL_MAX_LENGTH`, `ONE_TIME_CODE_PATTERN` | `validation/patterns.ts` | copies of `Email.Pattern`, `Email.MaxLength` and `OneTimeCodeValue.Pattern` (research R18; Task 10) |
 
 ### Shared conventions
 
@@ -211,9 +226,9 @@ Configuration keys (research R13): `ConnectionStrings:Habits`; `Database:Migrate
 - **Ports and the development database** (research R17): host `http://localhost:5080`; `ng serve` `http://localhost:4200` proxying `/api` and `/health` (`frontend/proxy.conf.json`); compose `app` `http://localhost:8080`; database `127.0.0.1:5432`, database `habits`, user `habits`, `POSTGRES_HOST_AUTH_METHOD: trust` bound to localhost only.
 - **Migrations** (research R2): in Development and tests the host applies both contexts' migrations at start; in Production only the deployment runs `migrate-identity` and `migrate-operations`, after the backup.
 - **Backend test harness** (research R12). `backend/tests/Shared/PostgresFixture.cs`, linked into `Identity.Adapters.Tests` and `Host.Tests`: one `postgres:18.6` Testcontainer per test assembly (xUnit v3 assembly fixture), `Task<string> CreateDatabaseAsync()` returns the connection string of a new empty database. `backend/tests/HabitsTracker.Host.Tests/HostFactory.cs`: `WebApplicationFactory<Program>` with a fresh database, `FakeTimeProvider Time` replacing `TimeProvider`, environment `Development` unless set, `Translations:Path` pointing at `frontend/public/i18n`, and a startup filter that sets the connection's remote address from the test header `Test-Remote-Address` (default `127.0.0.1`). Tests pass `TestContext.Current.CancellationToken` to every async call (`xUnit1051`).
-- **Shared validation examples** (research R18): `testdata/validation-examples.json`, an array of `{ "rule": "email" | "one-time-code" | "locale-code", "input": "…", "valid": true | false }`, run by the core tests (Task 2) and by Vitest (Task 9).
-- **Timers.** Background work (Tasks 16, 17) runs on `new PeriodicTimer(period, timeProvider)`.
-- **Frontend test harness.** Vitest through `ng test`; Playwright in `frontend/e2e/`, Chromium only, viewport 360 × 740, `webServer` runs `scripts/dev.sh` with `Identity__CodeRequestLimits__PerIpAddress=1000` and `reuseExistingServer: false` (a running developer instance must be stopped first; the e2e run tells so). Helpers in `frontend/e2e/support/`: `readCode(email)`, `expectNoHorizontalScroll(page)`, `collectForeignRequests(page)`, `uniqueEmail()` (`e2e-<uuid>@example.com`).
+- **Shared validation examples** (research R18): `testdata/validation-examples.json`, an array of `{ "rule": "email" | "one-time-code" | "locale-code", "input": "…", "valid": true | false }`, run by the core tests (Task 2) and by Vitest (Task 10).
+- **Timers.** Background work (Tasks 17, 18) runs on `new PeriodicTimer(period, timeProvider)`.
+- **Frontend test harness.** Vitest through `ng test`; Playwright in `frontend/e2e/` with the four projects of research R12: `phone-360` (Chromium, 360 × 740, `isMobile`, `hasTouch`, `deviceScaleFactor: 2`) runs every test; `phone-320` (the same at 320 × 640) and `desktop-1280` (Chromium, 1280 × 800) run the tests tagged `@width`; `webkit-360` (WebKit with the settings of `phone-360`) runs the tests tagged `@main-path`. `webServer` runs `scripts/dev.sh` with `Identity__CodeRequestLimits__PerIpAddress=1000` and `reuseExistingServer: false` (a running developer instance must be stopped first; the e2e run tells so). Helpers in `frontend/e2e/support/`: `readCode(email)`, `expectNoHorizontalScroll(page)`, `collectForeignRequests(page)`, `uniqueEmail()` (`e2e-<uuid>@example.com`).
 - **Commands.** Fast: `scripts/test-fast.sh` (`dotnet test backend/HabitsTracker.slnx`, `npm --prefix frontend test`). Full: `scripts/test-full.sh` (fast, `npm --prefix frontend run lint`, `npm --prefix frontend run e2e`, every shell test under `scripts/tests/` and `ops/tests/`). Load: `scripts/load-test.sh`. Each task that adds one writes it into `CLAUDE.md`, "Commands"; Task 1 writes the fast command's measured time next to it.
 - **Commits.** One behavioral commit per task, plus a separate structural commit where a task moves or renames existing code. Messages in English, imperative.
 
@@ -226,28 +241,29 @@ Configuration keys (research R13): `ConnectionStrings:Habits`; `Database:Migrate
 | 3 | Identity storage | subagent (Opus, effort high) | 2 | yes |
 | 4 | Angular application, translations and language before sign-in | subagent (Opus) | 2 | yes |
 | 5 | Development loop and end-to-end harness | subagent (Opus) | 4 | yes |
-| — | **Intermediate review**: `superpowers:requesting-code-review` over the branch | controller | 1–5 | |
-| 6 | Request a code: core | developer | 2, 3, 4 | |
-| 7 | Code email senders | subagent | 2, 4, 6 | |
-| 8 | Error format for the API | subagent (Opus) | 2, 4 | |
-| 9 | Request a code: API and sign-in page | subagent | 3, 5, 6, 7, 8 | |
-| 10 | Sign in and authenticate: core | developer | 3, 6 | |
-| 11 | Sign in: API, session cookie, current user | subagent (Opus) | 9, 10 | |
-| 12 | Sign in: code step, main screen, guard | subagent | 11 | |
-| 13 | Sign out, locale, expired records: core | developer | 10 | |
-| 14 | Sign out, sign out everywhere, locale change: API and main screen | subagent | 12, 13 | |
-| 15 | Privacy and Terms pages, record of processing | subagent | 12 | |
-| 16 | Request timing metrics | subagent | 1 | |
-| 17 | Hourly cleanup, log retention and deletion on request | subagent | 3, 13, 16 | |
-| 18 | Backup, restore check and live restore | subagent (Opus, effort high: the live database) | 1 | |
-| 19 | Container image and HTTPS-only proxy | subagent | 14, 15 | |
-| 20 | Load test | subagent | 19 | |
-| 21 | Test integrity check | subagent | 5 | |
-| 22 | GitHub repository and pull request checks | manual | 18–21 | |
-| 23 | Server, deployment workflows, first deployment | manual | 22 | |
-| 24 | Availability check | manual | 23 | |
+| 6 | Interface baseline: tokens, themes, font and shared components | subagent (Opus) | 4, 5 | yes |
+| — | **Intermediate review**: `superpowers:requesting-code-review` over the branch | controller | 1–6 | |
+| 7 | Request a code: core | developer | 2, 3, 4 | |
+| 8 | Code email senders | subagent | 2, 4, 7 | |
+| 9 | Error format for the API | subagent (Opus) | 2, 4 | |
+| 10 | Request a code: API and sign-in page | subagent | 3, 5, 7, 8, 9 | |
+| 11 | Sign in and authenticate: core | developer | 3, 7 | |
+| 12 | Sign in: API, session cookie, current user | subagent (Opus) | 10, 11 | |
+| 13 | Sign in: code step, main screen, guard | subagent | 12 | |
+| 14 | Sign out, locale, expired records: core | developer | 11 | |
+| 15 | Sign out, sign out everywhere, locale change: API and main screen | subagent | 13, 14 | |
+| 16 | Privacy and Terms pages, record of processing | subagent | 13 | |
+| 17 | Request timing metrics | subagent | 1 | |
+| 18 | Hourly cleanup, log retention and deletion on request | subagent | 3, 14, 17 | |
+| 19 | Backup, restore check and live restore | subagent (Opus, effort high: the live database) | 1 | |
+| 20 | Container image and HTTPS-only proxy | subagent | 15, 16 | |
+| 21 | Load test | subagent | 20 | |
+| 22 | Test integrity check | subagent | 5 | |
+| 23 | GitHub repository and pull request checks | manual | 19–22 | |
+| 24 | Server, deployment workflows, first deployment | manual | 23 | |
+| 25 | Availability check | manual | 24 | |
 
-Tasks run in this order. Tasks 16, 18 and 21 depend only on foundation tasks, so a ruling may move them earlier; developer tasks never run at the same time as a subagent task.
+Tasks run in this order. Tasks 17, 19 and 22 depend only on foundation tasks, so a ruling may move them earlier; developer tasks never run at the same time as a subagent task.
 
 ---
 
@@ -259,7 +275,7 @@ Tasks run in this order. Tasks 16, 18 and 21 depend only on foundation tasks, so
 - Create: `backend/HabitsTracker.slnx`, `backend/Directory.Build.props`, `backend/.globalconfig`, `backend/Directory.Packages.props`, `backend/.config/dotnet-tools.json`
 - Create: `backend/src/HabitsTracker.Identity.Core/HabitsTracker.Identity.Core.csproj`, `backend/src/HabitsTracker.Identity.Adapters/HabitsTracker.Identity.Adapters.csproj`
 - Create: `backend/src/HabitsTracker.Host/{HabitsTracker.Host.csproj, Program.cs, appsettings.json, appsettings.Development.json, Properties/launchSettings.json}`, `backend/src/HabitsTracker.Host/Operations/OperationsDbContext.cs`, `backend/src/HabitsTracker.Host/Health/DatabaseHealthCheck.cs`
-- Create: `backend/tests/{HabitsTracker.Identity.Core.Tests, HabitsTracker.Identity.Adapters.Tests, HabitsTracker.Host.Tests}/*.csproj`, `backend/tests/Shared/PostgresFixture.cs`, `backend/tests/HabitsTracker.Host.Tests/HostFactory.cs`, `backend/tests/Shared/PortContracts/` (empty; Tasks 3, 4, 6, 7 add the suites)
+- Create: `backend/tests/{HabitsTracker.Identity.Core.Tests, HabitsTracker.Identity.Adapters.Tests, HabitsTracker.Host.Tests}/*.csproj`, `backend/tests/Shared/PostgresFixture.cs`, `backend/tests/HabitsTracker.Host.Tests/HostFactory.cs`, `backend/tests/Shared/PortContracts/` (empty; Tasks 3, 4, 7, 8 add the suites)
 - Create: `compose.yaml` (service `db` only), `scripts/test-fast.sh`, `.claude/hooks/subagent-start-record.sh`, `.claude/hooks/subagent-stop-tests.sh`, `.claude/rules/backend.md`, `scripts/tests/subagent-stop-hook.test.sh`
 - Modify: `.claude/settings.json` (add `hooks.SubagentStart` and `hooks.SubagentStop`; keep every deny rule), `.gitignore` (`bin/`, `obj/`, `.dev/`, `node_modules/`, `load/.sessions.json`), `CLAUDE.md` ("Commands")
 - Test: `backend/tests/HabitsTracker.Identity.Core.Tests/CoreReferencesTests.cs`, `backend/tests/HabitsTracker.Identity.Adapters.Tests/AdapterSeparationTests.cs`, `backend/tests/HabitsTracker.Host.Tests/HealthTests.cs`
@@ -327,7 +343,7 @@ Expected: PASS; `dotnet build` with zero warnings.
 - Test: `backend/tests/HabitsTracker.Identity.Core.Tests/{EmailTests, TimeZoneTests, LocaleTests, IpAddressPrefixTests, OneTimeCodeValueTests, CodeHashTests, SessionTokenTests, ValueObjectRulesTests, AggregateTests, ValidationExamplesTests}.cs`
 
 **Interfaces:**
-- Produces: every type of "Entity and type model", Identity core, with the signatures given there. `OneTimeCode.Verify`, `Session.IsExpired` and `Session.RecordActivity` are declared here and specified by Task 10's tests; until then they may throw `NotImplementedException`.
+- Produces: every type of "Entity and type model", Identity core, with the signatures given there. `OneTimeCode.Verify`, `Session.IsExpired` and `Session.RecordActivity` are declared here and specified by Task 11's tests; until then they may throw `NotImplementedException`.
 
 - [ ] **Step 1: Write the failing parameterized tests**
 
@@ -433,7 +449,7 @@ Run: `scripts/test-fast.sh` — Expected: PASS; the guard tests of Task 1 still 
 
 **Interfaces:**
 - Consumes: the ports, aggregates and `FromStorage` factories of Task 2.
-- Produces: `IUsers`, `IOneTimeCodes`, `ICodeRequests`, `ISessions`, `IIdentityTransaction` registered by `AddIdentityContext`; the `identity` schema exactly as data-model.md, "Schema `identity`"; the five contract suites, which Task 6 subclasses over the fakes.
+- Produces: `IUsers`, `IOneTimeCodes`, `ICodeRequests`, `ISessions`, `IIdentityTransaction` registered by `AddIdentityContext`; the `identity` schema exactly as data-model.md, "Schema `identity`"; the five contract suites, which Task 7 subclasses over the fakes.
 
 Decisions (data-model.md, "Storage"; research R5, R23): EF Core maps only the record classes; each store turns a record into an aggregate through the core's `FromStorage` factories and an aggregate back into a record, so every rule is checked on load and no core type has a constructor for EF Core. Every store shares the request's scoped `IdentityDbContext` and calls `SaveChangesAsync` per write; `EfIdentityTransaction` wraps them in one database transaction. `LockAsync` runs `pg_advisory_xact_lock(hashtextextended('email:' || @email, 0))`, then the same for `'ip:' || @prefix`, always in that order. `FindExclusiveAsync` is `SELECT … FOR UPDATE`. `AddOrGetAsync` is `INSERT … ON CONFLICT (email) DO NOTHING` followed by a select, so a concurrent first sign-in does not abort the transaction. `ISessions.SaveAsync` is an `UPDATE` by id that inserts nothing. `ip_prefix` maps through `NpgsqlCidr` to `System.Net.IPNetwork`. A database failure other than the concurrent first sign-in propagates.
 
@@ -447,7 +463,7 @@ Decisions (data-model.md, "Storage"; research R5, R23): EF Core maps only the re
   and from `pg_indexes`: unique `users(email)`, `one_time_codes(expires_at)`, `code_requests(email, requested_at)`, `code_requests(ip_prefix, requested_at)`, `code_requests(requested_at)`, `sessions(user_id)`, `sessions(last_activity_at)`, FK `sessions.user_id → users.id`. No column holds a code in clear text.
 - The contract suites, each subclassed in `EfContractTests` over the EF stores:
   - `UsersContract`: `User_round_trips` (a `TimeZone` with `Recognized == false` included); `Add_or_get_returns_the_stored_user_for_the_same_email`.
-  - `OneTimeCodesContract`: `Replace_keeps_one_code_per_email`; `Saving_stores_the_attempts`; (`Saving_a_used_code_deletes_it` is added by Task 10, once `Verify` can mark a code used; `EfOneTimeCodes.SaveAsync` deletes a code whose `IsUsed` is true from this task on); `Delete_expired_or_exhausted` — called with `(now, 5)`: expires at `now` → deleted, at `now + 1 s` → kept, attempts 5 → deleted, attempts 4 → kept; called with `(now, 3)`: attempts 3 → deleted.
+  - `OneTimeCodesContract`: `Replace_keeps_one_code_per_email`; `Saving_stores_the_attempts`; (`Saving_a_used_code_deletes_it` is added by Task 11, once `Verify` can mark a code used; `EfOneTimeCodes.SaveAsync` deletes a code whose `IsUsed` is true from this task on); `Delete_expired_or_exhausted` — called with `(now, 5)`: expires at `now` → deleted, at `now + 1 s` → kept, attempts 5 → deleted, attempts 4 → kept; called with `(now, 3)`: attempts 3 → deleted.
   - `CodeRequestsContract`: `Count_uses_a_sliding_window` — requests for the email at `T − 24 h`, `T − 23 h 59 min 59 s`, `T − 1 h`, window start `T − 24 h` → `ForEmail == 2`, `OldestForEmail == T − 23 h 59 min 59 s`; `Requests_of_one_64_prefix_count_together`; `Delete_requested_at_or_before` boundary.
   - `SessionsContract`: round trip; `Saving_a_deleted_session_does_not_restore_it`; `Delete_all_of_user` leaves other users' sessions; `Delete_inactive_at_or_before` boundary.
   - `TransactionContract`: `Work_that_returns_is_committed`; `Work_that_throws_is_rolled_back` (a user, a code and a code request written before the exception are all absent afterwards).
@@ -502,7 +518,7 @@ Decisions: Transloco with `@jsverse/transloco-messageformat`; the loader fetches
 - `no-html-from-strings.spec.ts`: `no template renders HTML from a string` (research R19, T2) — no file under `frontend/src/` with the extension `.html` or `.ts` contains `innerHTML` or `bypassSecurityTrust`.
 - `TranslationFilesTests`: `Lists_the_files` → `en English`, `pl Polski`, `ru Русский` ordered by code; `A_new_file_is_a_new_language` — a temporary folder with the three files and a `de.json` naming `Deutsch` → `IsAvailable("de")`; `A_file_without_a_language_name_fails_at_load` with the file name in the message; `A_file_whose_name_is_not_a_locale_code_fails_at_load` (`README.json`, `pl-PL.json`). `TranslationFilesLocalesContract` subclasses `LocalesContract` over `TranslationFiles`: `en`, `pl`, `ru` are available; `de`, `PL`, `""` are not.
 - `LocalesEndpointTests.Locales_lists_the_translation_files` → `200`, body exactly `[{"code":"en","name":"English"},{"code":"pl","name":"Polski"},{"code":"ru","name":"Русский"}]`.
-- `SpaHostingTests`: `GET /privacy` → `200` `text/html` (the stub); `GET /api/unknown` → `404`, not HTML (its body is Task 8's); `GET /health` still the health answer.
+- `SpaHostingTests`: `GET /privacy` → `200` `text/html` (the stub); `GET /api/unknown` → `404`, not HTML (its body is Task 9's); `GET /health` still the health answer.
 - `CachingHeadersTests.Each_kind_of_response_has_its_cache_rule` — `GET /` and `GET /privacy` (fallback): `no-cache`; a hashed file of the stub build (`main-ABC123.js`): `public, max-age=31536000, immutable`; `GET /i18n/en.json`: `no-cache`; `GET /api/locales` and `GET /health`: `no-store`.
 - `SecurityHeadersTests.Every_response_carries_the_security_headers` — on `GET /` and `GET /api/locales`: the exact `Content-Security-Policy` of Global Constraints, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`.
 
@@ -521,14 +537,14 @@ Decisions: Transloco with `@jsverse/transloco-messageformat`; the loader fetches
 **Executor:** subagent (Opus) · **Depends on:** 4 · **Foundation:** yes
 
 **Files:**
-- Create: `scripts/dev.sh`, `scripts/test-full.sh`, `scripts/tests/dev-lock.test.sh`, `frontend/playwright.config.ts`, `frontend/e2e/support/{dev-log.ts, layout.ts, network.ts, emails.ts}`, `frontend/e2e/language.spec.ts`
-- Modify: `frontend/package.json` (`e2e` script, Playwright 1.64 as a dev dependency), `CLAUDE.md` (full command; the development log is `.dev/app.log`; stop `scripts/dev.sh` before `npm --prefix frontend run e2e`)
+- Create: `scripts/dev.sh`, `scripts/test-full.sh`, `scripts/tests/dev-lock.test.sh`, `frontend/playwright.config.ts` (the four projects of "Shared conventions"), `frontend/e2e/support/{dev-log.ts, layout.ts, network.ts, emails.ts}`, `frontend/e2e/language.spec.ts`
+- Modify: `frontend/package.json` (`e2e` script, Playwright 1.64 as a dev dependency), `CLAUDE.md` (full command; the development log is `.dev/app.log`; stop `scripts/dev.sh` before `npm --prefix frontend run e2e`; browsers once with `npx --prefix frontend playwright install --with-deps chromium webkit`)
 
 **Interfaces:**
 - Consumes: `AppShell`, `LanguageService` (Task 4); `/health` (Task 1).
 - Produces: `scripts/dev.sh`; `readCode(email: string): Promise<string>` (polls `.dev/app.log` up to 10 s for the newest `code-email to=<email> … code=<6 digits>` line); `expectNoHorizontalScroll(page)` (`document.documentElement.scrollWidth <= window.innerWidth`); `collectForeignRequests(page): string[]` (every request whose origin is not the page's); `uniqueEmail()`; `scripts/test-full.sh`.
 
-Decisions (research R17): `dev.sh` takes `flock -n .dev/dev.lock`; when held it prints `scripts/dev.sh is already running` and exits 1 having started nothing. Otherwise it starts `db` from `compose.yaml`, runs the host with `dotnet watch` in Development on port 5080, and `ng serve --proxy-config proxy.conf.json` on 4200, appending both outputs to `.dev/app.log`; it passes its environment through to the host, which is how the end-to-end run raises the per-IP limit.
+Decisions (research R12, R17): if WebKit refuses the `Secure` session cookie over `http://localhost`, the `webkit-360` project runs against Caddy with `tls internal` in front of the development host, and the implementer reports it to the controller. `dev.sh` takes `flock -n .dev/dev.lock`; when held it prints `scripts/dev.sh is already running` and exits 1 having started nothing. Otherwise it starts `db` from `compose.yaml`, runs the host with `dotnet watch` in Development on port 5080, and `ng serve --proxy-config proxy.conf.json` on 4200, appending both outputs to `.dev/app.log`; it passes its environment through to the host, which is how the end-to-end run raises the per-IP limit.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -541,7 +557,8 @@ test('page follows the browser\'s preferred language')        // context locale 
 test('a browser preferring no available language gets English') // 'de-DE' → lang "en"
 test('switching the language changes the page without a reload') // set window.__marker; switch to ru → title from ru.json; marker still set
 test('the chosen language is kept for a later visit')          // switch to ru; new page in the same context → ru
-test('shell actions are reachable at 360 px')                  // /sign-in, /privacy, /terms: switcher and both links toBeInViewport; expectNoHorizontalScroll
+test('shell actions are reachable at every width @width')         // /sign-in, /privacy, /terms: switcher and both links toBeInViewport; expectNoHorizontalScroll
+test('the language switch works in WebKit @main-path')              // switch to ru → title from ru.json
 test('pages load nothing from other servers')                  // the same routes: collectForeignRequests is empty
 ```
 
@@ -549,17 +566,90 @@ test('pages load nothing from other servers')                  // the same route
 
 - [ ] **Step 3: Implement** `dev.sh`, the Playwright configuration of "Shared conventions", the helpers and `test-full.sh`.
 
+  Check: `npx --prefix frontend playwright test --list` lists `language.spec.ts` under all four projects, with only the `@width` test under `phone-320` and `desktop-1280` and only the `@main-path` test under `webkit-360`.
+
 - [ ] **Step 4: Run to verify they pass** — `scripts/test-full.sh` — PASS.
 
 - [ ] **Step 5: Commit** — `Add development loop and end-to-end test harness`
 
 ---
 
-**Intermediate review.** After Task 5 the controller runs `superpowers:requesting-code-review` over the whole branch before Task 6 starts (process document, "Task plan format").
+### Task 6: [US-1.9][FR-027][FR-041][FR-042] Interface baseline: tokens, themes, font and shared components
+
+**Executor:** subagent (Opus) · **Depends on:** 4, 5 · **Foundation:** yes
+
+**Files:**
+- Create: `frontend/scripts/fetch-fonts.sh`, `frontend/scripts/fonts.sha256`, `frontend/src/styles/tokens.css`, `frontend/public/icon.svg`, `frontend/src/app/theme/{theme.service.ts, theme-switcher.ts}`, `frontend/src/app/message/message.ts`, `frontend/src/app/shell/{translated-title.strategy.ts, focus-heading.ts}`, `frontend/e2e/support/{keyboard.ts, themes.ts}`, `scripts/tests/fetch-fonts.test.sh`
+- Modify: `frontend/src/styles.css` (the two `@font-face` rules with relative `url()` paths, the page frame, controls, focus, `color-scheme` per theme, autofill), `frontend/src/index.html` (`<html data-theme="dark">`, `<meta name="viewport" content="width=device-width, initial-scale=1">`, `<meta name="theme-color" content="#0a0f0b">`, `<link rel="icon" href="/icon.svg" type="image/svg+xml">`, the `<noscript>` text in English, Polish and Russian), `frontend/src/app/app.ts` (`AppShell`: the theme switcher next to the language switcher, `<main>`), `app.config.ts` (the current language's translation file loads before the first render; `TranslatedTitleStrategy`; the heading focus), `app.routes.ts` (each route's `title` is its translation key), `frontend/package.json` (`prebuild`, `prestart` and `pretest` run `scripts/fetch-fonts.sh`), `.gitignore` (`frontend/src/assets/fonts/`, `frontend/public/fonts/`), `frontend/public/i18n/{en,pl,ru}.json` (`app.name`, `theme.toLight`, `theme.toDark`, `error.network`), `frontend/e2e/support/layout.ts`, `.claude/rules/frontend.md`, `CLAUDE.md`
+- Test: `frontend/src/styles/{tokens-only.spec.ts, contrast.spec.ts}`, `frontend/src/app/theme/theme.service.spec.ts`, `frontend/src/app/message/message.spec.ts`, `frontend/src/app/shell/translated-title.strategy.spec.ts`, `frontend/e2e/{theme.spec.ts, interface.spec.ts}`, `scripts/tests/fetch-fonts.test.sh`
+
+**Interfaces:**
+- Consumes: `AppShell`, `LanguageService`, the Transloco loader (Task 4); the Playwright projects and helpers (Task 5).
+- Produces: the tokens of `contracts/ui.md`, "Themes"; `ThemeService` (`current: Signal<'dark' | 'light'>`, `use(theme: 'dark' | 'light'): void`); `ThemeSwitcher`; `MessageComponent` (`app-message`, inputs `kind: 'error' | 'info'` and `id: string`), which every later page uses for every message; `TranslatedTitleStrategy` (a route's `title` is a translation key; `document.title` = `<page title> — <app.name>`, again on a language switch); the heading focus after a navigation, to the page's `h1`, which every page renders with `tabindex="-1"`; e2e helpers `expectVisibleFocus(page)` (the focused element's computed `outline-width` is `3px`), `pressTabUntil(page, locator)` (presses `Tab` at most 50 times until the locator is focused), `forEachTheme(page, fn)` (runs `fn` in the dark theme, then switches with the theme switcher and runs it in the light one); `fetch-fonts.sh`.
+
+Decisions: as `contracts/ui.md` and research R24. `fetch-fonts.sh` reads the expected sums from `frontend/scripts/fonts.sha256` (`sha256sum` format: the release zip, `LICENSE-FONT.txt`, `NordwandMono-Regular.woff2`, `NordwandMono-Bold.woff2`, values of research R24), or from the file named by `FONTS_SHA256_FILE`, which only its test sets; when the two fonts and the license are already in place with their sums, it downloads nothing; otherwise `curl --fail --location` fetches the zip and the license into a temporary directory, checks both sums, extracts only the two fonts, checks their sums and moves the files into place; any mismatch exits 1 with the file's name and leaves nothing in place. `ThemeService` sets `data-theme` and `<meta name="theme-color">` (the theme's `--bg`) together. `.claude/rules/frontend.md` gains: component CSS uses only `var(--…)` tokens; every message through `app-message`; no field takes the focus when a page opens; a button is disabled while its request runs; each page's `h1` has `tabindex="-1"`. `CLAUDE.md`: the first frontend build needs access to `github.com`.
+
+- [ ] **Step 1: Write the failing tests**
+
+`scripts/tests/fetch-fonts.test.sh` (a stub `curl` on `PATH` serves files from a fixture folder; `FONTS_SHA256_FILE` points at the fixture's sums): matching files → exit 0, the two fonts in `src/assets/fonts/` and the license in `public/fonts/`; a second run makes no `curl` call; a zip whose sum differs → exit 1, the message names `NordwandMono-WOFF2.zip`, and neither folder holds a font; `fonts.sha256` holds the four sums of research R24.
+
+`tokens-only.spec.ts`: `component styles use only tokens` — no `.css` file under `frontend/src/app/` contains a `#` colour, `rgb(`, `hsl(`, a CSS named colour, or a `font-size` in `px`; `the check catches a literal` — the same detector flags `color: red`, `background: #fff` and `font-size: 14px` in a sample string.
+
+`contrast.spec.ts`: `the formula matches known values` — `#000000` on `#ffffff` is 21, `#777777` on `#ffffff` is 4.48 to two decimals; `every pair meets its threshold in both themes` — reads `tokens.css`, both `data-theme` blocks, every pair of `contracts/ui.md`, "Contrast pairs", against its threshold.
+
+`theme.service.spec.ts`, table:
+
+| `localStorage.theme` | Applied |
+|---|---|
+| — | `dark` |
+| `light` | `light` |
+| `dark` | `dark` |
+| `blue` | `dark` |
+| `getItem` throws | `dark` |
+
+plus `use sets the attribute, the theme colour and the choice` (`data-theme == 'light'`, `theme-color` is `#f3f7f2`, `localStorage.theme == 'light'`) and `a choice that cannot be stored still applies` (`setItem` throws → `data-theme == 'light'`).
+
+`message.spec.ts`: `an error is announced` (`role="alert"`); `an info is a status` (`role="status"`); `the id is set for aria-describedby`.
+
+`translated-title.strategy.spec.ts`: `the title is the page title and the app name` (`/sign-in` in `en` → `signIn.title` + ` — ` + `app.name`); `the title follows a language switch`.
+
+`frontend/e2e/theme.spec.ts`:
+
+```ts
+test('a browser that never chose gets the dark theme @main-path')      // colorScheme 'light' → data-theme 'dark'; body background rgb(10, 15, 11)
+test('switching the theme changes the page without a reload @main-path') // window.__marker set; switch → data-theme 'light'; marker still set; focus on the switcher
+test('the chosen theme is kept for a later visit')                      // switch to light; new page in the same context → light
+test('a browser that keeps nothing still switches the page')            // addInitScript: Storage.prototype.setItem throws → switch works; reload → dark
+```
+
+`frontend/e2e/interface.spec.ts`:
+
+```ts
+test('a phone gets the page at its own width')                    // phone projects: window.innerWidth equals the viewport width (a missing viewport tag gives 980)
+test('the font is applied')                                       // document.fonts.check('16px "Nordwand Mono"') is true; /fonts/LICENSE-FONT.txt answers 200
+test('the keyboard reaches every shell control with a visible focus') // /sign-in, /privacy, /terms: pressTabUntil the language switcher, the theme switcher, both links; expectVisibleFocus on each
+test('the focus moves to the heading after a navigation')         // activate the Privacy link by keyboard → document.activeElement is the h1
+test('every page has its title in the page language')            // /sign-in, /privacy, /terms, an unknown path; in en and in ru
+test('shell controls are at least 44 px high')                    // the switchers' bounding boxes
+test('the shell at every width in both themes @width')            // forEachTheme: expectNoHorizontalScroll; switchers and links toBeInViewport
+test('the page explains itself without JavaScript')               // the raw index.html has <noscript> with the three texts and the icon link; no request for /favicon.ico
+```
+
+- [ ] **Step 2: Run to verify they fail** — `bash scripts/tests/fetch-fonts.test.sh`; `scripts/test-fast.sh`; `npm --prefix frontend run e2e -- theme interface` — FAIL.
+
+- [ ] **Step 3: Implement** the font script and its sums, the tokens and global styles, `index.html`, the theme service and switcher, the message component, the title strategy and the heading focus, the helpers.
+
+- [ ] **Step 4: Run to verify they pass** — `scripts/test-full.sh` and `npm --prefix frontend run lint` — PASS, zero lint warnings.
+
+- [ ] **Step 5: Commit** — `Add interface baseline with two themes, the font and shared components`
 
 ---
 
-### Task 6: [US-1.1][FR-001][FR-002][FR-003][FR-004][FR-005] Request a code: core
+**Intermediate review.** After Task 6 the controller runs `superpowers:requesting-code-review` over the whole branch before Task 7 starts (process document, "Task plan format").
+
+---
+
+### Task 7: [US-1.1][FR-001][FR-002][FR-003][FR-004][FR-005] Request a code: core
 
 **Executor:** developer · **Depends on:** 2, 3, 4
 
@@ -570,7 +660,7 @@ test('pages load nothing from other servers')                  // the same route
 
 **Interfaces:**
 - Consumes: Task 2 types.
-- Produces: `CodeRequestPolicy.Decide`, `RequestCode.ExecuteAsync`, and the fakes, which Tasks 10 and 13 reuse; `CodeEmailSenderContract`, which Task 7 subclasses over the adapters. `InMemoryCodeRequests.CountAsync` counts `RequestedAt > windowStart`; `RecordingCodeEmailSender` returns a configured `CodeEmailOutcome` and records each `(Email, OneTimeCodeValue, Locale)`; the fakes record the order of calls. `InMemoryTransaction` rolls back: each in-memory store registers an undo action for every write with the transaction in progress, and the transaction runs them when the work throws. `CodeEmailSenderContract`: `A_deliverable_message_is_sent` (the outcome is `Sent` or, for a fake set to it, the configured outcome) and `A_refusal_is_an_outcome_not_an_exception`.
+- Produces: `CodeRequestPolicy.Decide`, `RequestCode.ExecuteAsync`, and the fakes, which Tasks 11 and 14 reuse; `CodeEmailSenderContract`, which Task 8 subclasses over the adapters. `InMemoryCodeRequests.CountAsync` counts `RequestedAt > windowStart`; `RecordingCodeEmailSender` returns a configured `CodeEmailOutcome` and records each `(Email, OneTimeCodeValue, Locale)`; the fakes record the order of calls. `InMemoryTransaction` rolls back: each in-memory store registers an undo action for every write with the transaction in progress, and the transaction runs them when the work throws. `CodeEmailSenderContract`: `A_deliverable_message_is_sent` (the outcome is `Sent` or, for a fake set to it, the configured outcome) and `A_refusal_is_an_outcome_not_an_exception`.
 
 The sequence (research R5): inside `IIdentityTransaction.RunAsync`: `LockAsync` → `CountAsync(windowStart: now − Window)` → `Decide` → on refusal return; else generate the code → `SendAsync` → on `Refused` return `RefusedByEmailService`; on `Sent` or `Unclear` `ReplaceAsync(OneTimeCode.Issue(...))` and `AddAsync(CodeRequest)` → `Sent(remaining, limits.PerEmail)`.
 
@@ -613,9 +703,9 @@ The sequence (research R5): inside `IIdentityTransaction.RunAsync`: `LockAsync` 
 
 ---
 
-### Task 7: [US-1.1][US-1.8][FR-006][FR-007][FR-010] Code email senders
+### Task 8: [US-1.1][US-1.8][FR-006][FR-007][FR-010] Code email senders
 
-**Executor:** subagent · **Depends on:** 2, 4, 6
+**Executor:** subagent · **Depends on:** 2, 4, 7
 
 **Files:**
 - Create in `backend/src/HabitsTracker.Identity.Adapters/Email/`: `CodeEmailText.cs`, `DevelopmentLogCodeEmailSender.cs`, `ResendCodeEmailSender.cs`
@@ -624,7 +714,7 @@ The sequence (research R5): inside `IIdentityTransaction.RunAsync`: `LockAsync` 
 - Test: `backend/tests/HabitsTracker.Identity.Adapters.Tests/Email/{CodeEmailTextTests, DevelopmentLogCodeEmailSenderTests, ResendCodeEmailSenderTests, SenderContractTests}.cs`, `backend/tests/HabitsTracker.Host.Tests/CodeEmailSenderRegistrationTests.cs`
 
 **Interfaces:**
-- Consumes: `ICodeEmailSender`, `CodeEmailOutcome`, `TranslationFiles.Text`, `CodeEmailSenderContract` (Task 6).
+- Consumes: `ICodeEmailSender`, `CodeEmailOutcome`, `TranslationFiles.Text`, `CodeEmailSenderContract` (Task 7).
 - Produces: `CodeEmailText.Compose(Locale, OneTimeCodeValue) → (string Subject, string Body)`; the two senders; `CapturingLoggerProvider` (records formatted messages with level and category).
 
 Decisions: the Resend adapter is the anti-corruption layer of data-model.md: no Resend name or status leaves it. Resend over a typed `HttpClient` with `Timeout = 10 s`, `POST https://api.resend.com/emails`, `Authorization: Bearer <Resend:ApiKey>`, body `{ "from": "no-reply@mail.cardlane.eu", "to": ["<email>"], "subject": …, "text": … }` — no `html`, no tags, no tracking options. The email keys use plain `{code}` substitution, no MessageFormat (research R11). A connection that fails before the request is sent (`HttpRequestError.ConnectionError` or `NameResolutionError`) is `Refused(Unavailable, null)`: nothing left the server; any other transport failure is `Unclear`.
@@ -667,7 +757,7 @@ Plus `Sends_text_from_the_mail_subdomain` (method, URL, bearer key, `from`, `to`
 
 ---
 
-### Task 8: [FR-005] Error format for the API
+### Task 9: [FR-005] Error format for the API
 
 **Executor:** subagent (Opus: the error format every endpoint relies on) · **Depends on:** 2, 4
 
@@ -679,7 +769,7 @@ Plus `Sends_text_from_the_mail_subdomain` (method, URL, bearer key, `from`, `to`
 
 **Interfaces:**
 - Consumes: `DomainException`, `DomainError` (Task 2); the host and `GET /api/locales` (Task 4).
-- Produces: the error format of `contracts/http-api.md` for every endpoint under `/api`: `Problems.Create(int status, string code, DateTimeOffset? retryAt)`, `DomainExceptionHandler` with the mapping of data-model.md, "Error model", `traceId` on every problem, and the codes `invalid-request`, `not-found`, `internal-error`; the test-only endpoints, which Task 11 uses for the log test.
+- Produces: the error format of `contracts/http-api.md` for every endpoint under `/api`: `Problems.Create(int status, string code, DateTimeOffset? retryAt)`, `DomainExceptionHandler` with the mapping of data-model.md, "Error model", `traceId` on every problem, and the codes `invalid-request`, `not-found`, `internal-error`; the test-only endpoints, which Task 12 uses for the log test.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -703,22 +793,22 @@ Plus `Sends_text_from_the_mail_subdomain` (method, URL, bearer key, `from`, `to`
 
 ---
 
-### Task 9: [US-1.1][US-1.8][FR-001][FR-003][FR-004][FR-005][FR-007] Request a code: API and sign-in page
+### Task 10: [US-1.1][US-1.3][US-1.8][FR-001][FR-003][FR-004][FR-005][FR-007][FR-014][FR-041] Request a code: API, sign-in email step and code step header
 
-**Executor:** subagent · **Depends on:** 3, 5, 6, 7, 8
+**Executor:** subagent · **Depends on:** 3, 5, 6, 7, 8, 9
 
 **Files:**
 - Modify: `IdentityEndpoints.cs` (`POST /api/code-requests`), `IdentityContextRegistration.cs` (`IdentityContextOptions.Create` from `Identity:CodeHashKey` and `Identity:CodeRequestLimits`, defaults `CodeRequestLimits.Default`; outside Development a missing key stops the start; in Development a missing key is replaced by 32 random bytes at each start, research R5), `backend/src/HabitsTracker.Host/Program.cs` (forwarded headers trusted only from `ForwardedHeaders:KnownNetwork`, set through `ForwardedHeadersOptions.KnownIPNetworks` with `System.Net.IPNetwork`, since `KnownNetworks` is obsolete in ASP.NET Core 10 (`ASPDEPR005`), the default loopback entries cleared)
 - Create: `backend/tests/HabitsTracker.Host.Tests/CapturingCodeEmailSender.cs`
-- Create: `frontend/src/app/sign-in/{sign-in.ts, sign-in.html, sign-in.css}` (email step: email field checked before sending, "Remember me" unchecked, request button, remaining count, refusal messages), `frontend/src/app/api/problem.ts`, `frontend/src/app/validation/patterns.ts`
-- Modify: `frontend/public/i18n/{en,pl,ru}.json` (`signIn.email`, `signIn.emailInvalid`, `signIn.rememberMe`, `signIn.requestCode`, `error.<code>` for every `code` of the endpoint and of the shared table of `contracts/http-api.md`, with `{retryAt}` where it applies and `{traceId}` for `internal-error`)
-- Test: `backend/tests/HabitsTracker.Host.Tests/{CodeRequestEndpointTests, ValidationPatternParityTests}.cs`, `frontend/src/app/sign-in/sign-in.spec.ts`, `frontend/src/app/validation/patterns.spec.ts`, `frontend/e2e/request-code.spec.ts`
+- Create: `frontend/src/app/sign-in/{sign-in.ts, sign-in.html, sign-in.css}` (email step at `/sign-in`, the states of `contracts/ui.md`, "Sign-in, email step", except "Session ended", which is Task 15's), `frontend/src/app/sign-in/{code-step.ts, code-step.html, code-step.css}` (`/sign-in/code`: where the code went, the remaining count, "Send a new code", "Use another email"; Task 13 adds the code field), `frontend/src/app/sign-in/sign-in-flow.service.ts` (`SignInFlow`), `frontend/src/app/time/format-moment.ts`, `frontend/src/app/api/problem.ts`, `frontend/src/app/validation/patterns.ts`
+- Modify: `app.routes.ts` (`/sign-in/code`, title `signIn.title`; without a `SignInFlow` email it redirects to `/sign-in`), `frontend/public/i18n/{en,pl,ru}.json` (`signIn.email`, `signIn.emailInvalid`, `signIn.rememberMe`, `signIn.rememberMeHint`, `signIn.requestCode`, `signIn.requesting`, `signIn.codeSent`, `signIn.resendCode`, `signIn.otherEmail`, `signIn.retryAt` with `{time}`, `error.<code>` for every `code` of the endpoint and of the shared table of `contracts/http-api.md`, with `{traceId}` for `internal-error`; English texts as `contracts/ui.md`)
+- Test: `backend/tests/HabitsTracker.Host.Tests/{CodeRequestEndpointTests, ValidationPatternParityTests}.cs`, `frontend/src/app/sign-in/{sign-in.spec.ts, code-step.spec.ts}`, `frontend/src/app/time/format-moment.spec.ts`, `frontend/src/app/validation/patterns.spec.ts`, `frontend/e2e/request-code.spec.ts`
 
 **Interfaces:**
-- Consumes: `RequestCode` (Task 6), stores (Task 3), senders (Task 7), the error format (Task 8), `LanguageService` (Task 4), `readCode` (Task 5), `testdata/validation-examples.json` (Task 2).
-- Produces: `POST /api/code-requests` exactly as `contracts/http-api.md`; `CapturingCodeEmailSender` (replaces the sender in `HostFactory`; `LastCode(email)`, `Next = <CodeEmailOutcome>`), which Tasks 11–14 use; `patterns.ts`; the sign-in page's email step, which Task 12 extends with the code step.
+- Consumes: `RequestCode` (Task 7), stores (Task 3), senders (Task 8), the error format (Task 9), `LanguageService` (Task 4), `readCode` (Task 5), `app-message`, `expectVisibleFocus`, `pressTabUntil`, `forEachTheme` (Task 6), `testdata/validation-examples.json` (Task 2).
+- Produces: `POST /api/code-requests` exactly as `contracts/http-api.md`; `CapturingCodeEmailSender` (replaces the sender in `HostFactory`; `LastCode(email)`, `Next = <CodeEmailOutcome>`), which Tasks 12–15 use; `patterns.ts`; `SignInFlow`; `formatMoment`; the email step and the code step's header, which Task 13 extends with the code field.
 
-The page sends `locale` = `LanguageService.current()` and the email with surrounding whitespace removed; it refuses to send an email that fails `EMAIL_MAX_LENGTH` or `EMAIL_PATTERN` and shows `signIn.emailInvalid`. `retryAt` is shown in the browser's local time in the page's language; `traceId` only for `internal-error`.
+The page sends `locale` = `LanguageService.current()` and the email with surrounding whitespace removed; it refuses to send an email that fails `EMAIL_MAX_LENGTH` or `EMAIL_PATTERN` and shows `signIn.emailInvalid`. `retryAt` goes through `formatMoment` with the browser's time zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`, UTC when it reports none); `traceId` only for `internal-error`; a request with no response shows `error.network`. `formatMoment`: the moment rounded up to the next minute (a moment already on the minute stays); the time with `{ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }`; when the rounded moment's date in that time zone is not `now`'s, the date with `{ day: 'numeric', month: 'long' }`, a comma and the time. After a `202` the email step stores the email, the checkbox and the count in `SignInFlow` and navigates to `/sign-in/code`; nothing of them goes into the URL. "Send a new code" sends the same request again and, after a `202`, shows the new count; a refusal shows on the code step as on the email step. "Use another email" and the browser's Back return to `/sign-in` with the email and the checkbox from `SignInFlow`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -732,7 +822,7 @@ The page sends `locale` = `LanguageService.current()` and the email with surroun
 - `Email_service_refusals` — `Next = Refused(DailyLimit, t)` → `503`, `email-service-limit`, `retryAt` t; `Refused(Limit, null)` → `503`, `email-service-limit`, no `retryAt`; `Refused(Unavailable, null)` → `503`, `email-service-unavailable`.
 - `Invalid_input` — email `ann` and email `" ann@example.com"` → `400` `invalid-email`; locale `de` → `400` `invalid-locale`; `Content-Type: application/problem+json`.
 - `Forwarded_for_is_trusted_only_from_the_proxy_network` — `ForwardedHeaders:KnownNetwork = 172.30.0.0/24`: ten requests from remote `198.51.100.1`, each with a different `X-Forwarded-For` → the eleventh refused (`ip-limit`); from remote `172.30.0.5` with `X-Forwarded-For: 203.0.113.9`, ten accepted and the eleventh refused, while `203.0.113.10` through the same proxy is accepted.
-- `Malformed_and_non_json_requests_store_nothing` — `{}` and the valid body as `text/plain` → `400` and `415` (Task 8's format); no code is sent and no code request is stored.
+- `Malformed_and_non_json_requests_store_nothing` — `{}` and the valid body as `text/plain` → `400` and `415` (Task 9's format); no code is sent and no code request is stored.
 - `Code_request_answer_does_not_reveal_whether_a_user_exists` (Review Focus 3) — a seeded user's email and a new email: same status, same body, same header names (`Date` aside).
 - `Development_without_a_key_generates_one` — Development with no `Identity:CodeHashKey` starts and sends a code; `Production_without_a_key_does_not_start` — the message names `Identity:CodeHashKey`; `appsettings*.json` hold no `CodeHashKey`.
 
@@ -740,9 +830,20 @@ The page sends `locale` = `LanguageService.current()` and the email with surroun
 
 `patterns.spec.ts`: `every shared example holds` — reads `testdata/validation-examples.json` and checks each email and code example against `EMAIL_MAX_LENGTH`, `EMAIL_PATTERN` and `ONE_TIME_CODE_PATTERN`.
 
-`sign-in.spec.ts`: `"Remember me" is unchecked by default`; `sends the email trimmed`; `does not send an invalid email and says why` (`ann`, 255 characters); `shows the remaining count after a send` (`202 {remaining: 4, limit: 5}` → the `signIn.remaining` text); `shows each refusal` — one case per `code`, `retryAt` rendered where present, `traceId` shown for `internal-error` only.
+`sign-in.spec.ts`: `"Remember me" is unchecked by default and explained` (the checkbox's `aria-describedby` names the element with `signIn.rememberMeHint`); `sends the email trimmed`; `does not send an invalid email and says why` (`ann`, 255 characters: `signIn.emailInvalid` in an `app-message` of kind `error` linked by `aria-describedby`, the field has `aria-invalid="true"` and the focus); `the button is disabled while sending and a second press sends nothing` (one request recorded, the button reads `signIn.requesting`); `no field has the focus when the page opens`; `shows each refusal` — one case per `code`, `signIn.retryAt` with the formatted time where present, `traceId` shown for `internal-error` only; `no response shows error.network`; `a sent code opens the code step with nothing in the URL` (URL exactly `/sign-in/code`).
 
-`request-code.spec.ts` (360 px): `requesting a code shows the remaining count` (`4 of 5 left`); `the code email is in the page language` (switch to `ru`, request → the log line has `locale=ru`; the remaining count is in Russian); `the email step has no horizontal scroll`.
+`code-step.spec.ts`: `shows where the code went and the remaining count`; `send a new code requests again for the same email and shows the new count`; `a refused new code shows the refusal on this step`; `use another email returns to /sign-in with the email and the checkbox filled`; `without a requested code /sign-in/code opens /sign-in`.
+
+`format-moment.spec.ts` (`now` `2026-11-02T10:00:00Z`, time zone `Europe/Warsaw`):
+
+| `moment` | `en` | `pl` | `ru` |
+|---|---|---|---|
+| `2026-11-02T13:04:30Z` | `14:05` | `14:05` | `14:05` |
+| `2026-11-02T13:04:00Z` | `14:04` | `14:04` | `14:04` |
+| `2026-11-03T10:00:00Z` | `November 3, 11:00` | `3 listopada, 11:00` | `3 ноября, 11:00` |
+| `2026-11-02T22:59:30Z` | `November 3, 00:00` | `3 listopada, 00:00` | `3 ноября, 00:00` |
+
+`request-code.spec.ts`: `requesting a code opens the code step with the remaining count @main-path` (`4 of 5 left`); `the email never appears in the URL` (the URL of every navigation of the flow contains neither the email nor `@`); `Back from the code step returns to the email step with the email filled in`; `reloading the code step opens the email step`; `the code email is in the page language` (switch to `ru`, request → the log line has `locale=ru`; the remaining count is in Russian); `the email step by keyboard alone` (`pressTabUntil` the field, type, `Space` on "Remember me", `Enter` on the button; `expectVisibleFocus` on each; an invalid email gives a message with `role="alert"`); `the email step and the code step at every width in both themes @width` (`forEachTheme`: `expectNoHorizontalScroll`, every control in viewport).
 
 - [ ] **Step 2: Run to verify they fail** — `scripts/test-fast.sh`; `npm --prefix frontend run e2e -- request-code` — FAIL.
 
@@ -754,9 +855,9 @@ The page sends `locale` = `LanguageService.current()` and the email with surroun
 
 ---
 
-### Task 10: [US-1.2][US-1.3][FR-002][FR-008][FR-009][FR-013] Sign in and authenticate: core
+### Task 11: [US-1.2][US-1.3][FR-002][FR-008][FR-009][FR-013] Sign in and authenticate: core
 
-**Executor:** developer · **Depends on:** 3, 6
+**Executor:** developer · **Depends on:** 3, 7
 
 **Files:**
 - Modify: `OneTimeCode.cs` (`Verify`), `Session.cs` (`IsExpired`, `RecordActivity`)
@@ -765,7 +866,7 @@ The page sends `locale` = `LanguageService.current()` and the email with surroun
 - Test: `backend/tests/HabitsTracker.Identity.Core.Tests/{OneTimeCodeVerifyTests, SignInTests, SessionExpiryTests, AuthenticateSessionTests}.cs`
 
 **Interfaces:**
-- Consumes: Task 2 types, Task 6 fakes.
+- Consumes: Task 2 types, Task 7 fakes.
 - Produces: `SignIn`, `AuthenticateSession`, `GetCurrentUser` with the signatures of "Entity and type model".
 
 `SignIn` inside one `RunAsync`: `FindExclusiveAsync` → `Verify` → `SaveAsync` the code (a used code is deleted, a wrong entry's attempt is stored; the transaction commits either way) → on `SignIn`: find the user or `AddOrGetAsync(User.SignUp(email, TimeZone.FromBrowser(browserTimeZone), locale, now))`, `Session.Open`, `AddAsync`, then, if `heldSession` is given and its session exists, `DeleteAsync` it. The three aggregates change in one transaction, the exception data-model.md records.
@@ -816,9 +917,9 @@ Plus `A_used_code_refuses_a_second_entry` — after a `SignIn`, `IsUsed` is true
 
 ---
 
-### Task 11: [US-1.2][US-1.3][FR-008][FR-011][FR-012][FR-013][FR-014][FR-017] Sign in: API, session cookie, current user
+### Task 12: [US-1.2][US-1.3][FR-008][FR-011][FR-012][FR-013][FR-014][FR-017] Sign in: API, session cookie, current user
 
-**Executor:** subagent (Opus: authentication design) · **Depends on:** 9, 10
+**Executor:** subagent (Opus: authentication design) · **Depends on:** 10, 11
 
 **Files:**
 - Create: `backend/src/HabitsTracker.Identity.Adapters/Http/{SessionAuthenticationHandler, SessionCookie}.cs`
@@ -828,8 +929,8 @@ Plus `A_used_code_refuses_a_second_entry` — after a `SignIn`, `IsUsed` is true
 - Test: `backend/tests/HabitsTracker.Host.Tests/{SignInEndpointTests, CurrentUserEndpointTests, SessionCookieTests, ProductionLogTests}.cs`
 
 **Interfaces:**
-- Consumes: `SignIn`, `AuthenticateSession`, `GetCurrentUser` (Task 10); `CapturingCodeEmailSender` (Task 9), `Problems` (Task 8).
-- Produces: scheme `session` with claims `sub` and `sid`; endpoints marked signed in with `.RequireAuthorization()`; `SessionCookie.Append(HttpResponse, SessionToken, bool remembered)` and `SessionCookie.Clear(HttpResponse)`; `HostFactory.SignInAsync`, which Task 14 uses.
+- Consumes: `SignIn`, `AuthenticateSession`, `GetCurrentUser` (Task 11); `CapturingCodeEmailSender` (Task 10), `Problems` (Task 9).
+- Produces: scheme `session` with claims `sub` and `sid`; endpoints marked signed in with `.RequireAuthorization()`; `SessionCookie.Append(HttpResponse, SessionToken, bool remembered)` and `SessionCookie.Clear(HttpResponse)`; `HostFactory.SignInAsync`, which Task 15 uses.
 
 Decisions (research R4, R20): the handler creates the token with `SessionToken.Create` and treats `DomainException(InvalidSessionToken)` as not signed in, calls `AuthenticateSession`, and for a Remembered session appends the cookie again with `Max-Age=2592000` on that response. The challenge answers `401` problem `not-signed-in` and clears the cookie. The cookie is appended by hand, so its attributes are exactly those of Global Constraints. `POST /api/sessions` passes the request's `session` cookie, when it parses, to `SignIn` as `heldSession`, and never reuses its value.
 
@@ -863,7 +964,7 @@ Decisions (research R4, R20): the handler creates the token with `SessionToken.C
 
 `ProductionLogTests` (SC-005, research R20) — environment `Production` with `CapturingCodeEmailSender` and `CapturingLoggerProvider` at `Trace`, scopes included:
 - `No_secret_or_email_reaches_the_production_logs` — request a code, enter a wrong one, enter the right one, call `GET /api/me`; no captured message or scope contains the code as a whole word, the email, or the session token.
-- `A_500_and_its_log_line_carry_the_same_trace_id` — the throwing test endpoint of Task 8 (`/api/test/throw`): the `traceId` of the response appears in the scope of the logged exception.
+- `A_500_and_its_log_line_carry_the_same_trace_id` — the throwing test endpoint of Task 9 (`/api/test/throw`): the `traceId` of the response appears in the scope of the logged exception.
 
 - [ ] **Step 2: Run to verify they fail** — `scripts/test-fast.sh` — FAIL.
 - [ ] **Step 3: Implement** the handler, the cookie and the two endpoints.
@@ -872,30 +973,30 @@ Decisions (research R4, R20): the handler creates the token with `SessionToken.C
 
 ---
 
-### Task 12: [US-1.2][US-1.3][US-1.6][FR-009][FR-014][FR-018][FR-019] Sign in: code step, main screen, guard
+### Task 13: [US-1.2][US-1.3][US-1.6][US-1.9][FR-009][FR-014][FR-018][FR-019][FR-041][FR-042] Sign in: code step, main screen, guard
 
-**Executor:** subagent · **Depends on:** 11
+**Executor:** subagent · **Depends on:** 12
 
 **Files:**
-- Modify: `frontend/src/app/sign-in/*` (code step: 6-digit field, whitespace stripped before sending, then checked against `ONE_TIME_CODE_PATTERN`; sends `rememberMe`, `timeZone` from `Intl.DateTimeFormat().resolvedOptions().timeZone`, `locale`)
+- Modify: `frontend/src/app/sign-in/code-step.*` (the code field, `inputmode="numeric"`, `autocomplete="one-time-code"`, focused when the step opens; whitespace stripped before sending, then checked against `ONE_TIME_CODE_PATTERN`; sends the email, `rememberMe` from `SignInFlow`, `timeZone` from `Intl.DateTimeFormat().resolvedOptions().timeZone`, `locale`; the states of `contracts/ui.md`, "Sign-in, code step")
 - Create: `frontend/src/app/main/{main.ts, main.html, main.css}`, `frontend/src/app/session/{current-user.service.ts, signed-in.guard.ts, not-signed-in.interceptor.ts}`
-- Modify: `app.routes.ts`, `app.config.ts`, `frontend/public/i18n/{en,pl,ru}.json` (`signIn.code`, `signIn.signIn`, `signIn.error.code-incorrect`, `signIn.error.new-code-required`, `main.noHabits`, `main.timeZoneNotRecognized`)
-- Test: `frontend/src/app/sign-in/sign-in.spec.ts`, `frontend/src/app/main/main.spec.ts`, `frontend/src/app/session/signed-in.guard.spec.ts`, `frontend/e2e/sign-in.spec.ts`
+- Modify: `app.routes.ts`, `app.config.ts`, `frontend/public/i18n/{en,pl,ru}.json` (`signIn.code`, `signIn.signIn`, `signIn.signingIn`, `main.noHabits`, `main.loading`, `main.timeZoneNotRecognized`; the `error.<code>` keys of `POST /api/sessions`, added in Task 10, read as `contracts/ui.md`)
+- Test: `frontend/src/app/sign-in/code-step.spec.ts`, `frontend/src/app/main/main.spec.ts`, `frontend/src/app/session/signed-in.guard.spec.ts`, `frontend/e2e/sign-in.spec.ts`
 
 **Interfaces:**
-- Consumes: `POST /api/sessions`, `GET /api/me` (Task 11); `LanguageService` (Task 4).
-- Produces: `CurrentUserService` (`user`, `load()`), `signedInGuard`, `notSignedInInterceptor`, the main screen, which Task 14 extends with the sign-out actions.
+- Consumes: `POST /api/sessions`, `GET /api/me` (Task 12); `LanguageService` (Task 4); `ThemeService`, `app-message`, the e2e helpers (Task 6); `SignInFlow`, the code step (Task 10).
+- Produces: `CurrentUserService` (`user`, `load()`), `signedInGuard`, `notSignedInInterceptor`, the main screen, which Task 15 extends with the sign-out actions.
 
-Decisions: the application has no return-address parameter; after sign-in it always navigates to `/`, and the guard sends a visitor to `/sign-in` with no query. A signed-in user opening `/sign-in` goes to `/`. After `load()`, the user's locale is applied through `LanguageService.use` (spec, Assumptions: the stored locale wins). `new-code-required` returns the page to the email step with its message.
+Decisions: the application has no return-address parameter; after sign-in it always navigates to `/`, and the guard sends a visitor to `/sign-in` with no query. A signed-in user opening `/sign-in` or `/sign-in/code` goes to `/`. After `load()`, the user's locale is applied through `LanguageService.use` (spec, Assumptions: the stored locale wins). `new-code-required` returns to `/sign-in` with the email filled in and its message; `code-incorrect` clears the field and returns the focus to it; after "Send a new code" (Task 10) answers `202`, the field is cleared and takes the focus, since the earlier code no longer works (FR-002); the button is disabled and reads `signIn.signingIn` while the request runs. A successful sign-in calls `SignInFlow.clear()`. The main screen shows only the page frame while `GET /api/me` runs, and `main.loading` once it has run 1 second.
 
 - [ ] **Step 1: Write the failing tests**
 
-Units: `sign-in.spec.ts` — `sends the browser time zone, remember me and the page language`; `strips whitespace from the code and refuses one that is not six digits`; `shows code-incorrect and stays on the code step`; `new-code-required returns to the email step`. `main.spec.ts` — `says there are no habits yet`; `shows the time zone notice only when not recognized`. `signed-in.guard.spec.ts` — `a visitor is sent to /sign-in`.
+Units: `code-step.spec.ts` — `the code field has the focus when the step opens`; `sends the browser time zone, remember me and the page language`; `strips whitespace from the code and refuses one that is not six digits`; `is not sent by itself at the sixth digit`; `the button is disabled while signing in`; `code-incorrect clears the field, focuses it and stays on the step`; `a new code clears the field and focuses it`; `new-code-required returns to /sign-in with the email and its message`. `main.spec.ts` — `says there are no habits yet`; `shows the time zone notice only when not recognized`; `says loading only after one second` (fake timers: nothing at 999 ms, `main.loading` at 1000 ms). `signed-in.guard.spec.ts` — `a visitor is sent to /sign-in`.
 
-`frontend/e2e/sign-in.spec.ts` (360 px):
+`frontend/e2e/sign-in.spec.ts`:
 
 ```ts
-test('a new user signs in and lands on the main screen')            // request, readCode, enter → URL '/', main.noHabits text
+test('a new user signs in and lands on the main screen @main-path') // request, readCode, enter → URL '/', main.noHabits text
 test('the browser time zone is stored')                            // context timezoneId 'Europe/Warsaw' → GET /api/me timeZone 'Europe/Warsaw'
 test('an unknown browser time zone gives UTC and a notice')        // addInitScript: resolvedOptions().timeZone undefined → notice shown
 test('sign-in ignores a return address to another domain')         // Review Focus 4: /sign-in?returnUrl=https://evil.example/&redirect=//evil.example&next=https%3A%2F%2Fevil.example → URL exactly http://localhost:4200/
@@ -903,7 +1004,10 @@ test('a visitor opening / is sent to /sign-in')                    // URL exactl
 test('a signed-in user opening /sign-in is sent to /')
 test('a session without Remember me ends with the browser session') // cookie 'session' expires === -1; a new context from storageState without cookies of expires -1 → '/' goes to /sign-in
 test('a remembered session survives a browser restart')            // cookie expires ≈ now + 30 days (±60 s); new context from storageState → stays on '/'
-test('sign-in and main screen at 360 px')                           // every control in viewport; expectNoHorizontalScroll on both
+test('sign-in by keyboard alone @main-path')                       // both steps with Tab, typing and Enter only; expectVisibleFocus on each control; lands on '/'
+test('the chosen theme stays after sign-in')                       // SC-016: switch to light on /sign-in, sign in → '/' is light
+test('the code field offers the code from the email')              // the field's autocomplete is 'one-time-code' and inputmode 'numeric'
+test('sign-in and main screen at every width in both themes @width') // forEachTheme: every control in viewport; expectNoHorizontalScroll on both
 ```
 
 - [ ] **Step 2: Run to verify they fail** — `scripts/test-fast.sh`; `npm --prefix frontend run e2e -- sign-in` — FAIL.
@@ -913,9 +1017,9 @@ test('sign-in and main screen at 360 px')                           // every con
 
 ---
 
-### Task 13: [US-1.4][US-1.5][US-1.8][FR-015][FR-023][FR-033] Sign out, locale, expired records: core
+### Task 14: [US-1.4][US-1.5][US-1.8][FR-015][FR-023][FR-033] Sign out, locale, expired records: core
 
-**Executor:** developer · **Depends on:** 10
+**Executor:** developer · **Depends on:** 11
 
 **Files:**
 - Create: `backend/src/HabitsTracker.Identity.Core/UseCases/{SignOut, SignOutEverywhere, ChangeLocale, DeleteExpiredRecords}.cs`
@@ -950,17 +1054,19 @@ test('sign-in and main screen at 360 px')                           // every con
 
 ---
 
-### Task 14: [US-1.4][US-1.5][US-1.8][FR-015][FR-017][FR-018][FR-019][FR-023] Sign out, sign out everywhere, locale change: API and main screen
+### Task 15: [US-1.4][US-1.5][US-1.8][FR-015][FR-017][FR-018][FR-019][FR-023][FR-041] Sign out, sign out everywhere, locale change: API and main screen
 
-**Executor:** subagent · **Depends on:** 12, 13
+**Executor:** subagent · **Depends on:** 13, 14
 
 **Files:**
-- Modify: `IdentityEndpoints.cs` (`DELETE /api/sessions/current`, `DELETE /api/sessions`, `PUT /api/me/locale`), `frontend/src/app/main/*` (sign out and sign out everywhere buttons), `current-user.service.ts`, `language.service.ts` (signed in: `use` also calls `PUT /api/me/locale`), `frontend/public/i18n/{en,pl,ru}.json` (`main.signOut`, `main.signOutEverywhere`)
-- Test: `backend/tests/HabitsTracker.Host.Tests/{SignOutEndpointTests, LocaleEndpointTests, CrossUserTests}.cs`, `frontend/src/app/i18n/language.service.spec.ts`, `frontend/e2e/sessions.spec.ts`, `frontend/e2e/locale.spec.ts`
+- Modify: `IdentityEndpoints.cs` (`DELETE /api/sessions/current`, `DELETE /api/sessions`, `PUT /api/me/locale`), `frontend/src/app/main/*` (sign out, and sign out everywhere with its on-page confirmation, as `contracts/ui.md`, "Main screen"), `current-user.service.ts`, `not-signed-in.interceptor.ts` ("Session ended"), `frontend/src/app/sign-in/sign-in.*` (the `signIn.sessionEnded` info), `language.service.ts` (signed in: `use` also calls `PUT /api/me/locale`), `frontend/public/i18n/{en,pl,ru}.json` (`main.signOut`, `main.signOutEverywhere`, `main.signOutEverywhereConfirm`, `main.confirm`, `main.cancel`, `signIn.sessionEnded`)
+- Test: `backend/tests/HabitsTracker.Host.Tests/{SignOutEndpointTests, LocaleEndpointTests, CrossUserTests}.cs`, `frontend/src/app/i18n/language.service.spec.ts`, `frontend/src/app/main/main.spec.ts`, `frontend/src/app/session/not-signed-in.interceptor.spec.ts`, `frontend/e2e/sessions.spec.ts`, `frontend/e2e/locale.spec.ts`
 
 **Interfaces:**
-- Consumes: `SignOut`, `SignOutEverywhere`, `ChangeLocale` (Task 13); `HostFactory.SignInAsync` (Task 11).
+- Consumes: `SignOut`, `SignOutEverywhere`, `ChangeLocale` (Task 14); `HostFactory.SignInAsync` (Task 12).
 - Produces: the three endpoints of `contracts/http-api.md`.
+
+Decisions: sign out everywhere replaces its button with `main.signOutEverywhereConfirm` and the buttons `main.confirm` and `main.cancel`, moves the focus to "Cancel", and sends `DELETE /api/sessions` only on "Sign out everywhere"; "Cancel" or `Escape` restores the button and returns the focus to it. Both sign-out buttons are disabled while a sign-out runs. The interceptor navigates to `/sign-in` with the router state `{ reason: 'session-ended' }` only when `CurrentUserService.user()` was not `null` at the `401`; the sign-in page then shows `signIn.sessionEnded` as an info above the form; the reason never goes into the URL. Sign out and sign out everywhere set `CurrentUserService.user` to `null` before they navigate to `/sign-in`, so a late request of this tab that answers `401` never shows "Session ended" to a user who has just signed out.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -968,7 +1074,9 @@ test('sign-in and main screen at 360 px')                           // every con
 - `LocaleEndpointTests`: `{locale: "ru"}` → `204`, `GET /api/me` `locale: "ru"`; `{locale: "de"}` → `400` `invalid-locale`.
 - `CrossUserTests` (FR-017, SC-003), users A and B: `B_signing_out_leaves_A_signed_in`; `B_signing_out_everywhere_leaves_A_signed_in`; `B_changing_the_locale_leaves_A_unchanged`; `Every_signed_in_endpoint_has_a_cross_user_test` — the endpoints with authorization metadata in `EndpointDataSource` are exactly `GET /api/me`, `PUT /api/me/locale`, `DELETE /api/sessions/current`, `DELETE /api/sessions`.
 - `language.service.spec.ts`: `signed in, use() changes the user's locale`.
-- `sessions.spec.ts` (two browser contexts): `sign out ends only this browser's session`; `sign out everywhere ends every session` — B remembered; B's next navigation lands on `/sign-in`, also from a new context restored from B's storage state; `main screen actions at 360 px` — sign out, sign out everywhere, switcher and both links in viewport, no horizontal scroll.
+- `main.spec.ts`: `sign out everywhere asks on the page and sends nothing until confirmed`; `the focus moves to Cancel`; `Cancel and Escape restore the button and its focus`; `both buttons are disabled while signing out`; `plain sign out asks nothing`.
+- `not-signed-in.interceptor.spec.ts`: `a 401 after a loaded user brings the session-ended state`; `a 401 with no user loaded brings plain /sign-in`; `own sign out brings plain /sign-in, even if a late request answers 401`.
+- `sessions.spec.ts` (two browser contexts): `sign out ends only this browser's session @main-path`; `sign out everywhere ends every session` — A confirms on the page; B remembered; B's next navigation lands on `/sign-in`, also from a new context restored from B's storage state; `a session ended while the page is open says so` — A signs out everywhere; B, still on `/`, switches the language → `/sign-in` with `signIn.sessionEnded`, and the URL is exactly `/sign-in`; `main screen actions by keyboard alone` — sign out everywhere, `Enter` lands on "Cancel", `Escape`, then confirm, with `expectVisibleFocus` on each; `main screen actions at every width in both themes @width` — sign out, sign out everywhere, both switchers and both links in viewport, no horizontal scroll.
 - `locale.spec.ts`: `switching the language changes the user's locale and another browser shows it at its next load` (A switches to `ru`; B reloads → `ru`); `after sign-in the user's locale wins over the browser's choice` (signed up in `ru`; a `pl-PL` context signs in → `ru`).
 
 - [ ] **Step 2: Run to verify they fail** — FAIL.
@@ -978,9 +1086,9 @@ test('sign-in and main screen at 360 px')                           // every con
 
 ---
 
-### Task 15: [US-1.7][FR-019][FR-024][FR-025][FR-026][FR-028][FR-029][FR-030][FR-031] Privacy and Terms pages, record of processing
+### Task 16: [US-1.7][FR-019][FR-024][FR-025][FR-026][FR-028][FR-029][FR-030][FR-031][FR-041][FR-042] Privacy and Terms pages, record of processing
 
-**Executor:** subagent · **Depends on:** 12
+**Executor:** subagent · **Depends on:** 13
 
 **Files:**
 - Modify: `frontend/src/app/privacy/*`, `frontend/src/app/terms/*`, `frontend/src/app/sign-in/*` (the acceptance sentence under the sign-in button), `frontend/public/i18n/{en,pl,ru}.json`
@@ -988,17 +1096,17 @@ test('sign-in and main screen at 360 px')                           // every con
 - Test: `frontend/src/app/legal/legal-pages.spec.ts`, `frontend/e2e/legal.spec.ts`
 
 **Interfaces:**
-- Consumes: `AppShell` links (Task 4), sign-in page (Task 12).
+- Consumes: `AppShell` links (Task 4); the baseline and the e2e helpers (Task 6); sign-in page (Task 13).
 
-Decisions: the page texts are keys `privacy.section.<n>.title` and `.body` for n = 1…15 in the order of the legal pages design, "Privacy page", and `terms.section.<n>.title` and `.body` for n = 1…12 in the order of its "Terms page" table; `legal.englishPrevails` (in English: the Polish and Russian translations are for convenience and this English version prevails); `legal.effectiveDate` = the date of the first deployment; `legal.controllerName` and `legal.contactEmail`, the developer's values (FR-028) below. The acceptance sentence is three keys around two links (`signIn.acceptance.before`, `.middle`, `.after`), so no HTML is rendered from a translation. Polish and Russian texts are drafted by the agent; the developer reviews them and the record of processing before the commit.
+Decisions: the page texts are keys `privacy.section.<n>.title` and `.body` for n = 1…15 in the order of the legal pages design, "Privacy page", and `terms.section.<n>.title` and `.body` for n = 1…12 in the order of its "Terms page" table; `legal.englishPrevails` (in English: the Polish and Russian translations are for convenience and this English version prevails); `legal.effectiveDate` = the date of the first deployment; `legal.controllerName` and `legal.contactEmail`, the developer's values (FR-028) below. The acceptance sentence is three keys around two links (`signIn.acceptance.before`, `.middle`, `.after`), so no HTML is rendered from a translation. Section 12 of the Privacy page (the legal pages design, item 12) names the session cookie, the language choice and the theme choice kept in the browser (FR-030). Section headings are `h2`; long words and addresses wrap anywhere (`contracts/ui.md`, "Privacy and Terms"). Polish and Russian texts are drafted by the agent; the developer reviews them and the record of processing before the commit.
 
 **Developer's values (FR-028):** full name `Paweł Nikanowicz`, the same spelling in all three languages; contact email `pavelnikanovich@gmail.com`. Both pages and `docs/legal/record-of-processing.md` use exactly these values.
 
 - [ ] **Step 1: Write the failing tests**
 
-`legal-pages.spec.ts`: `the Privacy page shows 15 sections and the Terms page 12, in every language` (title and body non-empty); `the Polish and Russian pages say the English version prevails`; `both pages name the controller and link the contact email` (in every file `legal.controllerName` is `Paweł Nikanowicz` and `legal.contactEmail` is `pavelnikanovich@gmail.com`; the pages show the name and a `mailto:pavelnikanovich@gmail.com` link); `the Privacy page names Hetzner and Resend as recipients in every language` (section 5 body contains both names). `the pages state the promised periods` — in every language, the Terms section on complaints (item 6) contains `14`, and the Privacy section on retention (item 7) contains `7` and `30`.
+`legal-pages.spec.ts`: `the Privacy page shows 15 sections and the Terms page 12, in every language` (title and body non-empty); `the Polish and Russian pages say the English version prevails`; `both pages name the controller and link the contact email` (in every file `legal.controllerName` is `Paweł Nikanowicz` and `legal.contactEmail` is `pavelnikanovich@gmail.com`; the pages show the name and a `mailto:pavelnikanovich@gmail.com` link); `the Privacy page names Hetzner and Resend as recipients in every language` (section 5 body contains both names). `the pages state the promised periods` — in every language, the Terms section on complaints (item 6) contains `14`, and the Privacy section on retention (item 7) contains `7` and `30`. `the Privacy page names what the browser keeps` — the English section 12 body contains `cookie`, `language` and `theme`.
 
-`legal.spec.ts` (360 px): `a visitor opens both pages from the sign-in page`; `a signed-in user opens both pages from the main screen`; `the sign-in page states the acceptance sentence with both links and has no acceptance checkbox` — English text exactly "By signing in you accept the Terms and acknowledge the Privacy notice", the only checkbox is "Remember me"; `both pages at 360 px` — no horizontal scroll, switcher and links in viewport; `both pages load nothing from other servers`.
+`legal.spec.ts`: `a visitor opens both pages from the sign-in page`; `a signed-in user opens both pages from the main screen`; `the sign-in page states the acceptance sentence with both links and has no acceptance checkbox` — English text exactly "By signing in you accept the Terms and acknowledge the Privacy notice", the only checkbox is "Remember me"; `both pages at every width in both themes @width` — `forEachTheme`: no horizontal scroll, both switchers and the links in viewport; `both pages by keyboard alone` — from the sign-in page, `pressTabUntil` the Privacy link, `Enter`, the focus is on the `h1`; the same for Terms; `both pages load nothing from other servers`.
 
 - [ ] **Step 2: Run to verify they fail** — FAIL.
 - [ ] **Step 3: Write the texts** in three languages from FR-030 and FR-031 and the legal pages design, the two pages and the record of processing (purposes, data, recipients, transfers and retention equal to the Privacy page).
@@ -1008,7 +1116,7 @@ Decisions: the page texts are keys `privacy.section.<n>.title` and `.body` for n
 
 ---
 
-### Task 16: [FR-039] Request timing metrics
+### Task 17: [FR-039] Request timing metrics
 
 **Executor:** subagent · **Depends on:** 1
 
@@ -1037,16 +1145,16 @@ Decisions (research R9): `endpoint` is `"<METHOD> <route pattern>"` (`GET /api/m
 
 ---
 
-### Task 17: [FR-030][FR-032][FR-033] Hourly cleanup, log retention and deletion on request
+### Task 18: [FR-030][FR-032][FR-033] Hourly cleanup, log retention and deletion on request
 
-**Executor:** subagent · **Depends on:** 3, 13, 16
+**Executor:** subagent · **Depends on:** 3, 14, 17
 
 **Files:**
 - Create: `backend/src/HabitsTracker.Host/Cleanup/HourlyCleanup.cs`, `ops/journald/habits.conf`, `ops/delete-user.sh`, `ops/tests/lib/identity-schema.sh`, `ops/tests/delete-user.test.sh`
 - Test: `backend/tests/HabitsTracker.Host.Tests/{HourlyCleanupTests, JournaldRetentionTests}.cs`
 
 **Interfaces:**
-- Consumes: `DeleteExpiredRecords` (Task 13), `OperationsDbContext` (Task 16).
+- Consumes: `DeleteExpiredRecords` (Task 14), `OperationsDbContext` (Task 17).
 
 Decisions: a `BackgroundService` runs once at start and then every hour on a `PeriodicTimer` over `TimeProvider`; each run calls `DeleteExpiredRecords` and deletes `request_timings` rows with `hour < now − 13 months`. `ops/delete-user.sh <email>` (research R22; runbook, "Delete a user's data on request") asks for the email again, then deletes in one transaction the user's sessions, the user, and the one-time code and code requests of that email, through `docker compose exec db psql` with the compose files in `HABITS_COMPOSE_FILES`, and prints the rows deleted per table. `ops/tests/lib/identity-schema.sh` builds the `migrate-identity` bundle locally and applies it to the compose database, so shell tests run on the real schema.
 
@@ -1064,7 +1172,7 @@ Decisions: a `BackgroundService` runs once at start and then every hour on a `Pe
 
 ---
 
-### Task 18: [FR-035][FR-036] Backup, restore check and live restore
+### Task 19: [FR-035][FR-036] Backup, restore check and live restore
 
 **Executor:** subagent (Opus, effort high: the live database) · **Depends on:** 1
 
@@ -1084,9 +1192,9 @@ Decisions: a `BackgroundService` runs once at start and then every hour on a `Pe
 
 ---
 
-### Task 19: [FR-016][FR-027][FR-034] Container image and HTTPS-only proxy
+### Task 20: [FR-016][FR-027][FR-034] Container image and HTTPS-only proxy
 
-**Executor:** subagent · **Depends on:** 14, 15
+**Executor:** subagent · **Depends on:** 15, 16
 
 **Files:**
 - Create: `Dockerfile`, `.dockerignore`, `ops/Caddyfile`, `ops/compose.prod.yaml`, `ops/tests/compose.https-test.yaml`, `ops/tests/https-only.test.sh`, `ops/tests/compose-run.test.sh`
@@ -1095,11 +1203,11 @@ Decisions: a `BackgroundService` runs once at start and then every hour on a `Pe
 **Interfaces:**
 - Produces: the image (`/app` with the host, `wwwroot` with the Angular build and `wwwroot/i18n`, `Translations__Path=wwwroot/i18n`, and the bundles `/app/migrate-identity`, `/app/migrate-operations`); `ops/compose.prod.yaml` with `caddy` (`caddy:2.11.7`, volumes `caddy_data:/data`, `caddy_config:/config`), `db` and `app` (image `ghcr.io/<owner>/habits-tracker:${IMAGE_TAG}`, Production, logging driver `journald`, `ForwardedHeaders__KnownNetwork=172.30.0.0/24`, secrets from `.env`) on network `edge` with subnet `172.30.0.0/24`; every service of `compose.prod.yaml` (`caddy`, `db`, `app`) uses the `journald` logging driver, so the 7-day retention covers all logs (FR-032).
 
-Decisions (research R13): runtime stage is the default ASP.NET Core 10 image (not Alpine, not Chiseled, no invariant globalization: research R6). One `Caddyfile` for production and test, differing only by environment variables: the site address, and internal certificates in the test. Caddy redirects `http://` to `https://`, sets `Strict-Transport-Security: max-age=31536000`, and writes its access log to standard output with its default redaction of credential headers (research R20).
+Decisions (research R13, R24): the frontend build stage runs `npm ci` and `npm run build`, whose `prebuild` runs `fetch-fonts.sh`, so the image build needs access to `github.com` and fails on a font whose sum differs. The runtime stage is the default ASP.NET Core 10 image (not Alpine, not Chiseled, no invariant globalization: research R6). One `Caddyfile` for production and test, differing only by environment variables: the site address, and internal certificates in the test. Caddy redirects `http://` to `https://`, sets `Strict-Transport-Security: max-age=31536000`, and writes its access log to standard output with its default redaction of credential headers (research R20).
 
 - [ ] **Step 1: Write the failing tests**
 
-`ops/tests/compose-run.test.sh` (quickstart §1): `docker compose up --build -d`; `curl -s http://localhost:8080/health` → `Healthy`; a row inserted into `identity.users` survives `docker compose down` (no `-v`) and `up`; `docker compose run --rm app ./migrate-identity` and `./migrate-operations` exit 0 twice in a row on a fresh database.
+`ops/tests/compose-run.test.sh` (quickstart §1): `docker compose up --build -d`; `curl -s http://localhost:8080/health` → `Healthy`; `curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/fonts/LICENSE-FONT.txt` and `/icon.svg` → `200`; a row inserted into `identity.users` survives `docker compose down` (no `-v`) and `up`; `docker compose run --rm app ./migrate-identity` and `./migrate-operations` exit 0 twice in a row on a fresh database.
 
 `ops/tests/https-only.test.sh` (`compose.yaml` + `ops/tests/compose.https-test.yaml`, Caddy with `tls internal` for `localhost`): `curl -sI http://localhost` → `308`, `Location: https://localhost/`, no HTML body; `curl -sk https://localhost/health` → `Healthy`; `curl -skI https://localhost/` carries `Strict-Transport-Security: max-age=31536000` and the CSP of Global Constraints; a request with `Cookie: session=abc` leaves an access log line with the client address and without the cookie's value. `compose-run.test.sh` also checks that every service of `ops/compose.prod.yaml` sets `logging.driver: journald`.
 
@@ -1110,16 +1218,16 @@ Decisions (research R13): runtime stage is the default ASP.NET Core 10 image (no
 
 ---
 
-### Task 20: [FR-040] Load test
+### Task 21: [FR-040] Load test
 
-**Executor:** subagent · **Depends on:** 19
+**Executor:** subagent · **Depends on:** 20
 
 **Files:**
 - Create: `load/main-screen.js`, `load/compose.loadtest.yaml`, `scripts/load-test.sh`
 - Modify: `CLAUDE.md` (load command, about 12 minutes)
 
 **Interfaces:**
-- Consumes: the compose `app` (Task 19); the development log line format.
+- Consumes: the compose `app` (Task 20); the development log line format.
 
 Decisions (research R14; plan.md, "Review decisions" 2 and 3): `compose.loadtest.yaml` limits `app` and `db` to `cpus: 1`, `mem_limit: 2g` each and sets `Identity__CodeRequestLimits__PerIpAddress=1000`. `load-test.sh` starts compose with the overlay, signs in 100 users with `curl` (codes from `docker compose logs app`), writes their tokens to `load/.sessions.json` (git-ignored), runs `grafana/k6:2.3.0` on the host network, stops compose, and exits with k6's code. Each virtual user owns one token, sent as the `Cookie` header. Each action is preceded by `sleep(1 + Math.random() * 4)`; every 10th action is `PUT /api/me/locale` alternating `en` and `pl`, the others open the main screen as `GET /` then `GET /api/me`. Options: `vus: 100`, `duration: '10m'`, `thresholds: { http_req_duration: ['p(95)<300'] }`; `LOAD_USERS` and `LOAD_DURATION` override users and duration for a short run.
 
@@ -1130,7 +1238,7 @@ Decisions (research R14; plan.md, "Review decisions" 2 and 3): `compose.loadtest
 
 ---
 
-### Task 21: [FR-034] Test integrity check
+### Task 22: [FR-034] Test integrity check
 
 **Executor:** subagent · **Depends on:** 5
 
@@ -1138,7 +1246,7 @@ Decisions (research R14; plan.md, "Review decisions" 2 and 3): `compose.loadtest
 - Create: `scripts/test-integrity.sh`, `scripts/tests/test-integrity.test.sh`
 
 **Interfaces:**
-- Produces: `scripts/test-integrity.sh <base-ref>` — exit 1 when an added line of `git diff <base-ref>...HEAD` contains `Skip =`, `.skip(`, `.only(`, `xit(`, `xdescribe(` or `test.fixme(` (printing file, line and marker), or when the test count of `HEAD` is below that of `<base-ref>`; exit 0 otherwise. The count is the sum of `dotnet test backend/HabitsTracker.slnx --list-tests`, the Vitest list and `playwright test --list`; the environment variable `TEST_COUNT_COMMAND` replaces the counting command, for the script's own test. A base with no tests counts 0 (research R15: `main` is empty in epic 1). The `test-exception` label is checked by the workflow (Task 22), not here.
+- Produces: `scripts/test-integrity.sh <base-ref>` — exit 1 when an added line of `git diff <base-ref>...HEAD` contains `Skip =`, `.skip(`, `.only(`, `xit(`, `xdescribe(` or `test.fixme(` (printing file, line and marker), or when the test count of `HEAD` is below that of `<base-ref>`; exit 0 otherwise. The count is the sum of `dotnet test backend/HabitsTracker.slnx --list-tests`, the Vitest list and `playwright test --list`; the environment variable `TEST_COUNT_COMMAND` replaces the counting command, for the script's own test. A base with no tests counts 0 (research R15: `main` is empty in epic 1). The `test-exception` label is checked by the workflow (Task 23), not here.
 
 - [ ] **Step 1: Write the failing test** — `scripts/tests/test-integrity.test.sh` in a temporary repository: one case per marker in an added line → exit 1 naming it; a marker only in a removed line → exit 0; a stub count lower on `HEAD` → exit 1; equal or higher → exit 0.
 - [ ] **Step 2: Run to verify it fails** — FAIL.
@@ -1148,27 +1256,27 @@ Decisions (research R14; plan.md, "Review decisions" 2 and 3): `compose.loadtest
 
 ---
 
-### Task 22: [FR-034] GitHub repository and pull request checks
+### Task 23: [FR-034] GitHub repository and pull request checks
 
-**Executor:** manual · **Depends on:** 18–21
+**Executor:** manual · **Depends on:** 19–22
 
 **Files:**
 - Create: `.github/workflows/pr-checks.yml`
 
 Manual steps (developer): create the public repository `habits-tracker` on GitHub; push `main` (the agent may not push `main`: deny rules); the agent then pushes `001-walking-skeleton`.
 
-`pr-checks.yml` on `pull_request` (GitHub-hosted runners, no `pull_request_target`), jobs: `fast` (`scripts/test-fast.sh`), `lint` (`npm --prefix frontend run lint`; the backend analysers run in `fast`), `e2e` (`npm --prefix frontend run e2e`), `ops` (the shell tests of `scripts/tests/` and `ops/tests/`), `load` (`scripts/load-test.sh`), `audit` (`npm --prefix frontend audit --audit-level=high`; the backend's NuGet Audit runs in every build), `test-integrity` (`scripts/test-integrity.sh origin/main`, skipped when the pull request has the label `test-exception`). Every `uses:` is pinned to a commit SHA with the version in a comment; the workflow sets `permissions: contents: read` (research R19, P1–P2).
+`pr-checks.yml` on `pull_request` (GitHub-hosted runners, no `pull_request_target`), jobs: `fast` (`scripts/test-fast.sh`), `lint` (`npm --prefix frontend run lint`; the backend analysers run in `fast`), `e2e` (`npx --prefix frontend playwright install --with-deps chromium webkit`, then `npm --prefix frontend run e2e`: all four projects), `ops` (the shell tests of `scripts/tests/` and `ops/tests/`), `load` (`scripts/load-test.sh`), `audit` (`npm --prefix frontend audit --audit-level=high`; the backend's NuGet Audit runs in every build), `test-integrity` (`scripts/test-integrity.sh origin/main`, skipped when the pull request has the label `test-exception`). Every `uses:` is pinned to a commit SHA with the version in a comment; the workflow sets `permissions: contents: read` (research R19, P1–P2).
 
 - [ ] **Step 1: Write the workflow** with the developer.
-- [ ] **Step 2: Open the pull request of step 11 as a draft** — `gh pr create --draft --base main`. Developer's ruling at the step 8 review: GitHub runs `pr-checks.yml` and `deploy-branch.yml` only from a pull request, so Tasks 22–24 check their workflows on this draft; step 11 marks it ready for review, and step 12 deploys the final code again. The deviation is one ledger line at step 13.
+- [ ] **Step 2: Open the pull request of step 11 as a draft** — `gh pr create --draft --base main`. Developer's ruling at the step 8 review: GitHub runs `pr-checks.yml` and `deploy-branch.yml` only from a pull request, so Tasks 23–25 check their workflows on this draft; step 11 marks it ready for review, and step 12 deploys the final code again. The deviation is one ledger line at step 13.
 - [ ] **Step 3: Check** — `gh pr checks` — Expected: every job green; `grep -E 'uses: [^@]+@[0-9a-f]{40}' .github/workflows/pr-checks.yml` matches every `uses:` line.
 - [ ] **Step 4: Commit** — `Add pull request checks workflow`
 
 ---
 
-### Task 23: [FR-016][FR-034][FR-035][FR-036] Server, deployment workflows, first deployment
+### Task 24: [FR-016][FR-034][FR-035][FR-036] Server, deployment workflows, first deployment
 
-**Executor:** manual · **Depends on:** 22
+**Executor:** manual · **Depends on:** 23
 
 **Files:**
 - Create: `.github/workflows/{deploy.yml, deploy-branch.yml, deploy-main.yml}`, `ops/systemd/habits-backup.service` (`WorkingDirectory=/opt/habits`, `Environment=HABITS_COMPOSE_FILES=/opt/habits/compose.prod.yaml`, runs `ops/backup.sh`), `ops/systemd/habits-backup.timer` (`OnCalendar=*-*-* 03:00:00 UTC`, `Persistent=true`)
@@ -1176,7 +1284,7 @@ Manual steps (developer): create the public repository `habits-tracker` on GitHu
 
 Manual steps (developer, research R13): the DNS A record of `habits.cardlane.eu`; on the server Docker with compose, a deploy user with key-only SSH, the Hetzner Cloud Firewall open on 22, 80 and 443, `ops/journald/habits.conf` as a journald drop-in, the backup timer, `/opt/habits` with `compose.prod.yaml`, `Caddyfile` and `.env` (`POSTGRES_PASSWORD`, `RESEND_API_KEY`, `IDENTITY_CODE_HASH_KEY`; the key is made once with `openssl rand -base64 32`, the same value goes into the GitHub environment, and a new key invalidates the codes issued before it); the GitHub environment `production` with `RESEND_API_KEY`, `IDENTITY_CODE_HASH_KEY`, `POSTGRES_PASSWORD`, `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`; in the Resend dashboard, tracking off for `mail.cardlane.eu` (FR-007).
 
-Workflows (pinned by SHA, least permissions, as Task 22): `deploy.yml` (`workflow_call`, and `workflow_dispatch` with inputs `image_tag` and `migrate`, environment `production`): unless `image_tag` is given, build and push the image to GHCR tagged with the commit SHA (`packages: write` for this job only); over SSH run `ops/backup.sh`, then, when `migrate` is not `false`, `migrate-identity` and `migrate-operations`, then `docker compose up -d` with that tag; then `curl --fail --max-time 10 https://habits.cardlane.eu/health` once (research R13). `deploy-branch.yml`: on `pull_request` `labeled` with `deploy`, only for branches of this repository, calls `deploy.yml`. `deploy-main.yml`: on `push` to `main`, calls `deploy.yml`.
+Workflows (pinned by SHA, least permissions, as Task 23): `deploy.yml` (`workflow_call`, and `workflow_dispatch` with inputs `image_tag` and `migrate`, environment `production`): unless `image_tag` is given, build and push the image to GHCR tagged with the commit SHA (`packages: write` for this job only); over SSH run `ops/backup.sh`, then, when `migrate` is not `false`, `migrate-identity` and `migrate-operations`, then `docker compose up -d` with that tag; then `curl --fail --max-time 10 https://habits.cardlane.eu/health` once (research R13). `deploy-branch.yml`: on `pull_request` `labeled` with `deploy`, only for branches of this repository, calls `deploy.yml`. `deploy-main.yml`: on `push` to `main`, calls `deploy.yml`.
 
 - [ ] **Step 1: Write the workflows and the timer units** with the developer; do the manual steps.
 - [ ] **Step 2: Deploy** — the developer adds the label `deploy` to the draft pull request.
@@ -1188,14 +1296,14 @@ Workflows (pinned by SHA, least permissions, as Task 22): `deploy.yml` (`workflo
 
 ---
 
-### Task 24: [FR-038] Availability check
+### Task 25: [FR-038] Availability check
 
-**Executor:** manual · **Depends on:** 23
+**Executor:** manual · **Depends on:** 24
 
 **Files:**
 - Create: `.github/workflows/availability.yml`, `ops/availability-month.sh`, `ops/tests/availability-month.test.sh`
 
-`availability.yml`: `schedule` every 5 minutes (`*/5 * * * *`) and `workflow_dispatch`; one step `curl --fail --max-time 10 https://habits.cardlane.eu/health`; a failed run notifies the developer through GitHub. Schedules run only from `main`, so the scheduled check starts once epic 1 is merged (FR-038); before merge, Task 23's deployment ran the same check. `ops/availability-month.sh YYYY-MM` lists that month's runs of `availability.yml` through `gh api` and prints `passed/ran: <p>/<r> (<share with two decimals>%)`, or `no value` for a month with no runs (research R16).
+`availability.yml`: `schedule` every 5 minutes (`*/5 * * * *`) and `workflow_dispatch`; one step `curl --fail --max-time 10 https://habits.cardlane.eu/health`; a failed run notifies the developer through GitHub. Schedules run only from `main`, so the scheduled check starts once epic 1 is merged (FR-038); before merge, Task 24's deployment ran the same check. `ops/availability-month.sh YYYY-MM` lists that month's runs of `availability.yml` through `gh api` and prints `passed/ran: <p>/<r> (<share with two decimals>%)`, or `no value` for a month with no runs (research R16).
 
 - [ ] **Step 1: Write the failing test** — `ops/tests/availability-month.test.sh` with a stub `gh` returning fixed run lists: 8,640 runs with 86 failed → `passed/ran: 8554/8640 (99.00%)`; no runs → `no value`.
 - [ ] **Step 2: Run to verify it fails** — FAIL.
@@ -1207,4 +1315,4 @@ Workflows (pinned by SHA, least permissions, as Task 22): `deploy.yml` (`workflo
 
 ## After the last task
 
-Process steps 10–12 continue from here; they are not tasks of this plan. Step 11 marks the draft pull request of Task 22 ready for review instead of opening a new one. After merge (step 14), once `deploy.yml` is on `main`, the developer rehearses the rollback by a manual workflow run once: `gh workflow run deploy.yml -f image_tag=<previous SHA> -f migrate=false`, then deploys the newest again (constitution XI; research R13). At step 12, after the branch deployment, the developer: signs in on `https://habits.cardlane.eu` with a real Gmail address — code email within 1 minute, in the inbox, main screen within 2 minutes (SC-001, SC-014); runs `ops/latency-p95.sh <deployment time>` on the server and keeps the 95th percentile for the ledger (SC-008); confirms `curl -sI http://habits.cardlane.eu` serves no page (SC-004).
+Process steps 10–12 continue from here; they are not tasks of this plan. Step 11 marks the draft pull request of Task 23 ready for review instead of opening a new one. After merge (step 14), once `deploy.yml` is on `main`, the developer rehearses the rollback by a manual workflow run once: `gh workflow run deploy.yml -f image_tag=<previous SHA> -f migrate=false`, then deploys the newest again (constitution XI; research R13). At step 12, after the branch deployment, the developer: signs in on `https://habits.cardlane.eu` with a real Gmail address — code email within 1 minute, in the inbox, main screen within 2 minutes (SC-001, SC-014); signs in once more from their own phone — the page fills the phone's width, both themes switch, the code field offers the code from the email, sign out works (SC-014); looks at every page in both themes at the phone's width and on a desktop, the one check of the look no test makes; runs `ops/latency-p95.sh <deployment time>` on the server and keeps the 95th percentile for the ledger (SC-008); confirms `curl -sI http://habits.cardlane.eu` serves no page (SC-004).
