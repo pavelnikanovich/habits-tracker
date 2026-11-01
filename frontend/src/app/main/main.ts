@@ -1,6 +1,9 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { problemText } from '../api/problem';
+import { LanguageService } from '../i18n/language.service';
 import { MessageComponent } from '../message/message';
 import { CurrentUserService } from '../session/current-user.service';
 
@@ -22,6 +25,17 @@ export class Main {
   protected readonly users = inject(CurrentUserService);
   protected readonly slow = signal(false);
   private readonly router = inject(Router);
+  private readonly language = inject(LanguageService);
+  private readonly transloco = inject(TranslocoService);
+  private readonly activeLanguage = toSignal(this.transloco.langChanges$);
+
+  /** Why `GET /api/me` gave no user, in the page's language (`problemText`), worded again when the language changes. */
+  protected readonly loadError = computed(() => {
+    this.activeLanguage();
+    const problem = this.users.problem();
+    if (problem === null) return null;
+    return problemText(problem, (key, params) => this.transloco.translate(key, params), this.language.current(), new Date());
+  });
 
   constructor() {
     const timer = setTimeout(() => this.slow.set(true), LOADING_DELAY_MS);

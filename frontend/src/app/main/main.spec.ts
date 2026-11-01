@@ -2,12 +2,17 @@ import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { TranslocoService } from '@jsverse/transloco';
+import { firstValueFrom } from 'rxjs';
+import { readTranslation } from '../../testing/translation-files';
 import { ann, settle, setUpSignIn, texts } from '../../testing/sign-in-setup';
 import { CurrentUserService } from '../session/current-user.service';
 import { Main } from './main';
 
 const main = texts('main');
 const errors = texts('error');
+const signIn = texts('signIn');
+const alert = (page: HTMLElement) => page.querySelector('app-message[role="alert"]')?.textContent?.trim();
 
 describe('Main', () => {
   let harness: RouterTestingHarness;
@@ -78,6 +83,36 @@ describe('Main', () => {
     http.expectOne('/api/me').error(new ProgressEvent('error'));
     await settle(harness);
 
-    expect(page.querySelector('app-message[role="alert"]')?.textContent?.trim()).toBe(errors['network']);
+    expect(alert(page)).toBe(errors['network']);
+  });
+
+  // Review M5: the main screen words a problem as the sign-in does, with when to try again.
+  it('says when to try again where the answer of GET /api/me gives it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 10, 10, 12, 0));
+    const page = (await harness.navigateByUrl('/', Main).then(() => harness.routeNativeElement)) as HTMLElement;
+    http.expectOne('/api/me').flush(
+      { code: 'email-service-limit', retryAt: new Date(2026, 10, 10, 13, 0).toISOString() },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
+    await settle(harness);
+
+    expect(alert(page)).toBe(
+      `${errors['email-service-limit']} ${signIn['retryAt'].replace('{time}', '13:00')}`,
+    );
+  });
+
+  it('the failure text follows a language switch', async () => {
+    const page = (await harness.navigateByUrl('/', Main).then(() => harness.routeNativeElement)) as HTMLElement;
+    http.expectOne('/api/me').error(new ProgressEvent('error'));
+    await settle(harness);
+    const transloco = TestBed.inject(TranslocoService);
+    await firstValueFrom(transloco.load('ru'));
+
+    transloco.setActiveLang('ru');
+    await settle(harness);
+
+    const ru = readTranslation('ru')['error'] as Record<string, string>;
+    expect(alert(page)).toBe(ru['network']);
   });
 });

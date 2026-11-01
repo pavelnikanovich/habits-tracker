@@ -2,6 +2,9 @@ import { HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { TranslocoService } from '@jsverse/transloco';
+import { firstValueFrom } from 'rxjs';
+import { readTranslation } from '../../testing/translation-files';
 import { settle, setUpSignIn, texts, type } from '../../testing/sign-in-setup';
 import { SignIn } from './sign-in';
 
@@ -138,6 +141,20 @@ describe('SignIn', () => {
         expect(TestBed.inject(Router).url).toBe('/sign-in');
       });
     }
+  });
+
+  it('a refusal follows a language switch', async () => {
+    await submit(email);
+    http.expectOne(endpoint).flush({ code: 'invalid-email' }, { status: 400, statusText: 'Refused' });
+    await settle(harness);
+    const transloco = TestBed.inject(TranslocoService);
+    await firstValueFrom(transloco.load('ru'));
+
+    transloco.setActiveLang('ru');
+    await settle(harness);
+
+    const ru = readTranslation('ru')['error'] as Record<string, string>;
+    expect(alert()?.textContent?.trim()).toBe(ru['invalid-email']);
   });
 
   it('no response shows error.network', async () => {

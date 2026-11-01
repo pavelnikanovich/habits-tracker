@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { browserTimeZone, formatMoment } from '../time/format-moment';
 
 /**
  * The problem codes of `contracts/http-api.md`, each with a text `error.<code>`. The backend's `ProblemCodes` holds the
@@ -50,6 +51,21 @@ export function problemOf(error: unknown): Problem {
     retryAt: typeof retryAt === 'string' ? retryAt : undefined,
     traceId: typeof traceId === 'string' ? traceId : undefined,
   };
+}
+
+/** Reads a translation key with its parameters, as `TranslocoService.translate` does. */
+export type Translate = (key: string, params: Record<string, string>) => string;
+
+/**
+ * A problem for the person, in `language`: `error.<code>` (with `traceId`, which only `internal-error` shows), then
+ * `signIn.retryAt` with the moment worded by `formatMoment` against `now`, where the problem says when to try again.
+ */
+export function problemText(problem: Problem, translate: Translate, language: string, now: Date): string {
+  const text = translate(`error.${problem.code}`, { traceId: problem.traceId ?? '' });
+  if (problem.retryAt === undefined) return text;
+
+  const time = formatMoment(new Date(problem.retryAt), now, language, browserTimeZone());
+  return `${text} ${translate('signIn.retryAt', { time })}`;
 }
 
 function isKnownCode(code: unknown): code is (typeof knownCodes)[number] {

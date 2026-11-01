@@ -14,6 +14,11 @@ export function formatMoment(moment: Date, now: Date, language: string, timeZone
   return `${date}, ${time}`;
 }
 
+/** The browser's time zone, the one the page shows moments in; UTC when the browser reports none. */
+export function browserTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
 // The calendar day in the time zone, in a form that compares: the same locale whatever the page's language.
 function dayOf(moment: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).format(moment);

@@ -1,10 +1,9 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoService } from '@jsverse/transloco';
-import { Problem, problemOf } from '../api/problem';
+import { Problem, problemOf, problemText } from '../api/problem';
 import { LanguageService } from '../i18n/language.service';
 import { CurrentUserService } from '../session/current-user.service';
-import { formatMoment } from '../time/format-moment';
 import { CodeRequestAccepted, SignInApi } from './sign-in-api';
 
 /**
@@ -29,17 +28,12 @@ export class SignInFlow {
   readonly signingIn = signal(false);
   readonly refusal = signal<Problem | null>(null);
 
-  /** The refusal in the page's language: `error.<code>`, then when to try again where the response says it. */
+  /** The refusal in the page's language (`problemText`), worded again when the language changes. */
   readonly refusalText = computed(() => {
     this.activeLanguage();
     const refusal = this.refusal();
     if (refusal === null) return null;
-
-    const text = this.transloco.translate(`error.${refusal.code}`, { traceId: refusal.traceId ?? '' });
-    if (refusal.retryAt === undefined) return text;
-
-    const time = formatMoment(new Date(refusal.retryAt), new Date(), this.language.current(), browserTimeZone());
-    return `${text} ${this.transloco.translate('signIn.retryAt', { time })}`;
+    return problemText(refusal, (key, params) => this.transloco.translate(key, params), this.language.current(), new Date());
   });
 
   /** A code was sent to `email`: the code step shows it, and Back to the email step fills it in again. */
@@ -112,8 +106,4 @@ export class SignInFlow {
       this.signingIn.set(false);
     }
   }
-}
-
-function browserTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 }
