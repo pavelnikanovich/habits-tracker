@@ -43,16 +43,137 @@
     "loading": "Ładowanie…",
     "timeZoneNotRecognized": "Nie rozpoznano strefy czasowej przeglądarki. Używany jest czas UTC.",
     "signOut": "Wyloguj się",
-    "signOutEverywhere": "Wyloguj się wszędzie",
-    "signOutEverywhereConfirm": "Wylogować się na każdym urządzeniu?",
-    "confirm": "Wyloguj się wszędzie",
+    "signOutEverywhere": "Wyloguj się na wszystkich urządzeniach",
+    "signOutEverywhereConfirm": "Wylogować się na wszystkich urządzeniach?",
+    "confirm": "Wyloguj się na wszystkich urządzeniach",
     "cancel": "Anuluj"
   },
   "privacy": {
-    "title": "Polityka prywatności"
+    "title": "Polityka prywatności",
+    "section": {
+      "1": {
+        "title": "Administrator danych",
+        "body": "Administratorem Twoich danych osobowych jest {name}, osoba fizyczna mieszkająca w Polsce. Kontakt: {email}."
+      },
+      "2": {
+        "title": "Inspektor ochrony danych",
+        "body": "Nie ma inspektora ochrony danych: prawo nie wymaga go przy tej usłudze."
+      },
+      "3": {
+        "title": "Cele i podstawa prawna",
+        "body": "Twoje dane wykorzystujemy w dwóch celach.\n\nPo pierwsze, aby świadczyć usługę, z której korzystasz (art. 6 ust. 1 lit. b RODO): konto (adres e-mail, strefa czasowa, język interfejsu), nawyki i zaznaczenia, sesje i plik cookie sesji oraz kod jednorazowy wraz z wiadomością e-mail, która go zawiera.\n\nPo drugie, aby chronić bezpieczeństwo usługi i zapobiegać nadużyciom (art. 6 ust. 1 lit. f RODO): adresy IP w logach i w limitach próśb o kod."
+      },
+      "4": {
+        "title": "Prawnie uzasadniony interes",
+        "body": "Nasz prawnie uzasadniony interes, o którym mowa w art. 6 ust. 1 lit. f RODO, to utrzymanie bezpieczeństwa usługi i zapobieganie nadużyciom przy logowaniu, na przykład zalewaniu usługi prośbami o kod."
+      },
+      "5": {
+        "title": "Odbiorcy danych",
+        "body": "Dane trafiają tylko do dwóch odbiorców. Hetzner (hosting, Niemcy, UE) przechowuje wszystkie dane na swoim serwerze, także kopie zapasowe i logi. Resend, należący do Plus Five Five, Inc. (USA), wysyła wiadomość e-mail z kodem jednorazowym. Nikt inny nie otrzymuje danych osobowych. Jeśli ta lista się zmieni, zmieni się razem z nią ta strona."
+      },
+      "6": {
+        "title": "Przekazanie poza UE",
+        "body": "Resend działa w USA, więc Twój adres e-mail i treść wiadomości z kodem są przekazywane poza Unię Europejską. Podstawą jest decyzja wykonawcza Komisji Europejskiej stwierdzająca odpowiedni stopień ochrony w ramach unijno-amerykańskich ram ochrony danych (Data Privacy Framework; decyzja wykonawcza (UE) 2023/1795), w których Resend jest certyfikowany, oraz standardowe klauzule umowne UE zawarte w umowie powierzenia przetwarzania danych Resend (https://resend.com/legal/dpa)."
+      },
+      "7": {
+        "title": "Okres przechowywania",
+        "body": "Dane konta, nawyki i zaznaczenia: do usunięcia konta. Dopóki aplikacja nie umożliwia usunięcia konta, usunięcia danych można zażądać pod adresem {email}.\n\nSesje: do wylogowania, wylogowania na wszystkich urządzeniach albo do upływu 30 dni bez aktywności.\n\nKody jednorazowe: ważne 10 minut, przechowywane tylko w postaci skrótu.\n\nProśby o kod wraz z adresem e-mail i adresem IP: 24 godziny. Logi: 7 dni.\n\nKopie zapasowe: usunięte dane pozostają w kopiach zapasowych do 7 dni.\n\nResend: przechowuje wiadomość z kodem, czyli adres i treść, przez 30 dni.\n\nSystem usuwa dane najpóźniej w ciągu jednego dnia po upływie każdego okresu. Prośba o kod dla adresu e-mail, który nigdy nie stał się kontem, nie zostawia po tych okresach żadnego śladu."
+      },
+      "8": {
+        "title": "Twoje prawa",
+        "body": "Masz prawo dostępu do swoich danych, ich sprostowania, usunięcia, ograniczenia przetwarzania, sprzeciwu wobec przetwarzania opartego na prawnie uzasadnionym interesie oraz przenoszenia danych. Aby skorzystać z któregokolwiek z tych praw, napisz na adres {email}."
+      },
+      "9": {
+        "title": "Skarga",
+        "body": "Możesz złożyć skargę do Prezesa Urzędu Ochrony Danych Osobowych (Prezes UODO), ul. Stanisława Moniuszki 1A, 00-014 Warszawa, albo do organu nadzorczego w swoim kraju UE."
+      },
+      "10": {
+        "title": "Czy podanie danych jest wymagane",
+        "body": "Do zalogowania potrzebny jest adres e-mail. Bez niego nie ma konta i nie można korzystać z usługi."
+      },
+      "11": {
+        "title": "Zautomatyzowane decyzje",
+        "body": "Wobec Ciebie nie są podejmowane decyzje w sposób zautomatyzowany i nie stosuje się profilowania."
+      },
+      "12": {
+        "title": "Pliki cookie i pamięć przeglądarki",
+        "body": "Aplikacja ustawia jeden plik cookie: cookie sesji z flagą HttpOnly, zawierające nieprzejrzysty identyfikator sesji. Utrzymuje on zalogowanie. Wygasa po zamknięciu przeglądarki, chyba że przy logowaniu zaznaczysz „Zapamiętaj mnie”: wtedy trwa do upływu 30 dni bez aktywności.\n\nPrzeglądarka przechowuje też w pamięci lokalnej (local storage) wybrany przez Ciebie język i motyw. To ustawienia interfejsu, które wybierasz sam, i podobnie jak cookie sesji nie wymagają zgody.\n\nNie ma innych plików cookie, analityki ani reklam."
+      },
+      "13": {
+        "title": "Prywatność nawyków",
+        "body": "Twoje nawyki i zaznaczenia nigdy nie są pokazywane innemu użytkownikowi."
+      },
+      "14": {
+        "title": "Czego nie wpisywać",
+        "body": "Nazwy nawyków to dowolny tekst. Prosimy, by nie wpisywać w nich danych o zdrowiu ani innych danych wrażliwych."
+      },
+      "15": {
+        "title": "Data wejścia w życie i zmiany",
+        "body": "Ta polityka obowiązuje od daty wejścia w życie podanej u góry strony. Zmiany są ogłaszane na tej stronie, z nową datą wejścia w życie."
+      }
+    }
   },
   "terms": {
-    "title": "Regulamin"
+    "title": "Regulamin",
+    "section": {
+      "1": {
+        "title": "Kto świadczy usługę",
+        "body": "Usługę świadczy {name}, osoba fizyczna. Kontakt: {email}. Adres zamieszkania nie jest publikowany."
+      },
+      "2": {
+        "title": "Czym jest usługa",
+        "body": "Usługa to bezpłatna aplikacja do śledzenia nawyków. Jest to niekomercyjny projekt pokazowy: nie przynosi dochodu i nie wyświetla reklam."
+      },
+      "3": {
+        "title": "Wymagania techniczne",
+        "body": "Potrzebna jest aktualna przeglądarka z włączoną obsługą JavaScriptu i plików cookie oraz skrzynka e-mail, z której możesz odbierać kody jednorazowe."
+      },
+      "4": {
+        "title": "Treści niezgodne z prawem",
+        "body": "Nie wpisuj treści niezgodnych z prawem, ani w nazwach nawyków, ani nigdzie indziej."
+      },
+      "5": {
+        "title": "Początek i koniec umowy",
+        "body": "Umowa zaczyna się przy pierwszym zalogowaniu: wtedy powstaje konto. W każdej chwili możesz przestać korzystać z usługi. Dopóki aplikacja nie umożliwia usunięcia konta, usunięcia konta i danych można zażądać pod adresem {email}.\n\nŚwiadczący usługę może usunąć konto, które łamie ten Regulamin, albo zakończyć usługę. Jeśli to możliwe, powiadomienie trafia na Twój adres e-mail."
+      },
+      "6": {
+        "title": "Reklamacje i zgłoszenia",
+        "body": "Reklamacje i zgłoszenia treści niezgodnych z prawem wysyłaj na adres {email}. Odpowiadamy w ciągu 14 dni."
+      },
+      "7": {
+        "title": "Ryzyka",
+        "body": "Każdy, kto ma dostęp do Twojej skrzynki e-mail, może zalogować się jako Ty. Opcję „Zapamiętaj mnie” zaznaczaj tylko na urządzeniach, którym ufasz."
+      },
+      "8": {
+        "title": "Usługa w stanie, w jakim jest",
+        "body": "Usługa jest świadczona w stanie, w jakim jest, i bezpłatnie. Nie gwarantujemy, że będzie zawsze dostępna ani że Twoje dane będą przechowywane dłużej, niż wynika to z zasad kopii zapasowych opisanych w polityce prywatności. Odpowiedzialność jest ograniczona w zakresie dozwolonym przez prawo, nigdy jednak nie dotyczy szkody wyrządzonej umyślnie."
+      },
+      "9": {
+        "title": "Niedostępność logowania",
+        "body": "Logowanie może być niedostępne nawet przez 24 godziny, jeśli zostanie wyczerpany dzienny limit usługi poczty."
+      },
+      "10": {
+        "title": "Zmiany Regulaminu",
+        "body": "Zmiany tego Regulaminu są ogłaszane na tej stronie, z nową datą wejścia w życie. Data wejścia w życie jest podana u góry strony."
+      },
+      "11": {
+        "title": "Prawo właściwe",
+        "body": "Do tego Regulaminu stosuje się prawo polskie."
+      },
+      "12": {
+        "title": "Prywatność",
+        "body": "Sposób przetwarzania danych osobowych opisuje polityka prywatności, dostępna pod linkiem poniżej."
+      }
+    }
+  },
+  "legal": {
+    "controllerLabel": "Świadczący usługę i administrator danych",
+    "controllerName": "Paweł Nikanowicz",
+    "contactLabel": "Kontakt",
+    "contactEmail": "pavelnikanovich@gmail.com",
+    "effectiveLabel": "Data wejścia w życie",
+    "effectiveDate": "[date of first deployment]",
+    "englishPrevails": "Wersje polska i rosyjska służą wyłącznie wygodzie; jeśli wersje się różnią, pierwszeństwo ma wersja angielska."
   },
   "notFound": {
     "title": "Nie znaleziono strony"
@@ -60,9 +181,9 @@
   "error": {
     "network": "Brak połączenia z serwerem. Spróbuj ponownie.",
     "invalid-email": "Ten adres e-mail jest nieprawidłowy.",
-    "invalid-locale": "Ten język jest niedostępny.",
-    "email-limit": "Zażądano zbyt wielu kodów dla tego adresu e-mail.",
-    "ip-limit": "Z Twojej sieci zażądano zbyt wielu kodów.",
+    "invalid-locale": "Ten język interfejsu jest niedostępny.",
+    "email-limit": "Zbyt wiele próśb o kod dla tego adresu e-mail.",
+    "ip-limit": "Z Twojej sieci wysłano zbyt wiele próśb o kod.",
     "email-service-limit": "Usługa poczty osiągnęła swój limit i na razie nie może wysyłać kodów.",
     "email-service-unavailable": "Usługa poczty jest niedostępna. Spróbuj ponownie później.",
     "invalid-request": "Nie udało się przetworzyć żądania. Odśwież stronę i spróbuj ponownie.",
@@ -75,6 +196,6 @@
   },
   "email": {
     "subject": "Twój kod logowania",
-    "body": "Twój kod: {code}\n\nKod jest ważny przez 10 minut. Jeśli ten kod nie był przez Ciebie zamówiony, zignoruj tę wiadomość."
+    "body": "Twój kod: {code}\n\nKod jest ważny przez 10 minut. Jeśli prośba o kod nie pochodzi od Ciebie, zignoruj tę wiadomość."
   }
 }

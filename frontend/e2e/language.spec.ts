@@ -88,6 +88,8 @@ test.describe('a browser preferring English', () => {
       await expect(heading(page)).toBeVisible();
 
       await expect(page.getByRole('combobox', { name: en.language.switcher }), route).toBeInViewport();
+      // The Privacy and Terms pages are longer than the viewport: the footer is reached by scrolling down to it.
+      await page.locator('footer').scrollIntoViewIfNeeded();
       await expect(page.locator('footer').getByRole('link', { name: en.nav.privacy }), route).toBeInViewport();
       await expect(page.locator('footer').getByRole('link', { name: en.nav.terms }), route).toBeInViewport();
       await expectNoHorizontalScroll(page);

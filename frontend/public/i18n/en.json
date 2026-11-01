@@ -49,10 +49,131 @@
     "cancel": "Cancel"
   },
   "privacy": {
-    "title": "Privacy policy"
+    "title": "Privacy policy",
+    "section": {
+      "1": {
+        "title": "Controller",
+        "body": "The controller of your personal data is {name}, a private individual living in Poland. Contact: {email}."
+      },
+      "2": {
+        "title": "Data protection officer",
+        "body": "There is no data protection officer: the law does not require one for this service."
+      },
+      "3": {
+        "title": "Purposes and legal basis",
+        "body": "We use your data for two purposes.\n\nFirst, to provide the service you use (GDPR art. 6(1)(b)): your account (email, time zone, interface language), your habits and check-ins, your sessions and the session cookie, and the one-time code with the email that carries it.\n\nSecond, to keep the service secure and prevent abuse (GDPR art. 6(1)(f)): IP addresses in logs and in the limits on code requests."
+      },
+      "4": {
+        "title": "Legitimate interest",
+        "body": "Our legitimate interest under GDPR art. 6(1)(f) is keeping the service secure and preventing abuse of sign-in, for example floods of code requests."
+      },
+      "5": {
+        "title": "Recipients",
+        "body": "Your data goes to two recipients only. Hetzner (hosting, Germany, EU) stores all data on its server, backups and logs included. Resend, operated by Plus Five Five, Inc. (USA), sends the email with your one-time code. No one else receives personal data. If this list ever changes, this page changes with it."
+      },
+      "6": {
+        "title": "Transfer outside the EU",
+        "body": "Resend is in the USA, so your email address and the content of the code email are transferred outside the European Union. The transfer rests on the European Commission's adequacy decision for the EU-US Data Privacy Framework (Implementing Decision (EU) 2023/1795), under which Resend is certified, and on the EU Standard Contractual Clauses in Resend's data processing agreement (https://resend.com/legal/dpa)."
+      },
+      "7": {
+        "title": "Retention",
+        "body": "Account data, habits and check-ins: until the account is deleted. Until the app can delete an account, ask for deletion at {email}.\n\nSessions: until you sign out, sign out everywhere, or 30 days pass without activity.\n\nOne-time codes: valid for 10 minutes, stored only as a hash.\n\nCode requests, with their email address and IP address: 24 hours. Logs: 7 days.\n\nBackups: deleted data stays in backups for up to 7 days.\n\nResend: keeps the code email, address and content, for 30 days.\n\nThe system deletes data at most one day after each period ends. A code request for an email address that never becomes an account leaves nothing behind after these periods."
+      },
+      "8": {
+        "title": "Your rights",
+        "body": "You have the right to access your data, correct it, have it erased, restrict its processing, object to processing based on legitimate interest, and receive your data in a portable form. To use any of these rights, write to {email}."
+      },
+      "9": {
+        "title": "Complaints",
+        "body": "You can complain to the President of the Personal Data Protection Office (Prezes UODO), ul. Stanisława Moniuszki 1A, 00-014 Warszawa, or to the supervisory authority of your own EU country."
+      },
+      "10": {
+        "title": "Is providing data required",
+        "body": "An email address is needed to sign in. Without it there is no account and you cannot use the service."
+      },
+      "11": {
+        "title": "Automated decisions",
+        "body": "No decisions about you are made by automated means, and there is no profiling."
+      },
+      "12": {
+        "title": "Cookies and browser storage",
+        "body": "The app sets one cookie: a session cookie, HttpOnly, holding an opaque session id. It keeps you signed in. It ends when you close the browser, unless you tick “Remember me” when you sign in: then it lasts until 30 days pass without activity.\n\nThe browser also keeps your language choice and your theme choice in local storage. These are interface settings you choose yourself, and like the session cookie they need no consent.\n\nThere are no other cookies, no analytics and no ads."
+      },
+      "13": {
+        "title": "Privacy of your habits",
+        "body": "Your habits and check-ins are never shown to another user."
+      },
+      "14": {
+        "title": "What not to enter",
+        "body": "Habit names are free text. Please do not put health data or other sensitive data in them."
+      },
+      "15": {
+        "title": "Effective date and changes",
+        "body": "This policy applies from the effective date shown at the top of the page. Changes are announced on this page, with a new effective date."
+      }
+    }
   },
   "terms": {
-    "title": "Terms of use"
+    "title": "Terms of use",
+    "section": {
+      "1": {
+        "title": "Who provides the service",
+        "body": "The service is provided by {name}, a private individual. Contact: {email}. No home address is published."
+      },
+      "2": {
+        "title": "What the service is",
+        "body": "The service is a free habit tracker. It is a non-commercial showcase project: it earns nothing and shows no ads."
+      },
+      "3": {
+        "title": "Technical requirements",
+        "body": "You need a current browser with JavaScript and cookies enabled, and an email inbox you can read to receive one-time codes."
+      },
+      "4": {
+        "title": "Unlawful content",
+        "body": "Do not enter unlawful content, in habit names or anywhere else."
+      },
+      "5": {
+        "title": "How the agreement starts and ends",
+        "body": "The agreement starts when you first sign in: that creates your account. You can stop using the service at any time. Until the app can delete an account, ask for your account and data to be deleted at {email}.\n\nThe provider may delete an account that breaks these Terms, or end the service. Where possible, notice goes to your email address."
+      },
+      "6": {
+        "title": "Complaints and reports",
+        "body": "Send complaints and reports of unlawful content to {email}. We answer within 14 days."
+      },
+      "7": {
+        "title": "Risks",
+        "body": "Whoever controls your email inbox can sign in as you. Tick “Remember me” only on devices you trust."
+      },
+      "8": {
+        "title": "As is",
+        "body": "The service is provided as is and free of charge. We do not guarantee that it is always available, or that your data is kept beyond the backup policy described in the Privacy policy. Liability is limited as far as the law allows, but never for intentional harm."
+      },
+      "9": {
+        "title": "Sign-in can be unavailable",
+        "body": "Sign-in can be unavailable for up to 24 hours if the daily limit of the email service is used up."
+      },
+      "10": {
+        "title": "Changes to the Terms",
+        "body": "Changes to these Terms are announced on this page, with a new effective date. The effective date is shown at the top of the page."
+      },
+      "11": {
+        "title": "Governing law",
+        "body": "Polish law governs these Terms."
+      },
+      "12": {
+        "title": "Privacy",
+        "body": "How personal data is handled is described in the Privacy policy, linked below."
+      }
+    }
+  },
+  "legal": {
+    "controllerLabel": "Provider and data controller",
+    "controllerName": "Paweł Nikanowicz",
+    "contactLabel": "Contact",
+    "contactEmail": "pavelnikanovich@gmail.com",
+    "effectiveLabel": "Effective date",
+    "effectiveDate": "[date of first deployment]",
+    "englishPrevails": "The Polish and Russian translations are for convenience; if the versions differ, this English version prevails."
   },
   "notFound": {
     "title": "Page not found"

@@ -1,0 +1,22 @@
+@let name = 'legal.controllerName' | transloco;
+@let email = 'legal.contactEmail' | transloco;
+<h1 tabindex="-1">{{ page + '.title' | transloco }}</h1>
+
+<p class="facts">
+  {{ 'legal.controllerLabel' | transloco }}: {{ name }}<br />
+  {{ 'legal.contactLabel' | transloco }}: <a [href]="'mailto:' + email">{{ email }}</a><br />
+  {{ 'legal.effectiveLabel' | transloco }}: {{ 'legal.effectiveDate' | transloco }}
+</p>
+<p class="prevails">{{ 'legal.englishPrevails' | transloco }}</p>
+
+@for (number of numbers; track number) {
+  <section>
+    <h2>{{ page + '.section.' + number + '.title' | transloco }}</h2>
+    @for (paragraph of paragraphs(page + '.section.' + number + '.body' | transloco: { name, email }); track $index) {
+      <p>{{ paragraph }}</p>
+    }
+    @if (page === 'terms' && number === numbers.length) {
+      <p><a routerLink="/privacy">{{ 'nav.privacy' | transloco }}</a></p>
+    }
+  </section>
+}

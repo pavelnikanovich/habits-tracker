@@ -167,6 +167,8 @@ test('the shell at every width in both themes @width', async ({ page }) => {
       await expectNoHorizontalScroll(page);
       await expect(page.getByRole('combobox', { name: en.language.switcher }), route).toBeInViewport();
       await expect(page.locator('app-theme-switcher button'), route).toBeInViewport();
+      // The Privacy and Terms pages are longer than the viewport: the footer is reached by scrolling down to it.
+      await page.locator('footer').scrollIntoViewIfNeeded();
       await expect(page.locator('footer').getByRole('link', { name: en.nav.privacy }), route).toBeInViewport();
       await expect(page.locator('footer').getByRole('link', { name: en.nav.terms }), route).toBeInViewport();
     }

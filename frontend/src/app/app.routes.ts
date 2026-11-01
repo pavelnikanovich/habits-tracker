@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
+import { LegalPage } from './legal/legal-page';
 import { Main } from './main/main';
 import { PlaceholderPage } from './placeholder-page';
 import { signedInGuard, signedOutGuard } from './session/signed-in.guard';
@@ -16,7 +17,7 @@ export const routes: Routes = [
   { path: 'sign-in', component: SignIn, title: 'signIn.title', canActivate: [signedOutGuard] },
   { path: 'sign-in/code', component: CodeStep, title: 'signIn.title', canActivate: [signedOutGuard, codeRequested] },
   { path: '', pathMatch: 'full', component: Main, title: 'main.title', canActivate: [signedInGuard] },
-  { path: 'privacy', component: PlaceholderPage, title: 'privacy.title' },
-  { path: 'terms', component: PlaceholderPage, title: 'terms.title' },
+  { path: 'privacy', component: LegalPage, title: 'privacy.title', data: { page: 'privacy', sections: 15 } },
+  { path: 'terms', component: LegalPage, title: 'terms.title', data: { page: 'terms', sections: 12 } },
   { path: '**', component: PlaceholderPage, title: 'notFound.title' },
 ];
