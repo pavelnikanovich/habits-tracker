@@ -36,12 +36,10 @@ public sealed partial record Email
         return new Email(value);
     }
 
-    // The length check runs before the pattern (research R19, D5). In .NET "$" also matches before a final
-    // "\n", in JavaScript it does not: the explicit check keeps the rule one for both engines.
+    // The length check runs before the pattern (research R19, D5).
     private static bool Follows([NotNullWhen(true)] string? input) =>
         input is { Length: <= MaxLength }
-        && !input.EndsWith('\n')
-        && PatternRegex().IsMatch(input);
+        && WholeMatch.IsMatch(PatternRegex(), input);
 
     [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
     private static partial Regex PatternRegex();

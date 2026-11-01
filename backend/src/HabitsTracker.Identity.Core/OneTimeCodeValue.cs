@@ -30,11 +30,8 @@ public sealed partial record OneTimeCodeValue
     // Secrets do not print (FR-011): the digits are read only through Digits.
     public override string ToString() => "***";
 
-    // In .NET "$" also matches before a final "\n", in JavaScript it does not (see Email).
     private static bool Follows([NotNullWhen(true)] string? input) =>
-        input is not null
-        && !input.EndsWith('\n')
-        && PatternRegex().IsMatch(input);
+        input is not null && WholeMatch.IsMatch(PatternRegex(), input);
 
     [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
     private static partial Regex PatternRegex();

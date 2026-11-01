@@ -18,7 +18,7 @@ public sealed partial record Locale
     {
         ArgumentNullException.ThrowIfNull(locales);
 
-        if (!Follows(code) || !locales.IsAvailable(code))
+        if (!IsCode(code) || !locales.IsAvailable(code))
             throw new DomainException(DomainError.InvalidLocale, "The locale is not an available locale.");
 
         return new Locale(code);
@@ -28,17 +28,15 @@ public sealed partial record Locale
     {
         ArgumentNullException.ThrowIfNull(code);
 
-        if (!Follows(code))
+        if (!IsCode(code))
             throw new DomainException(DomainError.CorruptRecord, "A stored locale breaks the locale rules.");
 
         return new Locale(code);
     }
 
-    // In .NET "$" also matches before a final "\n", in JavaScript it does not (see Email).
-    private static bool Follows([NotNullWhen(true)] string? code) =>
-        code is not null
-        && !code.EndsWith('\n')
-        && PatternRegex().IsMatch(code);
+    // The form of a locale code, without asking ILocales; the translation files check their names with it.
+    public static bool IsCode([NotNullWhen(true)] string? code) =>
+        code is not null && WholeMatch.IsMatch(PatternRegex(), code);
 
     [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
     private static partial Regex PatternRegex();
