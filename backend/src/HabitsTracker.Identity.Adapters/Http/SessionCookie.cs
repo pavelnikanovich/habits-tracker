@@ -1,5 +1,6 @@
 using HabitsTracker.Identity.Core;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace HabitsTracker.Identity.Adapters.Http;
 
@@ -26,10 +27,18 @@ public static class SessionCookie
         response.Cookies.Append(Name, token.Value, options);
     }
 
-    /// <summary>Tells the browser to drop the cookie: the same attributes, with an expiry in the past.</summary>
+    /// <summary>
+    /// Tells the browser to drop the cookie: the same attributes, with an expiry in the past. It replaces a session
+    /// cookie the response already carries (the renewal of a Remembered session's), so the clearing one is the only one.
+    /// </summary>
     public static void Clear(HttpResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
+
+        var others = response.Headers.SetCookie
+            .Where(header => header is not null && !header.StartsWith(Name + "=", StringComparison.Ordinal))
+            .ToArray();
+        response.Headers.SetCookie = new StringValues(others);
 
         response.Cookies.Delete(Name, Options());
     }

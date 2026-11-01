@@ -39,6 +39,15 @@ public sealed class SessionAuthenticationHandler(
             ?? throw new InvalidOperationException("The request is not signed in: the endpoint is not marked signed in."));
     }
 
+    /// <summary>The id of the session an endpoint marked signed in acts for: the bytes the <c>sid</c> claim encodes.</summary>
+    public static byte[] SessionIdOf(ClaimsPrincipal user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        return Base64Url.DecodeFromChars(user.FindFirstValue(SessionIdClaim)
+            ?? throw new InvalidOperationException("The request is not signed in: the endpoint is not marked signed in."));
+    }
+
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         // The failure messages name no value: the authentication handler logs them.

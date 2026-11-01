@@ -1,5 +1,9 @@
 <h1 tabindex="-1">{{ 'signIn.title' | transloco }}</h1>
 
+@if (sessionEnded) {
+  <app-message kind="info" id="session-ended">{{ 'signIn.sessionEnded' | transloco }}</app-message>
+}
+
 <form novalidate (submit)="submit($event)">
   <div class="field">
     <label for="email">{{ 'signIn.email' | transloco }}</label>

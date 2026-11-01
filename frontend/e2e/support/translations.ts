@@ -9,6 +9,7 @@ export interface Translation {
   theme: { toLight: string; toDark: string };
   signIn: {
     title: string;
+    sessionEnded: string;
     email: string;
     emailInvalid: string;
     rememberMe: string;
@@ -18,7 +19,16 @@ export interface Translation {
     code: string;
     signIn: string;
   };
-  main: { noHabits: string; timeZoneNotRecognized: string };
+  main: {
+    title: string;
+    noHabits: string;
+    timeZoneNotRecognized: string;
+    signOut: string;
+    signOutEverywhere: string;
+    signOutEverywhereConfirm: string;
+    confirm: string;
+    cancel: string;
+  };
   error: { network: string };
   privacy: { title: string };
   terms: { title: string };

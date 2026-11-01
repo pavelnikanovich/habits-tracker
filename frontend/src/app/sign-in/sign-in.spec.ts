@@ -173,3 +173,33 @@ describe('SignIn', () => {
     expect(TestBed.inject(Router).url).toBe(codeStepUrl);
   });
 });
+
+// contracts/ui.md, "Session ended": the reason travels in the router's navigation state, never in the URL.
+describe('SignIn, arriving after a session ended', () => {
+  let harness: RouterTestingHarness;
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    ({ harness, http } = await setUpSignIn());
+  });
+
+  afterEach(() => http.verify());
+
+  const info = () => (harness.routeNativeElement as HTMLElement).querySelector('app-message[role="status"]');
+
+  it('shows signIn.sessionEnded above the form, and the URL stays /sign-in', async () => {
+    await TestBed.inject(Router).navigateByUrl('/sign-in', { state: { reason: 'session-ended' } });
+    await settle(harness);
+
+    const page = harness.routeNativeElement as HTMLElement;
+    expect(info()?.textContent?.trim()).toBe(signIn['sessionEnded']);
+    expect(info()!.compareDocumentPosition(page.querySelector('form')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(TestBed.inject(Router).url).toBe('/sign-in');
+  });
+
+  it('shows nothing of it on a plain visit', async () => {
+    await harness.navigateByUrl('/sign-in', SignIn);
+
+    expect(info()).toBeNull();
+  });
+});

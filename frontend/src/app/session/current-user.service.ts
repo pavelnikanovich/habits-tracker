@@ -27,6 +27,8 @@ export class CurrentUserService {
   private readonly current = signal<CurrentUser | null>(null);
   private readonly failure = signal<Problem | null>(null);
   private pending: Promise<void> | null = null;
+  /** Counts the locale changes; one whose number is no longer the latest when its PUT answers was overtaken. */
+  private latestLocaleChange = 0;
 
   readonly status = this.state.asReadonly();
   readonly user = this.current.asReadonly();
@@ -52,6 +54,44 @@ export class CurrentUserService {
     this.current.set(null);
     this.failure.set(null);
     this.state.set('signed-out');
+  }
+
+  /**
+   * Changes the signed-in user's locale (`PUT /api/me/locale`, FR-023), then shows it; this browser's choice stays as it
+   * was. The latest change wins on the page whichever PUT answers last: an earlier one that answers later shows nothing
+   * and reports nothing. Returns why the change was refused, or null.
+   */
+  async changeLocale(code: string): Promise<Problem | null> {
+    const turn = ++this.latestLocaleChange;
+    try {
+      await firstValueFrom(this.http.put('/api/me/locale', { locale: code }));
+    } catch (error) {
+      return turn === this.latestLocaleChange ? problemOf(error) : null;
+    }
+    if (turn === this.latestLocaleChange) await this.language.show(code);
+    return null;
+  }
+
+  /** Sign out (US-1.4): revokes this browser's session. Returns why it failed, or null once the user is forgotten. */
+  signOut(): Promise<Problem | null> {
+    return this.end('/api/sessions/current');
+  }
+
+  /** Sign out everywhere (US-1.5): revokes every session of the user. Returns why it failed, or null once the user is forgotten. */
+  signOutEverywhere(): Promise<Problem | null> {
+    return this.end('/api/sessions');
+  }
+
+  // The user is forgotten before the caller navigates, so a late request of this tab that answers `not-signed-in`
+  // finds no user and never brings "Session ended" to a person who has just signed out.
+  private async end(url: string): Promise<Problem | null> {
+    try {
+      await firstValueFrom(this.http.delete(url));
+    } catch (error) {
+      return problemOf(error);
+    }
+    this.clear();
+    return null;
   }
 
   private async ask(): Promise<void> {

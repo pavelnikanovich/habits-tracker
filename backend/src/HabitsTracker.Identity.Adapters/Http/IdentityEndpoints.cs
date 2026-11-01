@@ -23,6 +23,9 @@ public static class IdentityEndpoints
         endpoints.MapPost("/api/code-requests", RequestCodeAsync);
         endpoints.MapPost("/api/sessions", SignInAsync);
         endpoints.MapGet("/api/me", GetCurrentUserAsync).RequireAuthorization();
+        endpoints.MapPut("/api/me/locale", ChangeLocaleAsync).RequireAuthorization();
+        endpoints.MapDelete("/api/sessions/current", SignOutAsync).RequireAuthorization();
+        endpoints.MapDelete("/api/sessions", SignOutEverywhereAsync).RequireAuthorization();
 
         return endpoints;
     }
@@ -83,11 +86,41 @@ public static class IdentityEndpoints
         HttpContext context, [FromServices] GetCurrentUser getCurrentUser) =>
         CurrentUserResponse.Of(await getCurrentUser.ExecuteAsync(SessionAuthenticationHandler.UserIdOf(context.User), context.RequestAborted));
 
+    // US-1.8, FR-023. Signed in: the locale of the session's user, never another's (FR-017).
+    private static async Task<IResult> ChangeLocaleAsync(
+        LocaleBody body, HttpContext context, [FromServices] ChangeLocale changeLocale)
+    {
+        await changeLocale.ExecuteAsync(SessionAuthenticationHandler.UserIdOf(context.User), body.Locale, context.RequestAborted);
+        return TypedResults.NoContent();
+    }
+
+    // US-1.4, FR-015. Signed in: revokes the session of this request only. The cookie is cleared even when the session
+    // was Remembered and the authentication handler has just set it again.
+    private static async Task<IResult> SignOutAsync(HttpContext context, [FromServices] SignOut signOut)
+    {
+        await signOut.ExecuteAsync(SessionAuthenticationHandler.SessionIdOf(context.User), context.RequestAborted);
+        SessionCookie.Clear(context.Response);
+        return TypedResults.NoContent();
+    }
+
+    // US-1.5, FR-015. Signed in: revokes every session of the request's user, this one included.
+    private static async Task<IResult> SignOutEverywhereAsync(HttpContext context, [FromServices] SignOutEverywhere signOutEverywhere)
+    {
+        await signOutEverywhere.ExecuteAsync(SessionAuthenticationHandler.UserIdOf(context.User), context.RequestAborted);
+        SessionCookie.Clear(context.Response);
+        return TypedResults.NoContent();
+    }
+
     // A missing field does not bind: invalid-request. A field of another shape is rejected by the core: invalid-email, invalid-locale.
     private sealed record CodeRequestBody
     {
         public required string Email { get; init; }
 
+        public required string Locale { get; init; }
+    }
+
+    private sealed record LocaleBody
+    {
         public required string Locale { get; init; }
     }
 

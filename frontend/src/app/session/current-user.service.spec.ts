@@ -8,6 +8,9 @@ import { provideIcuTranspiler } from '../i18n/icu-transpiler';
 import { LanguageService } from '../i18n/language.service';
 import { CurrentUserService } from './current-user.service';
 
+const NO_CONTENT = { status: 204, statusText: 'No Content' };
+const LOCALE_URL = '/api/me/locale';
+
 describe('CurrentUserService', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -61,5 +64,55 @@ describe('CurrentUserService', () => {
 
     expect(TestBed.inject(LanguageService).current()).toBe('ru');
     expect(localStorage.getItem('locale')).toBeNull();
+  });
+
+  describe('changeLocale', () => {
+    const put = (code: string) => TestBed.inject(CurrentUserService).changeLocale(code);
+
+    beforeEach(async () => {
+      localStorage.clear();
+      await TestBed.inject(CurrentUserService).signedIn({ ...ann, locale: 'en' });
+    });
+
+    it("PUT /api/me/locale, then shows the language and stores nothing as this browser's choice", async () => {
+      const http = TestBed.inject(HttpTestingController);
+
+      const changing = put('ru');
+      const request = http.expectOne(LOCALE_URL);
+      expect(request.request.method).toBe('PUT');
+      expect(request.request.body).toEqual({ locale: 'ru' });
+      request.flush(null, NO_CONTENT);
+
+      expect(await changing).toBeNull();
+      expect(TestBed.inject(LanguageService).current()).toBe('ru');
+      expect(localStorage.getItem('locale')).toBeNull();
+    });
+
+    it('a refused change keeps the page and returns the problem', async () => {
+      const http = TestBed.inject(HttpTestingController);
+
+      const changing = put('ru');
+      http.expectOne(LOCALE_URL).flush({ code: 'invalid-locale' }, { status: 400, statusText: 'Bad Request' });
+
+      expect(await changing).toEqual({ code: 'invalid-locale', retryAt: undefined, traceId: undefined });
+      expect(TestBed.inject(LanguageService).current()).toBe('en');
+    });
+
+    // R-86: the last choice sent wins, on the server and on the page, whichever PUT answers last.
+    it('two switches whose first PUT answers last end in the latest choice', async () => {
+      const http = TestBed.inject(HttpTestingController);
+
+      const first = put('pl');
+      const second = put('ru');
+      const [firstRequest, secondRequest] = http.match(LOCALE_URL);
+      expect(firstRequest.request.body).toEqual({ locale: 'pl' });
+      expect(secondRequest.request.body).toEqual({ locale: 'ru' });
+      secondRequest.flush(null, NO_CONTENT);
+      await second;
+      firstRequest.flush(null, NO_CONTENT);
+      await first;
+
+      expect(TestBed.inject(LanguageService).current()).toBe('ru');
+    });
   });
 });

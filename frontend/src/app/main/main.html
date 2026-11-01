@@ -4,6 +4,41 @@
     <app-message kind="info" id="time-zone-notice">{{ 'main.timeZoneNotRecognized' | transloco }}</app-message>
   }
   <p>{{ 'main.noHabits' | transloco }}</p>
+  <div class="actions">
+    <button type="button" id="sign-out" [attr.aria-disabled]="signingOut() ? 'true' : null" (click)="signOut()">
+      {{ 'main.signOut' | transloco }}
+    </button>
+    @if (confirming()) {
+      <div class="confirm" role="group" aria-labelledby="sign-out-everywhere-question" (keydown.escape)="cancel()">
+        <p id="sign-out-everywhere-question">{{ 'main.signOutEverywhereConfirm' | transloco }}</p>
+        <button type="button" id="confirm" [attr.aria-disabled]="signingOut() ? 'true' : null" (click)="signOutEverywhere()">
+          {{ 'main.confirm' | transloco }}
+        </button>
+        <button
+          #cancelRef
+          type="button"
+          id="cancel"
+          [attr.aria-disabled]="signingOut() ? 'true' : null"
+          (click)="cancel()"
+        >
+          {{ 'main.cancel' | transloco }}
+        </button>
+      </div>
+    } @else {
+      <button
+        #everywhereRef
+        type="button"
+        id="sign-out-everywhere"
+        [attr.aria-disabled]="signingOut() ? 'true' : null"
+        (click)="askSignOutEverywhere()"
+      >
+        {{ 'main.signOutEverywhere' | transloco }}
+      </button>
+    }
+  </div>
+  @if (actionError(); as text) {
+    <app-message kind="error" id="action-error">{{ text }}</app-message>
+  }
 } @else if (loadError(); as text) {
   <app-message kind="error" id="load-error">{{ text }}</app-message>
 } @else if (slow() && users.status() === 'loading') {

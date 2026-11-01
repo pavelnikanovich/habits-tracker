@@ -34,13 +34,19 @@
     "termsLink": "Regulamin",
     "acceptMiddle": " i potwierdzasz zapoznanie się z ",
     "privacyLink": "Informacją o prywatności",
-    "acceptSuffix": "."
+    "acceptSuffix": ".",
+    "sessionEnded": "Twoja sesja wygasła. Zaloguj się ponownie."
   },
   "main": {
     "title": "Nawyki",
     "noHabits": "Brak nawyków",
     "loading": "Ładowanie…",
-    "timeZoneNotRecognized": "Nie rozpoznano strefy czasowej przeglądarki. Używany jest czas UTC."
+    "timeZoneNotRecognized": "Nie rozpoznano strefy czasowej przeglądarki. Używany jest czas UTC.",
+    "signOut": "Wyloguj się",
+    "signOutEverywhere": "Wyloguj się wszędzie",
+    "signOutEverywhereConfirm": "Wylogować się na każdym urządzeniu?",
+    "confirm": "Wyloguj się wszędzie",
+    "cancel": "Anuluj"
   },
   "privacy": {
     "title": "Polityka prywatności"

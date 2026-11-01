@@ -34,13 +34,19 @@
     "termsLink": "Terms",
     "acceptMiddle": " and acknowledge the ",
     "privacyLink": "Privacy notice",
-    "acceptSuffix": "."
+    "acceptSuffix": ".",
+    "sessionEnded": "Your session has ended. Sign in again."
   },
   "main": {
     "title": "Habits",
     "noHabits": "No habits yet",
     "loading": "Loading…",
-    "timeZoneNotRecognized": "Your browser's time zone was not recognized. UTC is used."
+    "timeZoneNotRecognized": "Your browser's time zone was not recognized. UTC is used.",
+    "signOut": "Sign out",
+    "signOutEverywhere": "Sign out everywhere",
+    "signOutEverywhereConfirm": "Sign out on every device?",
+    "confirm": "Sign out everywhere",
+    "cancel": "Cancel"
   },
   "privacy": {
     "title": "Privacy policy"

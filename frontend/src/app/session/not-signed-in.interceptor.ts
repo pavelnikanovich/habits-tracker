@@ -5,10 +5,14 @@ import { tap } from 'rxjs';
 import { problemOf } from '../api/problem';
 import { CurrentUserService } from './current-user.service';
 
+/** The navigation state `reason` that makes the sign-in page say the session ended. */
+export const SESSION_ENDED = 'session-ended';
+
 /**
  * A request answered `not-signed-in` while a user is signed in means the session ended or was revoked: forget the user
  * and open `/sign-in`. Before `GET /api/me` has answered, that answer is the ordinary one of a visitor and is left to
- * `CurrentUserService`. Task 15 adds the "Session ended" state of the sign-in page.
+ * `CurrentUserService`. The reason goes in the router's navigation state, never in the URL, and only for a user who was
+ * signed in: the sign-in page then says "Session ended".
  */
 export const notSignedInInterceptor: HttpInterceptorFn = (request, next) => {
   const users = inject(CurrentUserService);
@@ -20,7 +24,7 @@ export const notSignedInInterceptor: HttpInterceptorFn = (request, next) => {
         if (users.user() === null || problemOf(error).code !== 'not-signed-in') return;
 
         users.clear();
-        void router.navigateByUrl('/sign-in');
+        void router.navigateByUrl('/sign-in', { state: { reason: SESSION_ENDED } });
       },
     }),
   );

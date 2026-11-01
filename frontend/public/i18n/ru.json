@@ -34,13 +34,19 @@
     "termsLink": "Условия использования",
     "acceptMiddle": " и подтверждаете, что ознакомились с ",
     "privacyLink": "уведомлением о конфиденциальности",
-    "acceptSuffix": "."
+    "acceptSuffix": ".",
+    "sessionEnded": "Ваш сеанс завершён. Войдите снова."
   },
   "main": {
     "title": "Привычки",
     "noHabits": "Пока нет привычек",
     "loading": "Загрузка…",
-    "timeZoneNotRecognized": "Часовой пояс браузера не распознан. Используется UTC."
+    "timeZoneNotRecognized": "Часовой пояс браузера не распознан. Используется UTC.",
+    "signOut": "Выйти",
+    "signOutEverywhere": "Выйти везде",
+    "signOutEverywhereConfirm": "Выйти на всех устройствах?",
+    "confirm": "Выйти везде",
+    "cancel": "Отмена"
   },
   "privacy": {
     "title": "Политика конфиденциальности"

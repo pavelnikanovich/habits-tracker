@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, ElementRef, inject, signa
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { MessageComponent } from '../message/message';
+import { SESSION_ENDED } from '../session/not-signed-in.interceptor';
 import { EMAIL_MAX_LENGTH, EMAIL_PATTERN } from '../validation/patterns';
 import { SignInFlow } from './sign-in-flow.service';
 
@@ -20,6 +21,8 @@ import { SignInFlow } from './sign-in-flow.service';
 export class SignIn {
   protected readonly flow = inject(SignInFlow);
   private readonly router = inject(Router);
+  /** Arriving after a request answered not-signed-in for a signed-in user: the reason is in the navigation state, not the URL. */
+  protected readonly sessionEnded = this.router.currentNavigation()?.extras.state?.['reason'] === SESSION_ENDED;
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('emailField');
 
   // Back from the code step, and "Use another email", come back with what the person had entered.
