@@ -59,4 +59,35 @@ public abstract class TransactionContract
         Assert.Null(await OneTimeCodes.FindExclusiveAsync(Ada, ct));
         Assert.Equal(0, (await CodeRequests.CountAsync(Ada, address, Now - TimeSpan.FromDays(1), ct)).ForEmail);
     }
+
+    [Fact]
+    public async Task Rollback_puts_back_the_rows_the_work_replaced_or_deleted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var address = IpAddressPrefix.From(IPAddress.Parse("192.0.2.1"));
+        var earlier = OneTimeCode.Issue(Ada, CodeHash.FromStorage(new byte[32]), Now);
+        await OneTimeCodes.ReplaceAsync(earlier, ct);
+        await CodeRequests.AddAsync(CodeRequest.Create(Ada, address, Now), ct);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Transaction.RunAsync<int>(
+            async work =>
+            {
+                // Two replacements of one row: the rollback must undo the newest first to reach the earlier code.
+                await OneTimeCodes.ReplaceAsync(OneTimeCode.Issue(Ada, HashOf(1), Now.AddMinutes(1)), work);
+                await OneTimeCodes.ReplaceAsync(OneTimeCode.Issue(Ada, HashOf(2), Now.AddMinutes(2)), work);
+                await CodeRequests.DeleteRequestedAtOrBeforeAsync(Now, work);
+                throw new InvalidOperationException("The work failed.");
+            },
+            ct));
+
+        var stored = await OneTimeCodes.FindExclusiveAsync(Ada, ct);
+        Assert.NotNull(stored);
+        Assert.True(stored.CodeHash.Matches(earlier.CodeHash));
+        Assert.Equal(earlier.IssuedAt, stored.IssuedAt);
+        Assert.Equal(
+            new CodeRequestCounts(1, Now, 1, Now),
+            await CodeRequests.CountAsync(Ada, address, Now - TimeSpan.FromDays(1), ct));
+    }
+
+    private static CodeHash HashOf(byte fill) => CodeHash.FromStorage(Enumerable.Repeat(fill, 32).ToArray());
 }
