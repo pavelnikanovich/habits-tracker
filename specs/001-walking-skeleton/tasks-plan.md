@@ -174,14 +174,14 @@ Use cases (driving ports; application services: one class each, constructor-inje
 
 | Class | `ExecuteAsync` | Task |
 |---|---|---|
-| `RequestCode` | `(Email, Locale, IpAddressPrefix, ct) → CodeRequestResult` | 6 |
-| `SignIn` | `(Email, OneTimeCodeValue, bool rememberMe, string? browserTimeZone, Locale, SessionToken? heldSession, ct) → SignInResult` (a valid held session is deleted once the new one opens) | 9 |
-| `AuthenticateSession` | `(SessionToken, ct) → AuthenticatedSession?` (extends the session) | 9 |
-| `GetCurrentUser` | `(Guid userId, ct) → User` (`InvalidOperationException` when there is none: users are never deleted in this epic) | 9 |
-| `ChangeLocale` | `(Guid userId, Locale, ct) → Task` | 12 |
-| `SignOut` | `(byte[] sessionId, ct) → Task` | 12 |
-| `SignOutEverywhere` | `(Guid userId, ct) → Task` | 12 |
-| `DeleteExpiredRecords` | `(ct) → DeletedRecords` (computes every cutoff and passes `OneTimeCode.MaxEntryAttempts`) | 12 |
+| `RequestCode` | `(Email, Locale, IpAddressPrefix, ct) → CodeRequestResult` | 7 |
+| `SignIn` | `(Email, OneTimeCodeValue, bool rememberMe, string? browserTimeZone, Locale, SessionToken? heldSession, ct) → SignInResult` (a valid held session is deleted once the new one opens) | 11 |
+| `AuthenticateSession` | `(SessionToken, ct) → AuthenticatedSession?` (extends the session) | 11 |
+| `GetCurrentUser` | `(Guid userId, ct) → User` (`InvalidOperationException` when there is none: users are never deleted in this epic) | 11 |
+| `ChangeLocale` | `(Guid userId, Locale, ct) → Task` | 14 |
+| `SignOut` | `(byte[] sessionId, ct) → Task` | 14 |
+| `SignOutEverywhere` | `(Guid userId, ct) → Task` | 14 |
+| `DeleteExpiredRecords` | `(ct) → DeletedRecords` (computes every cutoff and passes `OneTimeCode.MaxEntryAttempts`) | 14 |
 
 ### Adapters and host
 
