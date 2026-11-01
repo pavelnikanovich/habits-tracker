@@ -1,16 +1,10 @@
-import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoService } from '@jsverse/transloco';
-import { firstValueFrom } from 'rxjs';
 import { Problem, problemOf } from '../api/problem';
 import { LanguageService } from '../i18n/language.service';
 import { formatMoment } from '../time/format-moment';
-
-interface CodeRequestAccepted {
-  remaining: number;
-  limit: number;
-}
+import { CodeRequestAccepted, SignInApi } from './sign-in-api';
 
 /**
  * The sign-in's state between its two steps, in the application's memory only (contracts/ui.md, "Sign-in, code step"):
@@ -19,7 +13,7 @@ interface CodeRequestAccepted {
  */
 @Injectable({ providedIn: 'root' })
 export class SignInFlow {
-  private readonly http = inject(HttpClient);
+  private readonly api = inject(SignInApi);
   private readonly language = inject(LanguageService);
   private readonly transloco = inject(TranslocoService);
   private readonly activeLanguage = toSignal(this.transloco.langChanges$);
@@ -68,9 +62,7 @@ export class SignInFlow {
     this.sending.set(true);
     this.refusal.set(null);
     try {
-      const accepted = await firstValueFrom(
-        this.http.post<CodeRequestAccepted>('/api/code-requests', { email, locale: this.language.current() }),
-      );
+      const accepted = await this.api.requestCode(email, this.language.current());
       this.begin(email, rememberMe, accepted);
       return true;
     } catch (error) {
