@@ -12,7 +12,7 @@ using Microsoft.Extensions.Time.Testing;
 namespace HabitsTracker.Host.Tests;
 
 /// <summary>
-/// The host in process (research R12): a fresh database, a <see cref="FakeTimeProvider"/> in place of
+/// The host in process (research R12): a fresh database, migrated on start, a <see cref="FakeTimeProvider"/> in place of
 /// <see cref="TimeProvider"/>, environment Development unless set, the translation files of the frontend,
 /// and the client's address taken from the test header <c>Test-Remote-Address</c> (default 127.0.0.1).
 /// </summary>
@@ -24,6 +24,7 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
     private readonly Dictionary<string, string?> settings = new()
     {
         ["Translations:Path"] = Repository.PathTo("frontend/public/i18n"),
+        ["Database:MigrateOnStart"] = "true",
     };
 
     public FakeTimeProvider Time { get; } = new();
@@ -45,6 +46,12 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Without it the host would fall back to the developer database of appsettings.Development.json and
+        // migrate it on start.
+        if (settings.GetValueOrDefault(ConnectionStringKey) is null)
+            throw new InvalidOperationException(
+                $"No {ConnectionStringKey} for the host: call InitializeAsync() or WithSetting(\"{ConnectionStringKey}\", ...) before creating a client.");
+
         builder.UseEnvironment(EnvironmentName);
         foreach (var (key, value) in settings)
             builder.UseSetting(key, value);
