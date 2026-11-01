@@ -31,10 +31,16 @@ function failLoading(code: string): void {
   vi.spyOn(console, 'error').mockImplementation(() => undefined); // Transloco reports the failed load
 }
 
-function hold(code: string): () => void {
+/** Holds the load of `code`'s file; the returned function lets it load, or fail when `fails`. */
+function hold(code: string): (fails?: boolean) => void {
   const subject = new Subject<Translation>();
   held.set(code, subject);
-  return () => {
+  return (fails = false) => {
+    if (fails) {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined); // Transloco reports the failed load
+      subject.error(new Error(`${code}.json: no connection`));
+      return;
+    }
     subject.next(readTranslation(code));
     subject.complete();
   };
@@ -189,6 +195,43 @@ describe('LanguageService', () => {
     await service.use('pl');
 
     await service[method]('en');
+
+    expect(service.current()).toBe('en');
+    expect(service.switchFailed()).toBe(false);
+  });
+
+  // A later switch wins over an earlier one still loading: the page ends in the language asked last, and a choice
+  // that was overtaken is not stored.
+  it.each([
+    ['show', 'show'],
+    ['show', 'use'],
+    ['use', 'show'],
+    ['use', 'use'],
+  ] as const)('a %s still loading is overtaken by a later %s', async (earlier, later) => {
+    browserLanguages(['ru']);
+    const service = await start();
+    const release = hold('pl');
+
+    const overtaken = service[earlier]('pl');
+    await service[later]('en');
+    release();
+    await overtaken;
+
+    expect(service.current()).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('en');
+    expect(localStorage.getItem('locale')).toBe(later === 'use' ? 'en' : null);
+  });
+
+  it('an overtaken switch whose file fails to load reports no failure', async () => {
+    browserLanguages(['ru']);
+    const service = await start();
+    const release = hold('pl');
+
+    const overtaken = service.use('pl');
+    await service.use('en');
+    release(true);
+    await overtaken;
 
     expect(service.current()).toBe('en');
     expect(service.switchFailed()).toBe(false);

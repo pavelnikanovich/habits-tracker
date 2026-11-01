@@ -23,6 +23,8 @@ export class LanguageService {
   private readonly currentCode = signal(fallbackLocale);
   private readonly availableLocales = signal<LocaleResponse[]>([]);
   private readonly lastSwitchFailed = signal(false);
+  /** Counts the switches; one whose number is no longer the latest when its file arrives was overtaken. */
+  private latestSwitch = 0;
 
   readonly current = this.currentCode.asReadonly();
   readonly available = this.availableLocales.asReadonly();
@@ -55,21 +57,24 @@ export class LanguageService {
   /**
    * Shows the page in `code`, in place, without a reload (FR-022), once its file has loaded; stores nothing. A failed
    * load keeps the page in its language and sets `switchFailed`. The signed-in user's locale is shown this way: it is
-   * not this browser's choice, so the next visitor on the device does not inherit it.
+   * not this browser's choice, so the next visitor on the device does not inherit it. A later switch wins over this
+   * one while its file loads: this one then changes nothing and reports nothing. True when `code` was applied.
    */
   async show(code: string): Promise<boolean> {
+    const turn = ++this.latestSwitch;
     try {
       await this.load(code);
     } catch {
-      this.lastSwitchFailed.set(true);
+      if (turn === this.latestSwitch) this.lastSwitchFailed.set(true);
       return false;
     }
+    if (turn !== this.latestSwitch) return false;
     this.lastSwitchFailed.set(false);
     this.apply(code);
     return true;
   }
 
-  /** The person chose `code` in the switcher: shows it, then keeps the choice once its file has loaded. */
+  /** The person chose `code` in the switcher: shows it, then keeps the choice once its file has loaded and applied. */
   async use(code: string): Promise<void> {
     if (!(await this.show(code))) return;
     try {
