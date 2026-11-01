@@ -1,0 +1,20 @@
+# The one Caddyfile of production and of ops/tests/https-only.test.sh (research R13, R20). They differ only by the
+# environment: SITE_ADDRESS is the domain (the test: localhost) and CADDY_GLOBAL_OPTIONS is empty (the test:
+# local_certs, Caddy's own certificate authority instead of Let's Encrypt).
+{
+	{$CADDY_GLOBAL_OPTIONS}
+}
+
+{$SITE_ADDRESS} {
+	# Plain HTTP on port 80 is redirected to HTTPS by Caddy itself (308), for every site address that is a domain.
+	header Strict-Transport-Security "max-age=31536000"
+
+	# The access log goes to standard output, with the client's IP address; Caddy replaces the values of the credential
+	# headers (Cookie, Set-Cookie, Authorization, Proxy-Authorization) with REDACTED by default. Do not turn that off.
+	log {
+		output stdout
+	}
+
+	# Sets X-Forwarded-For and X-Forwarded-Proto, which the host trusts only from the proxy's network (research R7).
+	reverse_proxy app:8080
+}

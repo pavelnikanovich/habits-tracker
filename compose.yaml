@@ -10,6 +10,24 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username", "habits", "--dbname", "habits"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # The application from the Dockerfile, in Development (quickstart 1): MigrateOnStart creates the schemas, and the
+  # code hash key is made at each start, so no key is in the repository (research R5).
+  app:
+    build: .
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Habits: Host=db;Database=habits;Username=habits
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   db-data:
