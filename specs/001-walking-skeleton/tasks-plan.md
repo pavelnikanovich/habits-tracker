@@ -674,7 +674,7 @@ The sequence (research R5): inside `IIdentityTransaction.RunAsync`: `LockAsync` 
 | 3 | T − 5 h | 3 | T − 5 h | `Allowed(1)` |
 | 4 | T − 5 h | 9 | T − 21 h | `Allowed(0)` |
 | 5 | T − 23 h | 5 | T − 24 h | `RefusedByEmailLimit(T + 1 h)` |
-| 4 | T − 2 h | 10 | T − 21 h | `RefusedByIpLimit(T + 4 h)` |
+| 4 | T − 2 h | 10 | T − 21 h | `RefusedByIpLimit(T + 3 h)` |
 | 5 | T − 23 h | 10 | T − 21 h | `RefusedByEmailLimit(T + 1 h)` |
 
 `RequestCodeTests` (fakes, `FakeTimeProvider` at T):
