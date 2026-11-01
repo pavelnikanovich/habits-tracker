@@ -138,7 +138,8 @@ describe('CodeStep', () => {
 
     expect(TestBed.inject(Router).url).toBe('/');
     expect(TestBed.inject(SignInFlow).email()).toBeNull();
-    expect(language.used).toEqual(['pl']);
+    expect(language.shown).toEqual(['pl']);
+    expect(language.used, "the user's locale is not this browser's choice").toEqual([]);
   });
 
   it('code-incorrect clears the field, focuses it and stays on the step', async () => {

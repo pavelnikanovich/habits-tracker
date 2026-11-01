@@ -72,8 +72,9 @@ export class CurrentUserService {
   }
 
   // The locale stored with the user wins over this browser's choice (spec, Assumptions): the first sign-in stored the
-  // page's language, a later one follows what the user changed it to. A failed load keeps the page as it was.
+  // page's language, a later one follows what the user changed it to. It is shown, not stored as this browser's
+  // choice, so after sign-out the next visitor on the device does not inherit it. A failed load keeps the page as it was.
   private async applyLocale(user: CurrentUser): Promise<void> {
-    await this.language.use(user.locale);
+    await this.language.show(user.locale);
   }
 }

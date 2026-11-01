@@ -20,8 +20,9 @@ export function texts(section: string): Record<string, string> {
 
 export const ann: CurrentUser = { email: 'ann@example.com', timeZone: 'Europe/Warsaw', timeZoneRecognized: true, locale: 'pl' };
 
-/** What the page asked of the language service: the codes it was told to use. */
+/** What the page asked of the language service: the codes it showed, and the codes it stored as the person's choice. */
 export interface LanguageRecord {
+  shown: string[];
   used: string[];
 }
 
@@ -33,7 +34,7 @@ export async function setUpSignIn(
   pageLanguage = 'pl',
   options: { fresh?: boolean } = {},
 ): Promise<{ harness: RouterTestingHarness; http: HttpTestingController; language: LanguageRecord }> {
-  const language: LanguageRecord = { used: [] };
+  const language: LanguageRecord = { shown: [], used: [] };
   TestBed.configureTestingModule({
     providers: [
       provideRouter(routes),
@@ -46,6 +47,10 @@ export async function setUpSignIn(
         provide: LanguageService,
         useValue: {
           current: signal(pageLanguage),
+          show: async (code: string) => {
+            language.shown.push(code);
+            return true;
+          },
           use: async (code: string) => void language.used.push(code),
         },
       },

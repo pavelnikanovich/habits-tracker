@@ -52,16 +52,26 @@ export class LanguageService {
     this.availableLocales.set(locales ?? [{ code: fallbackLocale, name: this.transloco.translate('language.name') }]);
   }
 
-  /** Switches the page in place, without a reload (FR-022), and keeps the choice; a failed load keeps the page. */
-  async use(code: string): Promise<void> {
+  /**
+   * Shows the page in `code`, in place, without a reload (FR-022), once its file has loaded; stores nothing. A failed
+   * load keeps the page in its language and sets `switchFailed`. The signed-in user's locale is shown this way: it is
+   * not this browser's choice, so the next visitor on the device does not inherit it.
+   */
+  async show(code: string): Promise<boolean> {
     try {
       await this.load(code);
     } catch {
       this.lastSwitchFailed.set(true);
-      return;
+      return false;
     }
     this.lastSwitchFailed.set(false);
     this.apply(code);
+    return true;
+  }
+
+  /** The person chose `code` in the switcher: shows it, then keeps the choice once its file has loaded. */
+  async use(code: string): Promise<void> {
+    if (!(await this.show(code))) return;
     try {
       localStorage.setItem(storageKey, code);
     } catch {

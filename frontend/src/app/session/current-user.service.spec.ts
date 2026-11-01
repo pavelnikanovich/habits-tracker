@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideTransloco } from '@jsverse/transloco';
+import { ann } from '../../testing/sign-in-setup';
 import { FileTranslationLoader, translationCodes } from '../../testing/translation-files';
 import { provideIcuTranspiler } from '../i18n/icu-transpiler';
 import { LanguageService } from '../i18n/language.service';
@@ -30,11 +31,35 @@ describe('CurrentUserService', () => {
     await language.use('en'); // the browser's choice, kept in localStorage
     const users = TestBed.inject(CurrentUserService);
 
-    await users.signedIn({ email: 'ann@example.com', timeZone: 'UTC', timeZoneRecognized: true, locale: 'pl' });
+    await users.signedIn({ ...ann, locale: 'pl' });
     expect(language.current()).toBe('pl');
 
-    // The first sign-in's `use` stored 'pl'; a later sign-in of a user whose locale is 'ru' still follows the user.
-    await users.signedIn({ email: 'ann@example.com', timeZone: 'UTC', timeZoneRecognized: true, locale: 'ru' });
+    // A later sign-in of a user whose locale is 'ru' follows the user too.
+    await users.signedIn({ ...ann, locale: 'ru' });
     expect(language.current()).toBe('ru');
+  });
+
+  // Review H1: the user's locale is shown, not stored as this browser's choice, so after sign-out the next visitor on
+  // the device does not inherit it.
+  it("the user's locale is not stored as this browser's choice", async () => {
+    const language = TestBed.inject(LanguageService);
+    await language.use('en');
+    const users = TestBed.inject(CurrentUserService);
+
+    await users.signedIn({ ...ann, locale: 'pl' });
+
+    expect(language.current()).toBe('pl');
+    expect(localStorage.getItem('locale')).toBe('en');
+  });
+
+  it("GET /api/me shows the user's locale and stores nothing", async () => {
+    const users = TestBed.inject(CurrentUserService);
+
+    const loading = users.load();
+    TestBed.inject(HttpTestingController).expectOne('/api/me').flush({ ...ann, locale: 'ru' });
+    await loading;
+
+    expect(TestBed.inject(LanguageService).current()).toBe('ru');
+    expect(localStorage.getItem('locale')).toBeNull();
   });
 });

@@ -133,13 +133,26 @@ describe('LanguageService', () => {
     expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('pl');
   });
 
+  // Review H1: showing a language (the signed-in user's locale) is not a choice made in this browser.
+  it('show writes the document language and stores nothing', async () => {
+    browserLanguages(['ru']);
+    const service = await start();
+
+    await service.show('pl');
+
+    expect(localStorage.getItem('locale')).toBeNull();
+    expect(document.documentElement.lang).toBe('pl');
+    expect(service.current()).toBe('pl');
+    expect(TestBed.inject(TranslocoService).getActiveLang()).toBe('pl');
+  });
+
   // Review M7: the page changes language only once the new file is in, so a failed load leaves it as it was.
-  it('use changes nothing until the file has loaded', async () => {
+  it.each(['show', 'use'] as const)('%s changes nothing until the file has loaded', async (method) => {
     browserLanguages(['ru']);
     const service = await start();
     const release = hold('pl');
 
-    const switching = service.use('pl');
+    const switching = service[method]('pl');
 
     expect(service.current()).toBe('ru');
     expect(document.documentElement.lang).toBe('ru');
@@ -151,16 +164,16 @@ describe('LanguageService', () => {
 
     expect(service.current()).toBe('pl');
     expect(document.documentElement.lang).toBe('pl');
-    expect(localStorage.getItem('locale')).toBe('pl');
+    expect(localStorage.getItem('locale')).toBe(method === 'use' ? 'pl' : null);
   });
 
   // contracts/ui.md, "Start of the application": the switch fails, the page stays in its language and says so.
-  it('a switch whose file fails to load keeps the current language', async () => {
+  it.each(['show', 'use'] as const)('%s with a file that fails to load keeps the current language', async (method) => {
     browserLanguages(['ru']);
     const service = await start();
     failLoading('pl');
 
-    await service.use('pl');
+    await service[method]('pl');
 
     expect(service.current()).toBe('ru');
     expect(document.documentElement.lang).toBe('ru');
@@ -169,13 +182,13 @@ describe('LanguageService', () => {
     expect(service.switchFailed()).toBe(true);
   });
 
-  it('a later switch that loads clears the failure', async () => {
+  it.each(['show', 'use'] as const)('a later %s that loads clears the failure', async (method) => {
     browserLanguages(['ru']);
     const service = await start();
     failLoading('pl');
     await service.use('pl');
 
-    await service.use('en');
+    await service[method]('en');
 
     expect(service.current()).toBe('en');
     expect(service.switchFailed()).toBe(false);
