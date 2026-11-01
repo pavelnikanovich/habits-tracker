@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { settle, setUpSignIn, texts, type } from '../../testing/sign-in-setup';
-import { formatMoment } from '../time/format-moment';
 import { SignIn } from './sign-in';
 
 const signIn = texts('signIn');
@@ -98,12 +97,16 @@ describe('SignIn', () => {
   });
 
   describe('shows each refusal', () => {
-    const retryAt = new Date(Date.now() + 3_600_000).toISOString();
-    const time = () => formatMoment(new Date(retryAt), new Date(), 'en', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC');
-    const cases: { status: number; code: string; retryAt?: string; traceId?: string }[] = [
-      { status: 429, code: 'email-limit', retryAt },
-      { status: 429, code: 'ip-limit', retryAt },
-      { status: 503, code: 'email-service-limit', retryAt },
+    // The clock is pinned, in local time, so the day the moment falls on does not depend on when the suite runs. The
+    // page's language is Polish (setUpSignIn): the moment is worded in it (contracts/ui.md, "Times").
+    const noon = new Date(2026, 10, 10, 12, 0);
+    const lateEvening = new Date(2026, 10, 10, 23, 30);
+    const inAnHour = (now: Date) => new Date(now.getTime() + 3_600_000).toISOString();
+    const cases: { status: number; code: string; now?: Date; retryAt?: string; shown?: string; traceId?: string }[] = [
+      { status: 429, code: 'email-limit', retryAt: inAnHour(noon), shown: '13:00' },
+      { status: 429, code: 'ip-limit', retryAt: inAnHour(noon), shown: '13:00' },
+      { status: 503, code: 'email-service-limit', retryAt: inAnHour(noon), shown: '13:00' },
+      { status: 429, code: 'email-limit', now: lateEvening, retryAt: inAnHour(lateEvening), shown: '11 listopada, 00:30' },
       { status: 503, code: 'email-service-limit' },
       { status: 503, code: 'email-service-unavailable' },
       { status: 400, code: 'invalid-request', traceId: hidden },
@@ -112,8 +115,13 @@ describe('SignIn', () => {
       { status: 500, code: 'internal-error', traceId: '4bf92f3577b34da6a3ce929d0e0e4736' },
     ];
 
+    afterEach(() => vi.useRealTimers());
+
     for (const refusal of cases) {
-      it(`${refusal.code}${refusal.retryAt ? ' with retryAt' : ''}`, async () => {
+      const when = refusal.now === undefined ? ' on the same day' : ' on the next day';
+      it(`${refusal.code}${refusal.retryAt ? ` with retryAt${when}` : ''}`, async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(refusal.now ?? noon);
         await submit(email);
         http.expectOne(endpoint).flush(
           { code: refusal.code, retryAt: refusal.retryAt, traceId: refusal.traceId },
@@ -123,7 +131,7 @@ describe('SignIn', () => {
 
         const expected = errors[refusal.code].replace('{traceId}', refusal.traceId ?? '');
         const text = alert()?.textContent?.trim();
-        expect(text).toBe(refusal.retryAt ? `${expected} ${signIn['retryAt'].replace('{time}', time())}` : expected);
+        expect(text).toBe(refusal.shown ? `${expected} ${signIn['retryAt'].replace('{time}', refusal.shown)}` : expected);
         expect(text?.includes(hidden)).toBe(false);
         expect(field().value, 'the field keeps its value').toBe(email);
         expect(button().getAttribute(ariaDisabled)).not.toBe('true');
