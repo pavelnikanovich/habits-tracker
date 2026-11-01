@@ -63,9 +63,13 @@ public sealed class InMemoryCodeRequests : ICodeRequests
         return Task.CompletedTask;
     }
 
+    // The cutoff of the last DeleteRequestedAtOrBeforeAsync, for the cleanup's test.
+    public DateTimeOffset? DeletedRequestedAtOrBefore { get; private set; }
+
     public Task<int> DeleteRequestedAtOrBeforeAsync(DateTimeOffset cutoff, CancellationToken ct)
     {
         calls?.Record(this);
+        DeletedRequestedAtOrBefore = cutoff;
         var deleted = rows.Where(pair => pair.Value.RequestedAt <= cutoff).Select(pair => pair.Key).ToList();
         foreach (var id in deleted)
             transaction.Write(rows, id, null);

@@ -66,9 +66,13 @@ public sealed class InMemorySessions : ISessions
         return Task.CompletedTask;
     }
 
+    // The cutoff of the last DeleteInactiveAtOrBeforeAsync, for the cleanup's test.
+    public DateTimeOffset? DeletedInactiveAtOrBefore { get; private set; }
+
     public Task<int> DeleteInactiveAtOrBeforeAsync(DateTimeOffset cutoff, CancellationToken ct)
     {
         calls?.Record(this);
+        DeletedInactiveAtOrBefore = cutoff;
         return Task.FromResult(Delete(row => row.LastActivityAt <= cutoff));
     }
 

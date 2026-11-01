@@ -46,9 +46,13 @@ public sealed class InMemoryOneTimeCodes : IOneTimeCodes
         return Task.CompletedTask;
     }
 
+    // The arguments of the last DeleteExpiredOrExhaustedAsync, for the cleanup's test.
+    public (DateTimeOffset Now, int MaxEntryAttempts)? DeletedExpiredOrExhaustedWith { get; private set; }
+
     public Task<int> DeleteExpiredOrExhaustedAsync(DateTimeOffset now, int maxEntryAttempts, CancellationToken ct)
     {
         calls?.Record(this);
+        DeletedExpiredOrExhaustedWith = (now, maxEntryAttempts);
         var deleted = rows.Values.Where(row => row.ExpiresAt <= now || row.EntryAttempts >= maxEntryAttempts).ToList();
         foreach (var row in deleted)
             transaction.Write(rows, row.Email, null);
