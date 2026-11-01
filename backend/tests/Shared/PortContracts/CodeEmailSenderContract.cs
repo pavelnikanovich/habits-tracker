@@ -6,15 +6,11 @@ namespace HabitsTracker.Tests.PortContracts;
 // of Task 8 pass it.
 public abstract class CodeEmailSenderContract
 {
-    private static readonly Email Ada = Email.Create("ada@example.com");
-    private static readonly Locale Polish = Locale.FromStorage("pl");
+    protected static readonly Email Ada = Email.Create("ada@example.com");
+    protected static readonly Locale Polish = Locale.FromStorage("pl");
 
     // A sender set up so that its message is delivered.
     protected abstract ICodeEmailSender DeliveringSender { get; }
-
-    // A sender set up so that its email service refuses, with the refusal it reports; null for a sender with no
-    // email service to refuse (the development log).
-    protected abstract (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal)? Refusing { get; }
 
     [Fact]
     public async Task A_deliverable_message_is_sent()
@@ -25,16 +21,20 @@ public abstract class CodeEmailSenderContract
 
         Assert.Equal(new CodeEmailOutcome.Sent(), outcome);
     }
+}
+
+// The contract of a sender behind an email service that can refuse; the development log has none, so it passes
+// only the contract above.
+public abstract class RefusingCodeEmailSenderContract : CodeEmailSenderContract
+{
+    // A sender set up so that its email service refuses, with the refusal it reports.
+    protected abstract (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal) Refusing { get; }
 
     [Fact]
     public async Task A_refusal_is_an_outcome_not_an_exception()
     {
         var ct = TestContext.Current.CancellationToken;
-        if (Refusing is not ({ } sender, { } refusal))
-        {
-            Assert.Skip("This sender has no email service to refuse.");
-            return;
-        }
+        var (sender, refusal) = Refusing;
 
         var outcome = await sender.SendAsync(Ada, OneTimeCodeValue.Generate(), Polish, ct);
 

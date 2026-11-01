@@ -19,15 +19,13 @@ public static class SenderContractTests
     {
         protected override ICodeEmailSender DeliveringSender { get; } =
             new DevelopmentLogCodeEmailSender(new CodeEmailText(Files.Text), NullLogger<DevelopmentLogCodeEmailSender>.Instance);
-
-        protected override (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal)? Refusing => null;
     }
 
-    public sealed class Resend : CodeEmailSenderContract
+    public sealed class Resend : RefusingCodeEmailSenderContract
     {
         protected override ICodeEmailSender DeliveringSender => Behind(HttpStatusCode.OK, """{"id":"1"}""");
 
-        protected override (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal)? Refusing =>
+        protected override (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal) Refusing =>
             (Behind(HttpStatusCode.TooManyRequests, """{"name":"daily_quota_exceeded"}"""),
                 new CodeEmailOutcome.Refused(EmailServiceRefusal.DailyLimit, new DateTimeOffset(2026, 11, 3, 0, 0, 0, TimeSpan.Zero)));
 

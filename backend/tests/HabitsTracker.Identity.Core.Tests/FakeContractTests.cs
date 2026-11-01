@@ -12,11 +12,11 @@ public static class FakeContractTests
         protected override ILocales Locales { get; } = new FixedLocales();
     }
 
-    public sealed class CodeEmailSenderOnRecordingFake : CodeEmailSenderContract
+    public sealed class CodeEmailSenderOnRecordingFake : RefusingCodeEmailSenderContract
     {
         protected override ICodeEmailSender DeliveringSender { get; } = new RecordingCodeEmailSender();
 
-        protected override (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal)? Refusing { get; } =
+        protected override (ICodeEmailSender Sender, CodeEmailOutcome.Refused Refusal) Refusing { get; } =
             (new RecordingCodeEmailSender { Next = Refusal }, Refusal);
 
         private static readonly CodeEmailOutcome.Refused Refusal =
