@@ -1,23 +1,15 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { expectControlsInViewport, expectNoHorizontalScroll } from './support/layout';
 import { uniqueEmail } from './support/emails';
 import { logMark, readCodeEmail } from './support/dev-log';
 import { expectVisibleFocus, pressTabUntil } from './support/keyboard';
+import { heading, switchLanguage } from './support/shell';
+import { emailField, getCode, rememberMe, requestCode } from './support/sign-in';
 import { forEachTheme } from './support/themes';
 import { translation } from './support/translations';
 
 const en = translation('en');
 const ru = translation('ru');
-
-const emailField = (page: Page) => page.getByLabel(en.signIn.email);
-const rememberMe = (page: Page) => page.getByLabel(en.signIn.rememberMe);
-const getCode = (page: Page) => page.getByRole('button', { name: en.signIn.requestCode });
-
-async function requestCode(page: Page, email: string): Promise<void> {
-  await emailField(page).fill(email);
-  await getCode(page).click();
-  await expect(page).toHaveURL('/sign-in/code');
-}
 
 test('requesting a code opens the code step with the remaining count @main-path', async ({ page }) => {
   const email = uniqueEmail();
@@ -87,8 +79,8 @@ test('reloading the code step opens the email step', async ({ page }) => {
 test('the code email is in the page language', async ({ page }) => {
   const email = uniqueEmail();
   await page.goto('/sign-in');
-  await page.getByRole('combobox', { name: en.language.switcher }).selectOption('ru');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(ru.signIn.title);
+  await switchLanguage(page, 'ru');
+  await expect(heading(page)).toHaveText(ru.signIn.title);
   const mark = await logMark();
 
   await page.getByLabel(ru.signIn.email).fill(email);

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, Page, test } from '@playwright/test';
 import { expectVisibleFocus, pressTabUntil } from './support/keyboard';
 import { expectNoHorizontalScroll } from './support/layout';
+import { heading } from './support/shell';
 import { forEachTheme } from './support/themes';
 import { Translation, translation } from './support/translations';
 
@@ -18,10 +19,6 @@ const staticTexts = [
 ];
 
 test.use({ locale: 'en-US' });
-
-function heading(page: Page) {
-  return page.getByRole('heading', { level: 1 });
-}
 
 /** The controls of the page frame, in the order the keyboard reaches them, named in English. */
 function shellControls(page: Page) {

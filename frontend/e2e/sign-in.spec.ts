@@ -1,39 +1,21 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { logMark, readCode } from './support/dev-log';
 import { uniqueEmail } from './support/emails';
 import { expectVisibleFocus, pressTabUntil } from './support/keyboard';
 import { expectControlsInViewport, expectNoHorizontalScroll } from './support/layout';
+import {
+  codeField,
+  emailField,
+  getCode,
+  projectOrigin as origin,
+  requestCode,
+  signIn,
+  signInButton,
+} from './support/sign-in';
 import { forEachTheme, themeSwitcher } from './support/themes';
 import { translation } from './support/translations';
 
 const en = translation('en');
-// The project's origin: http://localhost:4200, or Caddy's https://localhost:8443 for WebKit (R-66).
-const origin = (): string => test.info().project.use.baseURL!;
-
-const emailField = (page: Page) => page.getByLabel(en.signIn.email);
-const codeField = (page: Page) => page.getByLabel(en.signIn.code, { exact: true });
-const getCode = (page: Page) => page.getByRole('button', { name: en.signIn.requestCode });
-const signInButton = (page: Page) => page.getByRole('button', { name: en.signIn.signIn, exact: true });
-
-/** Requests a code for `email` on the email step; returns the log mark taken before the request (R-56). */
-async function requestCode(page: Page, email: string, remember = false): Promise<number> {
-  const mark = await logMark();
-  await emailField(page).fill(email);
-  if (remember) await page.getByLabel(en.signIn.rememberMe).check();
-  await getCode(page).click();
-  await expect(page).toHaveURL('/sign-in/code');
-  return mark;
-}
-
-/** Signs `email` in with the code from the development log; the page is left on the main screen. */
-async function signIn(page: Page, email: string = uniqueEmail(), remember = false): Promise<string> {
-  await page.goto('/sign-in');
-  const mark = await requestCode(page, email, remember);
-  await codeField(page).fill(await readCode(email, mark));
-  await signInButton(page).click();
-  await expect(page).toHaveURL(`${origin()}/`);
-  return email;
-}
 
 test('a new user signs in and lands on the main screen @main-path', async ({ page }) => {
   await signIn(page);

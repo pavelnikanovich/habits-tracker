@@ -1,34 +1,15 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { expect, Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { expectNoHorizontalScroll } from './support/layout';
 import { collectForeignRequests } from './support/network';
+import { heading, switchLanguage } from './support/shell';
+import { translation } from './support/translations';
 
 // The page <title> is not translated yet, so each test reads the visible page heading (h1), whose text comes from
 // the translation file named in the test.
-interface Translation {
-  error: { network: string };
-  language: { switcher: string };
-  nav: { privacy: string; terms: string };
-  signIn: { title: string };
-}
-
-function translation(code: string): Translation {
-  return JSON.parse(readFileSync(join(__dirname, '..', 'public', 'i18n', `${code}.json`), 'utf8')) as Translation;
-}
-
 const en = translation('en');
 const pl = translation('pl');
 const ru = translation('ru');
 const shellRoutes = ['/sign-in', '/privacy', '/terms'];
-
-function heading(page: Page) {
-  return page.getByRole('heading', { level: 1 });
-}
-
-async function switchLanguage(page: Page, code: string): Promise<void> {
-  await page.getByRole('combobox', { name: en.language.switcher }).selectOption(code);
-}
 
 test.describe('a browser preferring Polish', () => {
   test.use({ locale: 'pl-PL' });
