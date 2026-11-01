@@ -51,11 +51,13 @@ public sealed class RequestCode
     private async Task<CodeRequestResult> RequestAsync(
         Email email, Locale locale, IpAddressPrefix ipAddressPrefix, CancellationToken ct)
     {
-        // One moment for the window, the code and the request, so all three agree on it.
-        var now = time.GetUtcNow();
         var limits = options.CodeRequestLimits;
 
         await codeRequests.LockAsync(email, ipAddressPrefix, ct);
+        // Read once the locks are held: a request queued behind another's send waits up to that send's 10-second
+        // timeout, and its code's 10 minutes must not shrink by the wait. One moment for the window, the code and
+        // the request, so all three agree on it.
+        var now = time.GetUtcNow();
         var counts = await codeRequests.CountAsync(email, ipAddressPrefix, now - limits.Window, ct);
 
         int remaining;

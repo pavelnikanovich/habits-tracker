@@ -18,6 +18,9 @@ public sealed class InMemoryCodeRequests : ICodeRequests
         this.calls = calls;
     }
 
+    // When set, runs while LockAsync waits, as time passes for a request queued behind another's send.
+    public Action? WhileLocking { get; set; }
+
     // Takes no lock: the use case tests make one call at a time, and the advisory locks are tested in the storage
     // adapter's concurrency tests. Outside a transaction it fails, as EfCodeRequests does.
     public Task LockAsync(Email email, IpAddressPrefix ipAddressPrefix, CancellationToken ct)
@@ -29,6 +32,7 @@ public sealed class InMemoryCodeRequests : ICodeRequests
         if (!transaction.InProgress)
             throw new InvalidOperationException("Code request locks are taken inside a transaction.");
 
+        WhileLocking?.Invoke();
         return Task.CompletedTask;
     }
 

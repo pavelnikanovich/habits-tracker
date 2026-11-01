@@ -14,6 +14,7 @@ public class RequestCodeTests
     private static readonly byte[] Key = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
 
     private readonly CallLog calls = new();
+    private readonly FakeTimeProvider time = new(T);
     private readonly InMemoryTransaction transaction;
     private readonly InMemoryOneTimeCodes oneTimeCodes;
     private readonly InMemoryCodeRequests codeRequests;
@@ -126,6 +127,19 @@ public class RequestCodeTests
     }
 
     [Fact]
+    public async Task Reads_the_time_once_the_locks_are_taken()
+    {
+        // A request queued behind another's send waits for the locks; its code's 10 minutes start once it holds them.
+        codeRequests.WhileLocking = () => time.Advance(TimeSpan.FromSeconds(10));
+
+        await ExecuteAsync();
+
+        var locked = T.AddSeconds(10);
+        Assert.Equal(locked, (await StoredCodeAsync()).IssuedAt);
+        Assert.Equal(new CodeRequestCounts(1, locked, 1, locked), await CountsAsync());
+    }
+
+    [Fact]
     public async Task Uses_the_configured_limits()
     {
         var limits = CodeRequestLimits.Create(2, 3, TimeSpan.FromHours(1));
@@ -164,7 +178,7 @@ public class RequestCodeTests
     private Task<CodeRequestResult> ExecuteAsync(CodeRequestLimits? limits = null, Email? email = null)
     {
         var options = IdentityContextOptions.Create(Key, limits ?? CodeRequestLimits.Default);
-        var useCase = new RequestCode(transaction, codeRequests, oneTimeCodes, sender, new FakeTimeProvider(T), options);
+        var useCase = new RequestCode(transaction, codeRequests, oneTimeCodes, sender, time, options);
         return useCase.ExecuteAsync(email ?? Ada, Polish, Prefix, Ct);
     }
 
