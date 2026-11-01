@@ -156,6 +156,8 @@ The steps are fixed. The agent may propose a deviation (skipping, merging or reo
 3. **`speckit-constitution`.** Project principles: minimum technology, tests are mandatory, the repository holds only the developer's work, and so on. Artifact: `.specify/memory/constitution.md`. Commit on `main`.
 4. **Agent configuration.** `CLAUDE.md` and `.claude/settings.json` with deny rules (see "Agent configuration"). Build and test commands are added once the stack is confirmed in epic 1. One run of `/doctor prompt-audit` checks for conflicts between `CLAUDE.md`, skills and plugins (superpowers, speckit, caveman) — if the installed Claude Code has it; otherwise `/context` shows what loads into the context. Commit on `main`.
 
+For a new product, stage 1 also designs the interaction once the product design is settled: a UX design made with `superpowers:brainstorming`, as in "Before epic 2". habits-tracker found the gap during epic 1, so its UX design comes before epic 2.
+
 Stage 1 runs on `main` without a separate branch: there is nothing to branch from yet. Each step adds its own ledger row in its own commit.
 
 ### Stage 2. Each epic (repeated)
@@ -163,7 +165,7 @@ Stage 1 runs on `main` without a separate branch: there is nothing to branch fro
 An epic is a separate speckit feature with its own folder `specs/NNN-<epic>/` and its own branch `NNN-<epic>`.
 
 1. **Branch** `NNN-<epic>` from `main`.
-2. **`speckit-specify`.** User stories with priorities P1, P2…, functional requirements `FR-NNN`, success criteria. No technology. If the epic has a real design fork (for example, choosing the OTP provider), run `superpowers:brainstorming` on that fork before this step; its outcome is the input to `speckit-specify`, which it hands over to instead of `writing-plans`.
+2. **`speckit-specify`.** User stories with priorities P1, P2…, functional requirements `FR-NNN`, success criteria. No technology. Every screen of the epic has acceptance scenarios for each outcome the user can meet on it: success, refusal, error, waiting, empty. From epic 2 on, the flows come from the UX design (see "Before epic 2"). If the epic has a real design fork (for example, choosing the OTP provider), run `superpowers:brainstorming` on that fork before this step; its outcome is the input to `speckit-specify`, which it hands over to instead of `writing-plans`.
 3. **`speckit-clarify`.** Up to five clarification questions on gaps in the spec.
 4. **Human review: spec.** No approval — no next step.
 5. **`speckit-plan`.** Stack, architecture, `data-model.md`, `contracts/`, `research.md`, deployment scheme. Checked against the constitution. If a technical unknown blocks the plan (for example, whether email leaves the VPS through the chosen provider), a throwaway spike comes first: its code is discarded and never merged, what it taught goes into `research.md`, and the ledger records the spike in one line.
@@ -173,6 +175,7 @@ An epic is a separate speckit feature with its own folder `specs/NNN-<epic>/` an
    - **Ports and adapters** (constitution IV): the ports the core needs; the adapters of each; the storage records and their mapping; the contract test suite of each driven port; which failures of each adapter become port outcomes.
    - **Security** (constitution X), for an epic that touches authentication, sessions or user data: the threat model; what is logged.
    - **Interfaces:** HTTP caching; how the API change stays compatible with open tabs (constitution VI); the relationship type of every new link in the context map.
+   - **User interface**, for an epic with a screen: every screen of the epic with its elements and states (loading, sending, error, empty); the visual baseline (spacing, type, colours, focus) shared by every screen; accessibility; the widths each screen is checked at. The result is `contracts/ui.md`; a requirement among the answers (accessibility, a new control) goes into the spec through steps 2–4.
    - **Operations** (constitution XI): rolling back the deployment; restoring the live database; every manual duty the legal pages promise.
 6. **Human review: technical plan.** The digest lists every *agent's call* of the step 5 artifacts on its own line, with a pointer; none is approved as a group.
 7. **`superpowers:writing-plans`.** The task plan for the executor. File: `specs/NNN-<epic>/tasks-plan.md`. Requirements are in "Task plan format". A design decision that comes up while writing the task plan and that the step 5 checklist covers, or that more than one task relies on, goes back into the step 5 artifacts with the developer's word, in its own commit; the task plan refers to it instead of deciding it.
@@ -220,6 +223,17 @@ A change is small if it is one task and adds no new requirements (no new `FR-NNN
 ### Before epic 2
 
 Decision: does `writing-plans` stay the only task source, or is `speckit-tasks` tried for simple epics. Decided by epic 1 metrics (see "Metrics").
+
+**UX design**, with `superpowers:brainstorming`, before epic 2's step 2. Artifact: `docs/superpowers/specs/YYYY-MM-DD-ux-design.md`, for the whole product: the screens and the navigation between them; the interaction patterns every epic reuses (confirmation and warning, forms and their checks, waiting, saved and failed states, the offline and changed-elsewhere notices, empty states); wireframes of the key flows of every epic at 360 and 1280 px (the habit card and today's check-in, fixing a past day in the calendar, creating a Routine and a Commitment with either schedule kind, Commit with its warning, a Release request and its cancellation, archive and restore, delete, a schedule change). It builds on epic 1's baseline (the product design, "Interface"; the shared components) and settles the questions epic 1 left open for it:
+
+- the size of a calendar cell at 360 px, about 30 px, against the 44 px of the baseline's buttons (WCAG 2.2 AA criterion 2.5.8 asks for 24 px; NFR-14 does not name it yet);
+- moving through the calendar's cells by keyboard (arrow keys within the grid, or `Tab` through every cell) (NFR-14);
+- how a check-in looks while the server has not confirmed it, and when it failed (NFR-3);
+- whether a Commit warning, too long for an inline confirmation like sign out everywhere's, needs a dialog component;
+- where the actions of a habit (rename, archive, delete, Commit, Release) live: on the card, in a menu, or on a habit page;
+- the habit name's limits (length, allowed characters), which the domain then holds.
+
+From epic 2 on, step 2 takes each screen's flows from the UX design, and step 5 details them in `contracts/ui.md`; a flow the UX design lacks goes back to it with the developer's word.
 
 ## Task plan format
 
@@ -278,6 +292,7 @@ The summary goes into the epic's ledger entry; the "Before epic 2" decision is m
 | Subdomain name on `cardlane.eu` | decided: see the product design, Constraints |
 | CI/CD artifacts (what is built, how it is delivered to the VPS) | epic 1, `speckit-plan` |
 | `writing-plans` or `speckit-tasks` for epics 2+ | before epic 2, by metrics |
+| Interaction design of the product (screens, navigation, patterns, flows of every epic) | before epic 2: the UX design, see "Before epic 2" |
 
 ## Revision
 
