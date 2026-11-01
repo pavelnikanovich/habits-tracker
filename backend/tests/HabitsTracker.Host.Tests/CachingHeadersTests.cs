@@ -22,6 +22,7 @@ public class CachingHeadersTests(PostgresFixture postgres)
             ($"/{HostFactory.StubHashedFile}", "public, max-age=31536000, immutable"),
             ("/i18n/en.json", "no-cache"),
             ("/api/locales", "no-store"),
+            ("/API/locales", "no-store"), // routing ignores the case of a path, so the rule does too
             ("/health", "no-store"),
         ];
 

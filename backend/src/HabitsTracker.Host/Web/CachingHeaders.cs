@@ -27,7 +27,9 @@ public static partial class CachingHeaders
     private static string RuleFor(HttpContext context)
     {
         var path = context.Request.Path;
-        if (path.StartsWithSegments("/api", StringComparison.Ordinal) || path.StartsWithSegments("/health", StringComparison.Ordinal))
+        // Routing ignores the case of a path, so /API/locales reaches the API and must not be stored either.
+        if (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase))
             return NoStore;
 
         var found = context.Response.StatusCode is StatusCodes.Status200OK or StatusCodes.Status304NotModified;
