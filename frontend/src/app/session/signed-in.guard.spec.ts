@@ -53,6 +53,14 @@ describe('the guards of the signed-in screens', () => {
     expect(urlOf(await result)).toBe('/');
   });
 
+  it('a signed-in user who opens /sign-in while GET /api/me is already running is sent to /', async () => {
+    run(signedInGuard); // opening / starts the request
+    const result = run(signedOutGuard) as Promise<GuardResult>;
+    http.expectOne('/api/me').flush(ann);
+
+    expect(urlOf(await result)).toBe('/');
+  });
+
   it('a visitor may open the sign-in; the answer of GET /api/me is awaited', async () => {
     const result = run(signedOutGuard) as Promise<GuardResult>;
     http.expectOne('/api/me').flush({ code: 'not-signed-in' }, { status: 401, statusText: 'Unauthorized' });

@@ -17,6 +17,8 @@ const emailSelector = 'input[type="email"]';
 const sessions = '/api/sessions';
 const unauthorized = { status: 401, statusText: 'Unauthorized' };
 
+const ariaDisabled = 'aria-disabled';
+
 describe('CodeStep', () => {
   let harness: RouterTestingHarness;
   let http: HttpTestingController;
@@ -120,7 +122,7 @@ describe('CodeStep', () => {
     await settle(harness);
 
     // R-69: aria-disabled, never the disabled attribute, so the focus stays on the button.
-    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.getAttribute(ariaDisabled)).toBe('true');
     expect(button.hasAttribute('disabled')).toBe(false);
     expect(button.textContent?.trim()).toBe(signIn['signingIn']);
     expect(document.activeElement).toBe(button);
@@ -150,7 +152,7 @@ describe('CodeStep', () => {
     expect(field(page).value).toBe('');
     expect(document.activeElement).toBe(field(page));
     expect(TestBed.inject(Router).url).toBe(codeStepUrl);
-    expect(page.querySelector('form button[type="submit"]')?.getAttribute('aria-disabled')).toBeNull();
+    expect(page.querySelector('form button[type="submit"]')?.getAttribute(ariaDisabled)).toBeNull();
   });
 
   it('a new code clears the field and focuses it', async () => {
@@ -189,11 +191,19 @@ describe('CodeStep', () => {
   it('send a new code requests again for the same email and shows the new count', async () => {
     const page = await openCodeStep();
 
-    buttonNamed(page, signIn['resendCode']).click();
+    const resend = buttonNamed(page, signIn['resendCode']);
+    resend.focus();
+    resend.click();
     const request = http.expectOne(endpoint);
     expect(request.request.body).toEqual({ email: email, locale: 'pl' });
     await settle(harness);
-    expect(buttonNamed(page, signIn['requesting']).disabled).toBe(true);
+    // R-73: aria-disabled, never disabled, so the focus stays; a second press sends nothing (verify() in afterEach).
+    const running = buttonNamed(page, signIn['requesting']);
+    expect(running.getAttribute(ariaDisabled)).toBe('true');
+    expect(running.hasAttribute('disabled')).toBe(false);
+    expect(document.activeElement).toBe(running);
+    running.click();
+    await settle(harness);
     request.flush({ remaining: 3, limit: 5 }, { status: 202, statusText: 'Accepted' });
     await settle(harness);
 

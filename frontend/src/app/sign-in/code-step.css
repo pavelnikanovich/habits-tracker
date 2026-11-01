@@ -25,13 +25,13 @@
   padding-inline: 0;
 }
 
-.link:hover:not(:disabled),
-.link:focus-visible:not(:disabled) {
+.link:hover:not([aria-disabled='true']),
+.link:focus-visible:not([aria-disabled='true']) {
   color: var(--accent);
   background: transparent;
   text-shadow: var(--glow);
 }
 
-.link:disabled {
+.link[aria-disabled='true'] {
   border-color: transparent;
 }

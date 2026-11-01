@@ -33,7 +33,7 @@
 </form>
 
 <div class="actions">
-  <button type="button" class="link" [disabled]="flow.sending()" (click)="resend()">
+  <button type="button" class="link" [attr.aria-disabled]="flow.sending() ? 'true' : null" (click)="resend()">
     {{ (flow.sending() ? 'signIn.requesting' : 'signIn.resendCode') | transloco }}
   </button>
   <button type="button" class="link" (click)="useAnotherEmail()">{{ 'signIn.otherEmail' | transloco }}</button>

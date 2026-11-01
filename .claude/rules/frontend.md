@@ -14,6 +14,6 @@ These hold the translation rule of FR-020, the cross-site scripting defence of r
   - Component CSS takes colours and font sizes only from the `var(--…)` tokens of `src/styles/tokens.css`, in a `.css` file next to the component (`styleUrl`): the two themes and the type scale stay in one place, and a unit test reads those files and fails on a literal.
   - Every message goes through `app-message` (`kind` `error` or `info`), so errors are announced and look the same everywhere.
   - No field takes the focus when a page opens: on a phone the keyboard would cover half the screen.
-  - A button is disabled while its request runs, so a second press sends nothing.
+  - A button is `aria-disabled` and ignores activation while its request runs, so a second press sends nothing and the focus stays on it; never the `disabled` attribute, which drops the focus.
   - Each page's `h1` has `tabindex="-1"`: the focus moves to it after a navigation, so a screen reader announces the new page.
 - Tests first: a failing Vitest spec, then the code.

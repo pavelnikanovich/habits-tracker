@@ -71,6 +71,8 @@ export class CodeStep {
   }
 
   protected async resend(): Promise<void> {
+    if (this.flow.sending()) return;
+
     // The earlier code no longer works (FR-002), so the field starts empty.
     if (await this.flow.requestCode(this.flow.email() ?? '', this.flow.rememberMe())) this.clearField();
   }

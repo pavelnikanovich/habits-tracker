@@ -5,7 +5,7 @@
 	admin off
 	skip_install_trust
 	log {
-		level WARN
+		level ERROR
 	}
 	auto_https disable_redirects
 }

@@ -22,6 +22,7 @@ export const signedInGuard: CanActivateFn = () => {
 export const signedOutGuard: CanActivateFn = async () => {
   const users = inject(CurrentUserService);
   const router = inject(Router); // inject() only works before the first await
-  if (users.status() === 'unknown' || users.status() === 'failed') await users.load();
+  // `loading`: signedInGuard may have started the request already; load() merges the calls.
+  if (users.status() !== 'signed-in' && users.status() !== 'signed-out') await users.load();
   return users.status() === 'signed-in' ? router.parseUrl('/') : true;
 };

@@ -31,7 +31,7 @@ export interface LanguageRecord {
  */
 export async function setUpSignIn(
   pageLanguage = 'pl',
-  options: { fresh?: boolean; chosenLanguage?: boolean } = {},
+  options: { fresh?: boolean } = {},
 ): Promise<{ harness: RouterTestingHarness; http: HttpTestingController; language: LanguageRecord }> {
   const language: LanguageRecord = { used: [] };
   TestBed.configureTestingModule({
@@ -46,7 +46,6 @@ export async function setUpSignIn(
         provide: LanguageService,
         useValue: {
           current: signal(pageLanguage),
-          hasChosenLanguage: () => options.chosenLanguage ?? false,
           use: async (code: string) => void language.used.push(code),
         },
       },

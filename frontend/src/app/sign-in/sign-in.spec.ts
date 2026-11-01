@@ -13,6 +13,8 @@ const email = 'ann@example.com';
 const codeStepUrl = '/sign-in/code';
 const hidden = 'must-not-show';
 
+const ariaDisabled = 'aria-disabled';
+
 describe('SignIn', () => {
   let harness: RouterTestingHarness;
   let http: HttpTestingController;
@@ -72,7 +74,7 @@ describe('SignIn', () => {
       expect(field().getAttribute('aria-describedby')).toBe(message?.id);
       expect(field().getAttribute('aria-invalid')).toBe('true');
       expect(document.activeElement).toBe(field());
-      expect(button().disabled).toBe(false);
+      expect(button().getAttribute(ariaDisabled)).not.toBe('true');
     }
   });
 
@@ -84,7 +86,7 @@ describe('SignIn', () => {
     await settle(harness);
 
     // R-69: aria-disabled, never the disabled attribute, so the focus stays on the button.
-    expect(button().getAttribute('aria-disabled')).toBe('true');
+    expect(button().getAttribute(ariaDisabled)).toBe('true');
     expect(button().hasAttribute('disabled')).toBe(false);
     expect(document.activeElement).toBe(button());
     expect(button().textContent?.trim()).toBe(signIn['requesting']);
@@ -124,7 +126,7 @@ describe('SignIn', () => {
         expect(text).toBe(refusal.retryAt ? `${expected} ${signIn['retryAt'].replace('{time}', time())}` : expected);
         expect(text?.includes(hidden)).toBe(false);
         expect(field().value, 'the field keeps its value').toBe(email);
-        expect(button().disabled).toBe(false);
+        expect(button().getAttribute(ariaDisabled)).not.toBe('true');
         expect(TestBed.inject(Router).url).toBe('/sign-in');
       });
     }
