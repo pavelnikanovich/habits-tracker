@@ -6,6 +6,7 @@ using HabitsTracker.Host.Web;
 using HabitsTracker.Identity.Adapters;
 using HabitsTracker.Identity.Adapters.Http;
 using HabitsTracker.Identity.Adapters.Storage;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -30,6 +31,17 @@ builder.Services.AddExceptionHandler<DomainExceptionHandler>();
 // invalid-request; Development would otherwise throw, and the tests would see a pipeline Production does not have.
 builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = false);
 
+// The client's address comes from X-Forwarded-For only when the request arrives from the proxy's network (research R7).
+// The defaults trust loopback; they are cleared, so nothing is trusted unless ForwardedHeaders:KnownNetwork says so.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor;
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    if (builder.Configuration["ForwardedHeaders:KnownNetwork"] is { Length: > 0 } network)
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+});
+
 var app = builder.Build();
 
 // Development and tests only; in Production the deployment migrates after the backup (research R2).
@@ -38,6 +50,10 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStart"))
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<IdentityDbContext>().Database.MigrateAsync();
 }
+
+// Without a known network the middleware would trust every sender, so it is left out.
+if (!string.IsNullOrEmpty(app.Configuration["ForwardedHeaders:KnownNetwork"]))
+    app.UseForwardedHeaders();
 
 app.UseSecurityHeaders();
 app.UseCachingHeaders();

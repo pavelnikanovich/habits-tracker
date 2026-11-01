@@ -7,7 +7,16 @@ export interface Translation {
   language: { switcher: string };
   nav: { privacy: string; terms: string };
   theme: { toLight: string; toDark: string };
-  signIn: { title: string };
+  signIn: {
+    title: string;
+    email: string;
+    emailInvalid: string;
+    rememberMe: string;
+    requestCode: string;
+    resendCode: string;
+    otherEmail: string;
+  };
+  error: { network: string };
   privacy: { title: string };
   terms: { title: string };
   notFound: { title: string };

@@ -17,6 +17,7 @@ public class SystemClockRegistrationTests
             ["Translations:Path"] = Repository.PathTo("frontend/public/i18n"),
             ["ConnectionStrings:Habits"] = "Host=127.0.0.1;Database=unused",
             ["Resend:ApiKey"] = "re_test_key",
+            ["Identity:CodeHashKey"] = Convert.ToBase64String(new byte[32]),
         }).Build();
         var services = new ServiceCollection();
 

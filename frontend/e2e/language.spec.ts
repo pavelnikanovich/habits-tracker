@@ -107,8 +107,8 @@ test.describe('a browser preferring English', () => {
       await expect(heading(page)).toBeVisible();
 
       await expect(page.getByRole('combobox', { name: en.language.switcher }), route).toBeInViewport();
-      await expect(page.getByRole('link', { name: en.nav.privacy }), route).toBeInViewport();
-      await expect(page.getByRole('link', { name: en.nav.terms }), route).toBeInViewport();
+      await expect(page.locator('footer').getByRole('link', { name: en.nav.privacy }), route).toBeInViewport();
+      await expect(page.locator('footer').getByRole('link', { name: en.nav.terms }), route).toBeInViewport();
       await expectNoHorizontalScroll(page);
     }
   });

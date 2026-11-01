@@ -1,0 +1,17 @@
+<h1 tabindex="-1">{{ 'signIn.title' | transloco }}</h1>
+
+<p>{{ 'signIn.codeSent' | transloco: { email: flow.email() } }}</p>
+<app-message kind="info" id="remaining">
+  {{ 'signIn.remaining' | transloco: { remaining: flow.remaining(), limit: flow.limit() } }}
+</app-message>
+
+@if (flow.refusalText(); as refusal) {
+  <app-message kind="error" id="refusal">{{ refusal }}</app-message>
+}
+
+<div class="actions">
+  <button type="button" class="link" [disabled]="flow.sending()" (click)="resend()">
+    {{ (flow.sending() ? 'signIn.requesting' : 'signIn.resendCode') | transloco }}
+  </button>
+  <button type="button" class="link" (click)="useAnotherEmail()">{{ 'signIn.otherEmail' | transloco }}</button>
+</div>

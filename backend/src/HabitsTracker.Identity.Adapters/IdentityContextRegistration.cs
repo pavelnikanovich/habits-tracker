@@ -1,7 +1,9 @@
 using HabitsTracker.Identity.Adapters.CodeEmail;
 using HabitsTracker.Identity.Adapters.Storage;
 using HabitsTracker.Identity.Adapters.Translations;
+using System.Security.Cryptography;
 using HabitsTracker.Identity.Core;
+using HabitsTracker.Identity.Core.UseCases;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
@@ -40,12 +42,51 @@ public static class IdentityContextRegistration
         services.AddSingleton<ILocales>(translationFiles);
         services.AddSingleton<Func<IReadOnlyList<LocaleResponse>>>(translationFiles.List);
 
+        services.AddSingleton(CreateOptions(configuration, environment));
+        services.AddScoped<RequestCode>();
+
         // The code email sender reads the time; a host that registers its own clock (tests) keeps it.
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton(new CodeEmailText(translationFiles.Text));
         AddCodeEmailSender(services, configuration, environment);
 
         return services;
+    }
+
+    // The code hash key is a secret of the deployment (constitution VIII): outside Development a missing key stops the
+    // start; Development makes a new one at each start, so a code of an earlier run does not verify (research R5).
+    private static IdentityContextOptions CreateOptions(IConfiguration configuration, IHostEnvironment environment)
+    {
+        var configured = configuration["Identity:CodeHashKey"];
+        byte[] key;
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            try
+            {
+                key = Convert.FromBase64String(configured);
+            }
+            catch (FormatException exception)
+            {
+                throw new InvalidOperationException("Identity:CodeHashKey is not base64: the 32-byte key of the code hash.", exception);
+            }
+        }
+        else if (environment.IsDevelopment())
+        {
+            key = RandomNumberGenerator.GetBytes(32);
+        }
+        else
+        {
+            throw new InvalidOperationException("Identity:CodeHashKey is not configured: the base64 of the 32-byte key of the code hash.");
+        }
+
+        var section = configuration.GetSection("Identity:CodeRequestLimits");
+        var defaults = CodeRequestLimits.Default;
+        var limits = CodeRequestLimits.Create(
+            section.GetValue<int?>("PerEmail") ?? defaults.PerEmail,
+            section.GetValue<int?>("PerIpAddress") ?? defaults.PerIpAddress,
+            section.GetValue<TimeSpan?>("Window") ?? defaults.Window);
+
+        return IdentityContextOptions.Create(key, limits);
     }
 
     // Development writes the code email to the log; any other environment sends it through Resend and does not

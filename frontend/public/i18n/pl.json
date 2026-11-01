@@ -16,7 +16,22 @@
   },
   "signIn": {
     "title": "Zaloguj się",
-    "remaining": "{remaining, plural, one {Pozostała # prośba o kod z {limit}} few {Pozostały # prośby o kod z {limit}} many {Pozostało # próśb o kod z {limit}} other {Pozostało # prośby o kod z {limit}}}"
+    "remaining": "{remaining, plural, one {Pozostała # prośba o kod z {limit}} few {Pozostały # prośby o kod z {limit}} many {Pozostało # próśb o kod z {limit}} other {Pozostało # prośby o kod z {limit}}}",
+    "email": "Adres e-mail",
+    "emailInvalid": "Wpisz poprawny adres e-mail.",
+    "rememberMe": "Zapamiętaj mnie",
+    "rememberMeHint": "Pozostań zalogowany na tym urządzeniu do 30 dni bez aktywności. Tylko na urządzeniu, któremu ufasz.",
+    "requestCode": "Pobierz kod",
+    "requesting": "Wysyłanie…",
+    "codeSent": "Kod wysłano na adres {email}",
+    "resendCode": "Wyślij nowy kod",
+    "otherEmail": "Użyj innego adresu e-mail",
+    "retryAt": "Spróbuj ponownie po {time}",
+    "acceptPrefix": "Logując się, akceptujesz ",
+    "termsLink": "Regulamin",
+    "acceptMiddle": " i potwierdzasz zapoznanie się z ",
+    "privacyLink": "Informacją o prywatności",
+    "acceptSuffix": "."
   },
   "main": {
     "title": "Nawyki"
@@ -31,7 +46,16 @@
     "title": "Nie znaleziono strony"
   },
   "error": {
-    "network": "Brak połączenia z serwerem. Spróbuj ponownie."
+    "network": "Brak połączenia z serwerem. Spróbuj ponownie.",
+    "invalid-email": "Ten adres e-mail jest nieprawidłowy.",
+    "invalid-locale": "Ten język jest niedostępny.",
+    "email-limit": "Zażądano zbyt wielu kodów dla tego adresu e-mail.",
+    "ip-limit": "Z Twojej sieci zażądano zbyt wielu kodów.",
+    "email-service-limit": "Usługa poczty osiągnęła swój limit i na razie nie może wysyłać kodów.",
+    "email-service-unavailable": "Usługa poczty jest niedostępna. Spróbuj ponownie później.",
+    "invalid-request": "Nie udało się przetworzyć żądania. Odśwież stronę i spróbuj ponownie.",
+    "not-found": "Ten adres nie istnieje.",
+    "internal-error": "Po naszej stronie coś poszło nie tak. Identyfikator śladu: {traceId}"
   },
   "email": {
     "subject": "Twój kod logowania",

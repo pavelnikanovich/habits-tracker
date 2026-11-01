@@ -28,8 +28,8 @@ function shellControls(page: Page) {
   return [
     page.getByRole('combobox', { name: en.language.switcher }),
     page.getByRole('button', { name: en.theme.toLight }),
-    page.getByRole('link', { name: en.nav.privacy }),
-    page.getByRole('link', { name: en.nav.terms }),
+    page.locator('footer').getByRole('link', { name: en.nav.privacy }),
+    page.locator('footer').getByRole('link', { name: en.nav.terms }),
   ];
 }
 
@@ -113,7 +113,7 @@ test('the focus moves to the heading after a navigation', async ({ page }) => {
   await page.goto('/sign-in');
   await expect(heading(page)).toHaveText(en.signIn.title);
 
-  await pressTabUntil(page, page.getByRole('link', { name: en.nav.privacy }));
+  await pressTabUntil(page, page.locator('footer').getByRole('link', { name: en.nav.privacy }));
   await page.keyboard.press('Enter');
 
   await expect(page).toHaveURL(/\/privacy$/);
@@ -135,6 +135,8 @@ test('every page has its title in the page language', async ({ page }) => {
   }
 
   await page.getByRole('combobox', { name: en.language.switcher }).selectOption('ru');
+  // The choice is stored once the language's file has loaded; navigating before that would lose it.
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   for (const [route, title] of titles(ru)) {
     await page.goto(route);
     await expect(page, route).toHaveTitle(`${title} — ${ru.app.name}`);
@@ -164,8 +166,8 @@ test('the shell at every width in both themes @width', async ({ page }) => {
       await expectNoHorizontalScroll(page);
       await expect(page.getByRole('combobox', { name: en.language.switcher }), route).toBeInViewport();
       await expect(page.locator('app-theme-switcher button'), route).toBeInViewport();
-      await expect(page.getByRole('link', { name: en.nav.privacy }), route).toBeInViewport();
-      await expect(page.getByRole('link', { name: en.nav.terms }), route).toBeInViewport();
+      await expect(page.locator('footer').getByRole('link', { name: en.nav.privacy }), route).toBeInViewport();
+      await expect(page.locator('footer').getByRole('link', { name: en.nav.terms }), route).toBeInViewport();
     }
   });
 });

@@ -41,6 +41,21 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
 
     public string EnvironmentName { get; init; } = Environments.Development;
 
+    /// <summary>The sender <see cref="WithCapturingSender"/> puts in place of the environment's.</summary>
+    public CapturingCodeEmailSender Sender { get; } = new();
+
+    private bool capturesCodeEmails;
+
+    /// <summary>
+    /// Replaces the code email sender with <see cref="Sender"/>. An opt-in, so the registration tests keep observing
+    /// the environment's own sender; call it before the first client is created.
+    /// </summary>
+    public HostFactory WithCapturingSender()
+    {
+        capturesCodeEmails = true;
+        return this;
+    }
+
     /// <summary>Overrides one configuration key; call it before the first client is created.</summary>
     public HostFactory WithSetting(string key, string? value)
     {
@@ -86,6 +101,12 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Time);
+            if (capturesCodeEmails)
+            {
+                services.RemoveAll<ICodeEmailSender>();
+                services.AddSingleton<ICodeEmailSender>(Sender);
+            }
+
             services.Insert(0, ServiceDescriptor.Transient<IStartupFilter, TestRemoteAddressStartupFilter>());
             // Program maps every Action<IEndpointRouteBuilder> after its own endpoints, so these run behind the
             // exception handler and the /api request rules; a startup filter would put them in front of both.

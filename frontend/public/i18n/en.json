@@ -16,7 +16,22 @@
   },
   "signIn": {
     "title": "Sign in",
-    "remaining": "{remaining, plural, one {# of {limit} left} other {# of {limit} left}}"
+    "remaining": "{remaining, plural, one {# of {limit} left} other {# of {limit} left}}",
+    "email": "Email",
+    "emailInvalid": "Enter a valid email address.",
+    "rememberMe": "Remember me",
+    "rememberMeHint": "Stay signed in on this device for up to 30 days without activity. Only on a device you trust.",
+    "requestCode": "Get code",
+    "requesting": "Sending…",
+    "codeSent": "Code sent to {email}",
+    "resendCode": "Send a new code",
+    "otherEmail": "Use another email",
+    "retryAt": "Try again after {time}",
+    "acceptPrefix": "By signing in you accept the ",
+    "termsLink": "Terms",
+    "acceptMiddle": " and acknowledge the ",
+    "privacyLink": "Privacy notice",
+    "acceptSuffix": "."
   },
   "main": {
     "title": "Habits"
@@ -31,7 +46,16 @@
     "title": "Page not found"
   },
   "error": {
-    "network": "No connection to the server. Try again."
+    "network": "No connection to the server. Try again.",
+    "invalid-email": "This email address is not valid.",
+    "invalid-locale": "This language is not available.",
+    "email-limit": "Too many codes were requested for this email.",
+    "ip-limit": "Too many codes were requested from your network.",
+    "email-service-limit": "The email service has reached its limit and cannot send codes now.",
+    "email-service-unavailable": "The email service is unavailable. Try again later.",
+    "invalid-request": "The request could not be processed. Reload the page and try again.",
+    "not-found": "This address does not exist.",
+    "internal-error": "Something went wrong on our side. Trace id: {traceId}"
   },
   "email": {
     "subject": "Your sign-in code",
