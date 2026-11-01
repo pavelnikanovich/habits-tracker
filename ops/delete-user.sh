@@ -19,6 +19,9 @@ if [ "$#" -ne 1 ] || [ -z "$1" ]; then
 fi
 email="$1"
 
+# Fail before asking anything when the compose files are malformed (ops/lib/compose.sh).
+compose_file_arguments > /dev/null || exit 1
+
 printf 'Type the email again to confirm the deletion: ' >&2
 confirmation=""
 read -r confirmation || true
@@ -27,19 +30,23 @@ if [ "$confirmation" != "$email" ]; then
   exit 1
 fi
 
-# Emails are stored lower-cased (data-model.md, Email). A failed statement stops psql and the open transaction rolls
-# back; the counts are printed only after it committed, so they never describe a rollback.
-counts="$(db_psql --no-psqlrc --quiet --tuples-only --no-align --variable "email=$email" <<'SQL'
+# The email reaches psql on stdin as hex, never on the command line (which the host's process list and Docker's exec
+# events show), and never as SQL text: hex digits cannot hold a quote or a backslash, so no value breaks out of the
+# string; the SQL decodes it back. Emails are stored lower-cased (data-model.md, Email). A failed statement stops psql
+# and the open transaction rolls back; the counts are printed only after it committed, so they never describe a rollback.
+email_hex="$(printf '%s' "$email" | od -An -v -tx1 | tr -d ' \n')"
+counts="$(db_psql --no-psqlrc --quiet --tuples-only --no-align <<SQL
+\set email_hex '$email_hex'
 begin;
 with deleted as (
   delete from identity.sessions
-  where user_id in (select id from identity.users where email = lower(:'email')) returning 1)
+  where user_id in (select id from identity.users where email = lower(convert_from(decode(:'email_hex', 'hex'), 'UTF8'))) returning 1)
 select 'identity.sessions: ' || count(*) from deleted;
-with deleted as (delete from identity.users where email = lower(:'email') returning 1)
+with deleted as (delete from identity.users where email = lower(convert_from(decode(:'email_hex', 'hex'), 'UTF8')) returning 1)
 select 'identity.users: ' || count(*) from deleted;
-with deleted as (delete from identity.one_time_codes where email = lower(:'email') returning 1)
+with deleted as (delete from identity.one_time_codes where email = lower(convert_from(decode(:'email_hex', 'hex'), 'UTF8')) returning 1)
 select 'identity.one_time_codes: ' || count(*) from deleted;
-with deleted as (delete from identity.code_requests where email = lower(:'email') returning 1)
+with deleted as (delete from identity.code_requests where email = lower(convert_from(decode(:'email_hex', 'hex'), 'UTF8')) returning 1)
 select 'identity.code_requests: ' || count(*) from deleted;
 commit;
 SQL

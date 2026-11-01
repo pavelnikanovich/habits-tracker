@@ -54,6 +54,7 @@ apply_identity_schema "$dir" || { echo "FAIL: the real schema was not applied" >
 
 id_a="0198a000-0000-7000-8000-00000000000a"
 id_b="0198b000-0000-7000-8000-00000000000b"
+id_q="0198c000-0000-7000-8000-00000000000c"
 db_psql --quiet --no-psqlrc <<SQL || { echo "FAIL: the rows were not seeded" >&2; exit 1; }
 insert into identity.users (id, email, time_zone, time_zone_recognized, locale, created_at) values
   ('$id_a', 'ann@example.com', 'UTC', true, 'en', now()),
@@ -68,6 +69,13 @@ insert into identity.code_requests (email, ip_prefix, requested_at) values
   ('ann@example.com', '203.0.113.7/32', now()), ('ann@example.com', '203.0.113.7/32', now()),
   ('ann@example.com', '203.0.113.7/32', now()),
   ('bob@example.com', '203.0.113.8/32', now()), ('bob@example.com', '203.0.113.8/32', now());
+-- An email with a quote and a backslash, for the injection check below.
+insert into identity.users (id, email, time_zone, time_zone_recognized, locale, created_at) values
+  ('$id_q', 'o''b\rien@example.com', 'UTC', true, 'en', now());
+insert into identity.sessions (id, user_id, remembered, created_at, last_activity_at) values ('\x0c01', '$id_q', false, now(), now());
+insert into identity.one_time_codes (email, code_hash, issued_at, expires_at, entry_attempts) values
+  ('o''b\rien@example.com', '\x00', now(), now() + interval '10 minutes', 0);
+insert into identity.code_requests (email, ip_prefix, requested_at) values ('o''b\rien@example.com', '203.0.113.9/32', now());
 SQL
 
 # Rows of schema identity per table, as "table=count" lines.
@@ -81,6 +89,14 @@ order by 1;
 SQL
 }
 before="$(state)"
+
+# Malformed compose files are refused before anything is asked.
+output="$(printf 'ann@example.com\n' | HABITS_COMPOSE_FILES="$dir/missing.yaml" "$repo_root/ops/delete-user.sh" ann@example.com 2>&1)"
+status=$?
+[ "$status" -ne 0 ] || fail "bad compose files: exited 0"
+[[ "$output" == *HABITS_COMPOSE_FILES* ]] || fail "bad compose files: the message was '$output'"
+[[ "$output" != *"Type the email"* ]] || fail "bad compose files: the prompt was shown"
+[ "$(state)" = "$before" ] || fail "bad compose files: rows changed"
 
 # A wrong email at the prompt: nothing is deleted, exit 1.
 output="$(printf 'bob@example.com\n' | "$repo_root/ops/delete-user.sh" ann@example.com 2>&1)"
@@ -99,19 +115,17 @@ status=$?
 [ "$status" -eq 0 ] || fail "deletion: exited $status: $output"
 expected=$'identity.sessions: 2\nidentity.users: 1\nidentity.one_time_codes: 1\nidentity.code_requests: 3'
 [[ "$output" == *"$expected" ]] || fail "deletion: printed '$output', expected the lines '$expected'"
-[[ "$output" != *"ann@example.com"$'\n'* ]] || fail "deletion: the output repeats the email"
+[[ "$output" != *"@"* && "$output" != *"example.com"* ]] || fail "deletion: the output repeats the email"
 [[ "$output" != *"$id_a"* ]] || fail "deletion: the output holds the user id"
 
-# No row of schema identity holds A's email or id; B's rows are all there.
-remaining="$(db_psql --no-psqlrc --quiet --tuples-only --no-align <<SQL
-select count(*) from identity.users where email = 'ann@example.com' or id = '$id_a'
-  or (select count(*) from identity.sessions where user_id = '$id_a') > 0
-  or (select count(*) from identity.one_time_codes where email = 'ann@example.com') > 0
-  or (select count(*) from identity.code_requests where email = 'ann@example.com') > 0;
-SQL
-)"
-[ "$remaining" = "0" ] || fail "deletion: some row of A's is left"
-[ "$(state)" = $'code_requests=2\none_time_codes=1\nsessions=2\nusers=1' ] || fail "deletion: B's rows changed: $(state | tr '\n' ' ')"
+# No row of schema identity holds A's email or id, table by table; B's rows are all there.
+count() { db_psql --no-psqlrc --quiet --tuples-only --no-align --command "$1"; }
+[ "$(count "select count(*) from identity.sessions where user_id = '$id_a'")" = "0" ] || fail "deletion: A's sessions are left"
+[ "$(count "select count(*) from identity.users where id = '$id_a' or email = 'ann@example.com'")" = "0" ] || fail "deletion: A's user is left"
+[ "$(count "select count(*) from identity.one_time_codes where email = 'ann@example.com'")" = "0" ] || fail "deletion: A's code is left"
+[ "$(count "select count(*) from identity.code_requests where email = 'ann@example.com'")" = "0" ] || fail "deletion: A's code requests are left"
+# Whole-table counts: B's 2 rows of the 3 sessions etc. (the quote user's rows are still there).
+[ "$(state)" = $'code_requests=3\none_time_codes=2\nsessions=3\nusers=2' ] || fail "deletion: other rows changed: $(state | tr '\n' ' ')"
 b_rows="$(db_psql --no-psqlrc --quiet --tuples-only --no-align <<SQL
 select (select count(*) from identity.users where id = '$id_b' and email = 'bob@example.com')
   || ',' || (select count(*) from identity.sessions where user_id = '$id_b')
@@ -120,6 +134,14 @@ select (select count(*) from identity.users where id = '$id_b' and email = 'bob@
 SQL
 )"
 [ "$b_rows" = "1,2,1,2" ] || fail "deletion: B's rows are '$b_rows', expected '1,2,1,2'"
+
+# An email with a quote and a backslash is matched literally and cannot break out of the statement.
+quoted="o'b\\rien@example.com"
+output="$(printf '%s\n' "$quoted" | "$repo_root/ops/delete-user.sh" "$quoted" 2>&1)"
+status=$?
+[ "$status" -eq 0 ] || fail "quoted email: exited $status: $output"
+[[ "$output" == *$'identity.sessions: 1\nidentity.users: 1\nidentity.one_time_codes: 1\nidentity.code_requests: 1' ]] || fail "quoted email: printed '$output'"
+[ "$(state)" = $'code_requests=2\none_time_codes=1\nsessions=2\nusers=1' ] || fail "quoted email: other rows changed: $(state | tr '\n' ' ')"
 
 # A user that does not exist: the counts are all zero and nothing else changes.
 output="$(printf 'ann@example.com\n' | "$repo_root/ops/delete-user.sh" ann@example.com 2>&1)"
