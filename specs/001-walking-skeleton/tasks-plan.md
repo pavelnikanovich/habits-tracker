@@ -174,11 +174,11 @@ Use cases (driving ports; application services: one class each, constructor-inje
 
 | Class | `ExecuteAsync` | Task |
 |---|---|---|
-| `RequestCode` | `(Email, Locale, IpAddressPrefix, ct) → CodeRequestResult` | 7 |
-| `SignIn` | `(Email, OneTimeCodeValue, bool rememberMe, string? browserTimeZone, Locale, SessionToken? heldSession, ct) → SignInResult` (a valid held session is deleted once the new one opens) | 11 |
+| `RequestCode` | `(Email, string? localeCode, IpAddressPrefix, ct) → CodeRequestResult` (builds the `Locale` with `Locale.Create(localeCode, locales)`) | 7 |
+| `SignIn` | `(Email, OneTimeCodeValue, bool rememberMe, string? browserTimeZone, string? localeCode, SessionToken? heldSession, ct) → SignInResult` (builds the `Locale` with `Locale.Create(localeCode, locales)`; a valid held session is deleted once the new one opens) | 11 |
 | `AuthenticateSession` | `(SessionToken, ct) → AuthenticatedSession?` (extends the session) | 11 |
 | `GetCurrentUser` | `(Guid userId, ct) → User` (`InvalidOperationException` when there is none: users are never deleted in this epic) | 11 |
-| `ChangeLocale` | `(Guid userId, Locale, ct) → Task` | 14 |
+| `ChangeLocale` | `(Guid userId, string? localeCode, ct) → Task` (builds the `Locale` with `Locale.Create(localeCode, locales)`) | 14 |
 | `SignOut` | `(byte[] sessionId, ct) → Task` | 14 |
 | `SignOutEverywhere` | `(Guid userId, ct) → Task` | 14 |
 | `DeleteExpiredRecords` | `(ct) → DeletedRecords` (computes every cutoff and passes `OneTimeCode.MaxEntryAttempts`) | 14 |
