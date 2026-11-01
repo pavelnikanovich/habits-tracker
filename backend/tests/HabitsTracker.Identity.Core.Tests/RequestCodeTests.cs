@@ -150,6 +150,33 @@ public class RequestCodeTests
     }
 
     [Fact]
+    public async Task An_ip_limit_refusal_sends_nothing_and_stores_nothing()
+    {
+        for (var hours = 1; hours <= 10; hours++)
+            await codeRequests.AddAsync(
+                CodeRequest.Create(Email.Create($"user{hours}@example.com"), Prefix, T.AddHours(-hours)), Ct);
+
+        var result = await ExecuteAsync();
+
+        Assert.Equal(new CodeRequestResult.RefusedByIpLimit(T.AddHours(14)), result);
+        Assert.Empty(sender.Messages);
+        Assert.Null(await oneTimeCodes.FindExclusiveAsync(Ada, Ct));
+        Assert.Equal(new CodeRequestCounts(0, null, 10, T.AddHours(-10)), await CountsAsync());
+    }
+
+    [Fact]
+    public async Task Counts_only_within_the_configured_window()
+    {
+        // 2 hours old: outside a 1-hour window, inside a 24-hour one; exactly 1 hour old has left the window.
+        var limits = CodeRequestLimits.Create(2, 3, TimeSpan.FromHours(1));
+        foreach (var minutes in new[] { 120, 60, 30 })
+            await codeRequests.AddAsync(CodeRequest.Create(Ada, Prefix, T.AddMinutes(-minutes)), Ct);
+
+        Assert.Equal(new CodeRequestResult.Sent(0, 2), await ExecuteAsync(limits));
+        Assert.Equal(new CodeRequestResult.RefusedByEmailLimit(T.AddMinutes(30)), await ExecuteAsync(limits));
+    }
+
+    [Fact]
     public async Task A_refused_send_rolls_back_nothing_it_did_not_write()
     {
         var earlier = await StoreEarlierCodeAsync();
