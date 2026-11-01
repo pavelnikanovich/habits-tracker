@@ -1,1 +1,200 @@
-/* You can add global styles to this file, and also import other style files */
+/*
+ * Global rules (contracts/ui.md, "Visual baseline" and "Shared components"): the font, the page frame, headings,
+ * links, controls, focus and native controls. Square corners, 1 px borders, no shadows, no gradients, no motion.
+ */
+@import "./styles/tokens.css";
+
+/* Served by the application itself (FR-027); the relative paths let the build copy the files with a content hash. */
+@font-face {
+  font-family: "Nordwand Mono";
+  src: url("./assets/fonts/NordwandMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Nordwand Mono";
+  src: url("./assets/fonts/NordwandMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The browser draws the checkbox, the drop-down list and scroll bars in the theme. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  /* Long text (an email, an address) wraps anywhere, so nothing overflows at 320 px. */
+  overflow-wrap: anywhere;
+}
+
+/* The page frame: one column, at most 40rem wide, centred; the header wraps at 320 px, nothing is hidden. */
+app-root {
+  display: block;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+app-root > header,
+app-root > footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding-block: var(--space-4);
+}
+
+app-root > footer {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-6);
+}
+
+app-language-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1.25;
+  text-shadow: var(--glow);
+}
+
+h1 {
+  font-size: var(--text-2xl);
+  margin: var(--space-5) 0 var(--space-4);
+}
+
+h2 {
+  font-size: var(--text-xl);
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+h3 {
+  font-size: var(--text-lg);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+/* The terminal prompt before every page heading, hidden from screen readers by its empty alternative text. */
+h1::before {
+  content: "> ";
+  content: "> " / "";
+}
+
+p {
+  margin: 0 0 var(--space-4);
+}
+
+a {
+  color: var(--accent);
+  text-shadow: var(--glow);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+footer a {
+  display: inline-block;
+  padding-block: var(--space-2);
+}
+
+/* Controls: at least 44 px high, input text 16 px, square corners. */
+button,
+input,
+select {
+  font: inherit;
+  font-size: var(--text-base);
+  border-radius: 0;
+}
+
+button,
+input,
+select {
+  min-height: 2.75rem;
+}
+
+input,
+select {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0 var(--space-3);
+}
+
+input[type="checkbox"] {
+  min-height: auto;
+  accent-color: var(--accent);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+/* An autofilled field keeps --surface and --text: the browser's own background yields only to an inset fill. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  box-shadow: 0 0 0 100rem var(--surface) inset;
+}
+
+/* The primary button is outlined; on hover and focus it fills with the accent. */
+button {
+  color: var(--accent);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  padding: 0 var(--space-4);
+  text-shadow: var(--glow);
+  cursor: pointer;
+}
+
+button:hover:not(:disabled),
+button:focus-visible:not(:disabled) {
+  color: var(--bg);
+  background: var(--accent);
+  text-shadow: none;
+}
+
+button:disabled {
+  color: var(--muted);
+  border-color: var(--muted);
+  text-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Focus: every interactive element, and a heading that takes the focus after a navigation. */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}

@@ -7,3 +7,7 @@ obj/
 .dev/
 node_modules/
 load/.sessions.json
+
+# Nordwand Mono and its license, fetched at build time by frontend/scripts/fetch-fonts.sh (research R24)
+frontend/src/assets/fonts/
+frontend/public/fonts/

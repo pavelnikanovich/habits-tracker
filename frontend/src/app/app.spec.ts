@@ -23,7 +23,7 @@ describe('AppShell', () => {
     await firstValueFrom(TestBed.inject(TranslocoService).load('en'));
   });
 
-  it('every route shows the switcher and the Privacy and Terms links', async () => {
+  it('every route shows the switchers and the Privacy and Terms links', async () => {
     const pages: [string, string][] = [
       ['/sign-in', 'Sign in'],
       ['/', 'Habits'],
@@ -40,9 +40,11 @@ describe('AppShell', () => {
 
       expect(page.querySelectorAll('h1').length, url).toBe(1);
       expect(page.querySelector('h1')?.textContent?.trim(), url).toBe(heading);
+      expect(page.querySelector('main h1')?.getAttribute('tabindex'), url).toBe('-1');
       const switcher = page.querySelector('header select');
       expect(switcher, url).not.toBeNull();
       expect(page.querySelector(`label[for="${switcher?.id}"]`)?.textContent?.trim(), url).toBe('Language');
+      expect(page.querySelector('header button[type="button"]')?.textContent?.trim(), url).toBe('Light theme');
       expect(page.querySelector('footer a[href="/privacy"]')?.textContent?.trim(), url).toBe('Privacy');
       expect(page.querySelector('footer a[href="/terms"]')?.textContent?.trim(), url).toBe('Terms');
     }

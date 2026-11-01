@@ -1,7 +1,14 @@
 {
+  "app": {
+    "name": "Nawyki"
+  },
   "language": {
     "name": "Polski",
     "switcher": "Język"
+  },
+  "theme": {
+    "toLight": "Jasny motyw",
+    "toDark": "Ciemny motyw"
   },
   "nav": {
     "privacy": "Prywatność",
@@ -22,5 +29,8 @@
   },
   "notFound": {
     "title": "Nie znaleziono strony"
+  },
+  "error": {
+    "network": "Brak połączenia z serwerem. Spróbuj ponownie."
   }
 }

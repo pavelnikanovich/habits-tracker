@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
+    "prestart": "bash scripts/fetch-fonts.sh",
     "start": "ng serve",
+    "prebuild": "bash scripts/fetch-fonts.sh",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
+    "pretest": "bash scripts/fetch-fonts.sh",
     "test": "ng test --watch=false",
     "lint": "ng lint --max-warnings 0",
     "e2e": "bash ../scripts/e2e-preflight.sh && playwright test"

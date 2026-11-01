@@ -1,7 +1,14 @@
 {
+  "app": {
+    "name": "Habits"
+  },
   "language": {
     "name": "English",
     "switcher": "Language"
+  },
+  "theme": {
+    "toLight": "Light theme",
+    "toDark": "Dark theme"
   },
   "nav": {
     "privacy": "Privacy",
@@ -22,5 +29,8 @@
   },
   "notFound": {
     "title": "Page not found"
+  },
+  "error": {
+    "network": "No connection to the server. Try again."
   }
 }
