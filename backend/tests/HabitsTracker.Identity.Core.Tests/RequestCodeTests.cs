@@ -51,7 +51,8 @@ public class RequestCodeTests
         var result = await ExecuteAsync();
 
         Assert.Equal(new CodeRequestResult.Sent(4, 5), result);
-        await StoredCodeAsync();
+        var message = Assert.Single(sender.Messages);
+        Assert.True((await StoredCodeAsync()).CodeHash.Matches(CodeHash.Compute(Key, Ada, message.Code)));
         Assert.Equal(new CodeRequestCounts(1, T, 1, T), await CountsAsync());
     }
 

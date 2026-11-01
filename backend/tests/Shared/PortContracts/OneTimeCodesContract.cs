@@ -8,6 +8,8 @@ public abstract class OneTimeCodesContract
     private static readonly DateTimeOffset Now = new(2026, 11, 1, 12, 0, 0, TimeSpan.Zero);
     private static readonly Email Ada = Email.Create("ada@example.com");
 
+    protected abstract IIdentityTransaction Transaction { get; }
+
     protected abstract IOneTimeCodes OneTimeCodes { get; }
 
     [Fact]
@@ -27,25 +29,38 @@ public abstract class OneTimeCodesContract
     public async Task Saving_stores_the_attempts()
     {
         var ct = TestContext.Current.CancellationToken;
-        await OneTimeCodes.ReplaceAsync(Code(Ada, Now), ct);
-        var attempted = Code(Ada, Now, entryAttempts: 3);
+        await OneTimeCodes.ReplaceAsync(Code(Ada, Now, entryAttempts: 2), ct);
 
-        await OneTimeCodes.SaveAsync(attempted, ct);
+        // As the port requires: the code read with FindExclusiveAsync, entered and saved in one transaction.
+        await Transaction.RunAsync(async work =>
+        {
+            var entered = await OneTimeCodes.FindExclusiveAsync(Ada, work);
+            Assert.NotNull(entered);
+            Assert.Equal(CodeVerification.Incorrect, entered.Verify(Code(Ada, Now, hashFill: 9).CodeHash, Now.AddMinutes(1)));
+            await OneTimeCodes.SaveAsync(entered, work);
+            return 0;
+        }, ct);
 
-        AssertStored(attempted, await OneTimeCodes.FindExclusiveAsync(Ada, ct));
+        AssertStored(Code(Ada, Now, entryAttempts: 3), await OneTimeCodes.FindExclusiveAsync(Ada, ct));
     }
 
     [Fact]
     public async Task Saving_a_used_code_deletes_it()
     {
         var ct = TestContext.Current.CancellationToken;
-        var used = Code(Ada, Now);
         var other = Code(Email.Create("bob@example.com"), Now);
-        await OneTimeCodes.ReplaceAsync(used, ct);
+        await OneTimeCodes.ReplaceAsync(Code(Ada, Now), ct);
         await OneTimeCodes.ReplaceAsync(other, ct);
-        Assert.Equal(CodeVerification.SignIn, used.Verify(used.CodeHash, Now.AddMinutes(1)));
 
-        await OneTimeCodes.SaveAsync(used, ct);
+        // As the port requires: the code read with FindExclusiveAsync, used and saved in one transaction.
+        await Transaction.RunAsync(async work =>
+        {
+            var used = await OneTimeCodes.FindExclusiveAsync(Ada, work);
+            Assert.NotNull(used);
+            Assert.Equal(CodeVerification.SignIn, used.Verify(used.CodeHash, Now.AddMinutes(1)));
+            await OneTimeCodes.SaveAsync(used, work);
+            return 0;
+        }, ct);
 
         Assert.Null(await OneTimeCodes.FindExclusiveAsync(Ada, ct));
         AssertStored(other, await OneTimeCodes.FindExclusiveAsync(other.Email, ct));

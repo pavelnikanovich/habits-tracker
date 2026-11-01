@@ -39,6 +39,7 @@ public class AuthenticateSessionTests
 
         Assert.NotNull(second);
         Assert.Equal(L.AddDays(58), second.Session.LastActivityAt);
+        Assert.Equal(L.AddDays(58), (await sessions.FindAsync(second.Session.Id, Ct))?.LastActivityAt);
     }
 
     [Fact]
@@ -88,6 +89,15 @@ public class AuthenticateSessionTests
     public async Task A_missing_current_user_fails() =>
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => new GetCurrentUser(users).ExecuteAsync(Guid.CreateVersion7(L), Ct));
+
+    [Fact]
+    public void Unset_dependencies_are_programming_errors()
+    {
+        Assert.Throws<ArgumentNullException>("sessions", () => new AuthenticateSession(null!, users, time));
+        Assert.Throws<ArgumentNullException>("users", () => new AuthenticateSession(sessions, null!, time));
+        Assert.Throws<ArgumentNullException>("time", () => new AuthenticateSession(sessions, users, null!));
+        Assert.Throws<ArgumentNullException>("users", () => new GetCurrentUser(null!));
+    }
 
     [Fact]
     public async Task Unset_arguments_are_programming_errors()

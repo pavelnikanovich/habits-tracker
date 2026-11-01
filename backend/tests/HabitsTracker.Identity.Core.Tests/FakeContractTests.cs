@@ -30,7 +30,16 @@ public static class FakeContractTests
 
     public sealed class OneTimeCodesOnFakes : OneTimeCodesContract
     {
-        protected override IOneTimeCodes OneTimeCodes { get; } = new InMemoryOneTimeCodes(new InMemoryTransaction());
+        public OneTimeCodesOnFakes()
+        {
+            var transaction = new InMemoryTransaction();
+            Transaction = transaction;
+            OneTimeCodes = new InMemoryOneTimeCodes(transaction);
+        }
+
+        protected override IIdentityTransaction Transaction { get; }
+
+        protected override IOneTimeCodes OneTimeCodes { get; }
     }
 
     public sealed class CodeRequestsOnFakes : CodeRequestsContract

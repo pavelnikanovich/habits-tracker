@@ -23,6 +23,8 @@ public static class EfContractTests
     {
         private IdentityDatabase database = null!;
 
+        protected override IIdentityTransaction Transaction => database.Get<IIdentityTransaction>();
+
         protected override IOneTimeCodes OneTimeCodes => database.Get<IOneTimeCodes>();
 
         public async ValueTask InitializeAsync() => database = await IdentityDatabase.CreateAsync(postgres);

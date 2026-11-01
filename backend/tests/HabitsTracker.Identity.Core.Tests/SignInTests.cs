@@ -179,7 +179,8 @@ public class SignInTests
             await SignInAsync(email, AnnsCode, heldSession: heldToken));
 
         Assert.Null(await sessions.FindAsync(held.Id, Ct));
-        Assert.NotNull(await sessions.FindAsync(signedIn.Session.Id, Ct));
+        Assert.Equal(email, signedIn.User.Email);
+        Assert.Equal(signedIn.User.Id, (await sessions.FindAsync(signedIn.Session.Id, Ct))?.UserId);
     }
 
     [Fact]
@@ -200,12 +201,15 @@ public class SignInTests
     [Fact]
     public async Task Uses_the_code_and_opens_the_session_in_one_transaction()
     {
+        var (held, heldToken) = Session.Open(Guid.CreateVersion7(Issued), false, Issued);
+        await sessions.AddAsync(held, Ct);
         await IssueAsync(Ann, AnnsCode);
 
-        await SignInAsync(Ann, AnnsCode);
+        await SignInAsync(Ann, AnnsCode, heldSession: heldToken);
 
         Assert.Equal(
             [
+                "InMemorySessions.AddAsync",
                 "InMemoryOneTimeCodes.ReplaceAsync",
                 "InMemoryTransaction.Begin",
                 "InMemoryOneTimeCodes.FindExclusiveAsync",
@@ -213,9 +217,26 @@ public class SignInTests
                 "InMemoryUsers.FindByEmailAsync",
                 "InMemoryUsers.AddOrGetAsync",
                 "InMemorySessions.AddAsync",
+                "InMemorySessions.FindAsync",
+                "InMemorySessions.DeleteAsync",
                 "InMemoryTransaction.Commit",
             ],
             calls.Entries);
+    }
+
+    [Fact]
+    public void Unset_dependencies_are_programming_errors()
+    {
+        var locales = new FixedLocales();
+        var options = IdentityContextOptions.Create(Key, CodeRequestLimits.Default);
+
+        Assert.Throws<ArgumentNullException>("transaction", () => new SignIn(null!, oneTimeCodes, users, sessions, locales, time, options));
+        Assert.Throws<ArgumentNullException>("oneTimeCodes", () => new SignIn(transaction, null!, users, sessions, locales, time, options));
+        Assert.Throws<ArgumentNullException>("users", () => new SignIn(transaction, oneTimeCodes, null!, sessions, locales, time, options));
+        Assert.Throws<ArgumentNullException>("sessions", () => new SignIn(transaction, oneTimeCodes, users, null!, locales, time, options));
+        Assert.Throws<ArgumentNullException>("locales", () => new SignIn(transaction, oneTimeCodes, users, sessions, null!, time, options));
+        Assert.Throws<ArgumentNullException>("time", () => new SignIn(transaction, oneTimeCodes, users, sessions, locales, null!, options));
+        Assert.Throws<ArgumentNullException>("options", () => new SignIn(transaction, oneTimeCodes, users, sessions, locales, time, null!));
     }
 
     [Fact]
