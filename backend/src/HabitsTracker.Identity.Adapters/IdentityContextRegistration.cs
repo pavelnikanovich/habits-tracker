@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace HabitsTracker.Identity.Adapters;
@@ -39,6 +40,8 @@ public static class IdentityContextRegistration
         services.AddSingleton<ILocales>(translationFiles);
         services.AddSingleton<Func<IReadOnlyList<LocaleResponse>>>(translationFiles.List);
 
+        // The code email sender reads the time; a host that registers its own clock (tests) keeps it.
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton(new CodeEmailText(translationFiles.Text));
         AddCodeEmailSender(services, configuration, environment);
 
@@ -59,10 +62,6 @@ public static class IdentityContextRegistration
         if (string.IsNullOrWhiteSpace(apiKey))
             throw new InvalidOperationException("Resend:ApiKey is not configured: the API key of the email service that sends the code email.");
 
-        services.AddHttpClient(ResendCodeEmailSender.HttpClientName, client => ResendCodeEmailSender.ConfigureClient(client, apiKey));
-        services.AddTransient<ICodeEmailSender>(provider => new ResendCodeEmailSender(
-            provider.GetRequiredService<IHttpClientFactory>().CreateClient(ResendCodeEmailSender.HttpClientName),
-            provider.GetRequiredService<CodeEmailText>(),
-            provider.GetRequiredService<TimeProvider>()));
+        services.AddHttpClient<ICodeEmailSender, ResendCodeEmailSender>(client => ResendCodeEmailSender.ConfigureClient(client, apiKey));
     }
 }

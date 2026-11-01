@@ -34,6 +34,21 @@ public class CodeEmailSenderRegistrationTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Resend_client_has_the_timeout_and_the_key()
+    {
+        await using var host = Production().WithSetting("Resend:ApiKey", "re_test_key");
+        await host.InitializeAsync();
+        using var client = host.CreateClient();
+
+        // A typed client is named after its service type.
+        using var resend = host.Services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ICodeEmailSender));
+
+        Assert.Equal(TimeSpan.FromSeconds(10), resend.Timeout);
+        Assert.Equal("Bearer", resend.DefaultRequestHeaders.Authorization?.Scheme);
+        Assert.Equal("re_test_key", resend.DefaultRequestHeaders.Authorization?.Parameter);
+    }
+
+    [Fact]
     public async Task Production_without_a_Resend_key_does_not_start()
     {
         await using var host = Production();

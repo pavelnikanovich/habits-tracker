@@ -14,8 +14,6 @@ namespace HabitsTracker.Identity.Adapters.CodeEmail;
 /// </summary>
 public sealed class ResendCodeEmailSender(HttpClient client, CodeEmailText text, TimeProvider time) : ICodeEmailSender
 {
-    public const string HttpClientName = "resend";
-
     private const string Endpoint = "https://api.resend.com/emails";
     private const string From = "no-reply@mail.cardlane.eu";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
