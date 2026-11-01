@@ -39,7 +39,27 @@ function literals(css: string): string[] {
     });
 }
 
+/** Whether TypeScript source `source` gives a component inline styles, which the token check would not read. */
+function hasInlineStyles(source: string): boolean {
+  return /\bstyles\s*:/.test(source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''));
+}
+
 describe('component styles', () => {
+  it('no component has inline styles', () => {
+    const offenders = readdirSync('src/app', { recursive: true, encoding: 'utf8' })
+      .filter((file) => file.endsWith('.ts'))
+      .filter((file) => hasInlineStyles(readFileSync(`src/app/${file}`, 'utf8')));
+
+    expect(offenders, 'all CSS lives in styleUrl files').toEqual([]);
+  });
+
+  it('the check catches inline styles', () => {
+    expect(hasInlineStyles("@Component({ selector: 'app-a', styles: ['p { color: red; }'] })")).toBe(true);
+    expect(hasInlineStyles("@Component({ selector: 'app-a', styles : `p { color: red; }` })")).toBe(true);
+    expect(hasInlineStyles("@Component({ selector: 'app-a', styleUrl: './a.css' })")).toBe(false);
+    expect(hasInlineStyles('// styles: kept in a.css')).toBe(false);
+  });
+
   it('component styles use only tokens', () => {
     const files = readdirSync('src/app', { recursive: true, encoding: 'utf8' }).filter((file) => file.endsWith('.css'));
     expect(files, 'no component CSS file found under src/app').not.toEqual([]);
