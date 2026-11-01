@@ -53,6 +53,7 @@ public static class IdentityContextRegistration
         services.AddScoped<SignOut>();
         services.AddScoped<SignOutEverywhere>();
         services.AddScoped<ChangeLocale>();
+        services.AddScoped<DeleteExpiredRecords>();
         AddSessionAuthentication(services);
 
         // The code email sender reads the time; a host that registers its own clock (tests) keeps it.

@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.Net.Http.Headers;
+using Npgsql;
 
 namespace HabitsTracker.Host.Tests;
 
@@ -204,6 +205,9 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
+        // Each host has a database of its own, hence a pool of its own; idle connections would stay open for minutes
+        // and, with the host count of this assembly, reach the server's max_connections.
+        NpgsqlConnection.ClearAllPools();
         webRoot?.Delete(recursive: true);
     }
 

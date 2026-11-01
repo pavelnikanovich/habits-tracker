@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using HabitsTracker.Host.Cleanup;
 using HabitsTracker.Host.Health;
 using HabitsTracker.Host.Metrics;
 using HabitsTracker.Host.Operations;
@@ -19,6 +20,7 @@ builder.Services.AddDbContext<OperationsDbContext>(options => options.UseNpgsql(
 
 builder.Services.AddSingleton<RequestTimingHistogram>();
 builder.Services.AddHostedService<RequestTimingFlusher>();
+builder.Services.AddHostedService<HourlyCleanup>();
 
 builder.Services.AddIdentityContext(builder.Configuration, builder.Environment);
 
