@@ -233,6 +233,8 @@ Decision: does `writing-plans` stay the only task source, or is `speckit-tasks` 
 - where the actions of a habit (rename, archive, delete, Commit, Release) live: on the card, in a menu, or on a habit page;
 - the habit name's limits (length, allowed characters), which the domain then holds.
 
+**Runway check**, after the UX design and before epic 2's step 2: epics 2 to 8 are walked against the constitution and epic 1's standing decisions (the code, `docs/operations/runbook.md`, the product design). Artifact: a section of the UX design document, or its own dated file under `docs/superpowers/specs/`. For each epic it lists the decisions that epic's step 5 must take and the traps an earlier epic must avoid so a later one needs no workaround (for example, epic 2 stores a habit's schedule as schedule periods from the start, since epic 5 adds periods and migrations only expand). A constitution change it shows is made once, there, with the developer's word, not epic by epic.
+
 From epic 2 on, step 2 takes each screen's flows from the UX design, and step 5 details them in `contracts/ui.md`; a flow the UX design lacks goes back to it with the developer's word.
 
 ## Task plan format
@@ -293,6 +295,7 @@ The summary goes into the epic's ledger entry; the "Before epic 2" decision is m
 | CI/CD artifacts (what is built, how it is delivered to the VPS) | epic 1, `speckit-plan` |
 | `writing-plans` or `speckit-tasks` for epics 2+ | before epic 2, by metrics |
 | Interaction design of the product (screens, navigation, patterns, flows of every epic) | before epic 2: the UX design, see "Before epic 2" |
+| Decisions and traps of epics 2–8 against the constitution and epic 1 | before epic 2: the runway check, see "Before epic 2" |
 
 ## Revision
 

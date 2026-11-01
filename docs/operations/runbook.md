@@ -21,7 +21,8 @@ When: data was damaged or deleted by mistake, and the disk is intact.
 1. Choose the backup: `ls /var/backups/habits/`; the newest one before the damage, or the one taken before the migration that caused it.
 2. `ops/restore-live.sh /var/backups/habits/<directory>`; type the database name when asked. The script restores into `habits_restored`, checks it against the backup's manifest, and only on `PASS` stops `app`, renames `habits` to `habits_broken_<time>` and `habits_restored` to `habits`, starts `app`, checks `/health` and prints the time.
 3. Check: the script printed `PASS` and `Healthy`; sign in on the site.
-4. Keep `habits_broken_<time>` until the cause is understood, then drop it.
+4. Delete again what the backup brought back: for every deletion request answered since the chosen backup was taken (the contact mailbox, at most the 7 days backups are kept), run `ops/delete-user.sh <email>` again (next section). A restore must never bring back data a person was told is deleted (GDPR art. 17).
+5. Keep `habits_broken_<time>` until the cause is understood, then drop it.
 
 To undo a restore: stop `app`, rename `habits` back to `habits_restored` and `habits_broken_<time>` to `habits`, start `app`.
 
