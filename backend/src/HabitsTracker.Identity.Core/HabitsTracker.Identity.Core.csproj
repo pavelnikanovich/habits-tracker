@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The core references nothing but the .NET base library (constitution IV, research R1):
+       no PackageReference, FrameworkReference or ProjectReference here. CoreReferencesTests guards it. -->
+
+</Project>

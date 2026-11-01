@@ -1,2 +1,9 @@
 # superpowers workspace: brainstorming companion files, SDD progress ledger
 .superpowers/
+
+# build output, development log and subagent records, frontend packages, load test sessions
+bin/
+obj/
+.dev/
+node_modules/
+load/.sessions.json

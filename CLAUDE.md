@@ -8,7 +8,7 @@
 
 ## Commands
 
-Build and test commands are added in epic 1, once `speckit-plan` confirms the stack.
+- Fast: `scripts/test-fast.sh` (`dotnet test backend/HabitsTracker.slnx`), about 6 s on the developer machine (5 tests, 2026-11-01); it needs Docker running, since Testcontainers starts PostgreSQL.
 
 ## Session start
 

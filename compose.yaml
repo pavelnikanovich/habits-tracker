@@ -1,0 +1,15 @@
+# The development database (research R17): no password, reachable from this machine only.
+services:
+  db:
+    image: postgres:18.6
+    environment:
+      POSTGRES_DB: habits
+      POSTGRES_USER: habits
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
+
+volumes:
+  db-data:
