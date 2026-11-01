@@ -1,0 +1,13 @@
+@if (users.user(); as user) {
+  <h1 tabindex="-1">{{ 'main.title' | transloco }}</h1>
+  @if (!user.timeZoneRecognized) {
+    <app-message kind="info" id="time-zone-notice">{{ 'main.timeZoneNotRecognized' | transloco }}</app-message>
+  }
+  <p>{{ 'main.noHabits' | transloco }}</p>
+} @else if (users.problem(); as problem) {
+  <app-message kind="error" id="load-error">
+    {{ 'error.' + problem.code | transloco: { traceId: problem.traceId ?? '' } }}
+  </app-message>
+} @else if (slow() && users.status() === 'loading') {
+  <app-message kind="info" id="loading">{{ 'main.loading' | transloco }}</app-message>
+}

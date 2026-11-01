@@ -8,6 +8,7 @@ import { FileTranslationLoader, translationCodes } from '../testing/translation-
 import { AppShell } from './app';
 import { provideIcuTranspiler } from './i18n/icu-transpiler';
 import { routes } from './app.routes';
+import { CurrentUserService } from './session/current-user.service';
 
 describe('AppShell', () => {
   beforeEach(async () => {
@@ -34,7 +35,11 @@ describe('AppShell', () => {
     const fixture = TestBed.createComponent(AppShell);
     const page = fixture.nativeElement as HTMLElement;
 
+    // A visitor sees the sign-in; the main screen is for a signed-in user.
+    const users = TestBed.inject(CurrentUserService);
+    users.clear();
     for (const [url, heading] of pages) {
+      if (url === '/') await users.signedIn({ email: 'ann@example.com', timeZone: 'UTC', timeZoneRecognized: true, locale: 'en' });
       await TestBed.inject(Router).navigateByUrl(url);
       await fixture.whenStable();
 

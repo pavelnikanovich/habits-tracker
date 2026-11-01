@@ -34,7 +34,7 @@
     <p id="remember-me-hint" class="hint">{{ 'signIn.rememberMeHint' | transloco }}</p>
   </div>
 
-  <button type="submit" [disabled]="flow.sending()">
+  <button type="submit" [attr.aria-disabled]="flow.sending() ? 'true' : null">
     {{ (flow.sending() ? 'signIn.requesting' : 'signIn.requestCode') | transloco }}
   </button>
 

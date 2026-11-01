@@ -24,6 +24,9 @@
     "requestCode": "Get code",
     "requesting": "Sending…",
     "codeSent": "Code sent to {email}",
+    "code": "Code",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
     "resendCode": "Send a new code",
     "otherEmail": "Use another email",
     "retryAt": "Try again after {time}",
@@ -34,7 +37,10 @@
     "acceptSuffix": "."
   },
   "main": {
-    "title": "Habits"
+    "title": "Habits",
+    "noHabits": "No habits yet",
+    "loading": "Loading…",
+    "timeZoneNotRecognized": "Your browser's time zone was not recognized. UTC is used."
   },
   "privacy": {
     "title": "Privacy policy"
@@ -55,6 +61,10 @@
     "email-service-unavailable": "The email service is unavailable. Try again later.",
     "invalid-request": "The request could not be processed. Reload the page and try again.",
     "not-found": "This address does not exist.",
+    "invalid-code-format": "Enter the 6-digit code from the email.",
+    "code-incorrect": "This code is not correct. Try again.",
+    "new-code-required": "This code no longer works. Request a new one.",
+    "not-signed-in": "You are not signed in.",
     "internal-error": "Something went wrong on our side. Trace id: {traceId}"
   },
   "email": {

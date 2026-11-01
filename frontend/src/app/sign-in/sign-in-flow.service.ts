@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoService } from '@jsverse/transloco';
 import { Problem, problemOf } from '../api/problem';
 import { LanguageService } from '../i18n/language.service';
+import { CurrentUserService } from '../session/current-user.service';
 import { formatMoment } from '../time/format-moment';
 import { CodeRequestAccepted, SignInApi } from './sign-in-api';
 
@@ -14,6 +15,7 @@ import { CodeRequestAccepted, SignInApi } from './sign-in-api';
 @Injectable({ providedIn: 'root' })
 export class SignInFlow {
   private readonly api = inject(SignInApi);
+  private readonly users = inject(CurrentUserService);
   private readonly language = inject(LanguageService);
   private readonly transloco = inject(TranslocoService);
   private readonly activeLanguage = toSignal(this.transloco.langChanges$);
@@ -24,6 +26,7 @@ export class SignInFlow {
   readonly remaining = signal(0);
   readonly limit = signal(0);
   readonly sending = signal(false);
+  readonly signingIn = signal(false);
   readonly refusal = signal<Problem | null>(null);
 
   /** The refusal in the page's language: `error.<code>`, then when to try again where the response says it. */
@@ -45,6 +48,15 @@ export class SignInFlow {
     this.rememberMe.set(rememberMe);
     this.remaining.set(count.remaining);
     this.limit.set(count.limit);
+  }
+
+  /** A sign-in succeeded or the visit starts over: nothing of the flow is kept. */
+  clear(): void {
+    this.email.set(null);
+    this.rememberMe.set(false);
+    this.remaining.set(0);
+    this.limit.set(0);
+    this.refusal.set(null);
   }
 
   clearRefusal(): void {
@@ -70,6 +82,34 @@ export class SignInFlow {
       return false;
     } finally {
       this.sending.set(false);
+    }
+  }
+
+  /**
+   * Signs in with a code already stripped and checked. True when the session opened and the user is known (the
+   * step then calls `clear()` once it has left); false when it was refused or got no answer, with the refusal kept for the step to show. A second call
+   * while one is running sends nothing.
+   */
+  async signIn(code: string): Promise<boolean> {
+    if (this.signingIn()) return false;
+
+    this.signingIn.set(true);
+    this.refusal.set(null);
+    try {
+      const user = await this.api.signIn({
+        email: this.email() ?? '',
+        code,
+        rememberMe: this.rememberMe(),
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+        locale: this.language.current(),
+      });
+      await this.users.signedIn(user);
+      return true;
+    } catch (error) {
+      this.refusal.set(problemOf(error));
+      return false;
+    } finally {
+      this.signingIn.set(false);
     }
   }
 }

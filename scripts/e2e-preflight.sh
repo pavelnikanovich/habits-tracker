@@ -10,9 +10,9 @@ if ! flock -n .dev/dev.lock true; then
   echo "e2e: scripts/dev.sh is already running; stop it first (Ctrl+C in its terminal): the end-to-end run starts its own." >&2
   exit 1
 fi
-for port in 4200 5080; do
+for port in 4200 5080 8443; do
   if ss -Hltn "sport = :$port" | grep -q .; then
-    echo "e2e: port $port is in use by a process other than scripts/dev.sh; stop it first: the end-to-end run starts its own scripts/dev.sh on ports 4200 and 5080." >&2
+    echo "e2e: port $port is in use by a process other than scripts/dev.sh; stop it first: the end-to-end run starts its own scripts/dev.sh on ports 4200 and 5080, and Caddy on 8443 for WebKit." >&2
     exit 1
   fi
 done

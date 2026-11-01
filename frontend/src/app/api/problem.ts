@@ -1,9 +1,13 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
 /** The problem codes of `contracts/http-api.md` that a page of the sign-in shows; each has a text `error.<code>`. */
-const knownCodes = new Set([
+export const knownCodes = new Set([
   'invalid-email',
   'invalid-locale',
+  'invalid-code-format',
+  'code-incorrect',
+  'new-code-required',
+  'not-signed-in',
   'email-limit',
   'ip-limit',
   'email-service-limit',

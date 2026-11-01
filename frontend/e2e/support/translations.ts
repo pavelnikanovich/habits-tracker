@@ -15,7 +15,10 @@ export interface Translation {
     requestCode: string;
     resendCode: string;
     otherEmail: string;
+    code: string;
+    signIn: string;
   };
+  main: { noHabits: string; timeZoneNotRecognized: string };
   error: { network: string };
   privacy: { title: string };
   terms: { title: string };

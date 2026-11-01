@@ -29,7 +29,8 @@ export class SignIn {
   protected readonly describedBy = computed(() => (this.invalid() ? 'email-error' : null));
 
   constructor() {
-    this.flow.clearRefusal();
+    // The code step sends a person back here with `new-code-required`; its message stays until the next request.
+    if (this.flow.refusal()?.code !== 'new-code-required') this.flow.clearRefusal();
   }
 
   protected typeEmail(event: Event): void {

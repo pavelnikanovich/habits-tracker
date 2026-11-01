@@ -69,6 +69,12 @@ export class LanguageService {
     }
   }
 
+  /** Whether the person chose a language in this browser (a stored, still available choice): it outranks the user's locale. */
+  hasChosenLanguage(): boolean {
+    const stored = this.storedChoice();
+    return stored !== null && this.availableLocales().some((locale) => locale.code === stored);
+  }
+
   /** The locales the server has translation files for; undefined when the request fails. */
   private async listLocales(): Promise<LocaleResponse[] | undefined> {
     try {

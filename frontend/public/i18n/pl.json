@@ -24,6 +24,9 @@
     "requestCode": "Pobierz kod",
     "requesting": "Wysyłanie…",
     "codeSent": "Kod wysłano na adres {email}",
+    "code": "Kod",
+    "signIn": "Zaloguj się",
+    "signingIn": "Logowanie…",
     "resendCode": "Wyślij nowy kod",
     "otherEmail": "Użyj innego adresu e-mail",
     "retryAt": "Spróbuj ponownie po {time}",
@@ -34,7 +37,10 @@
     "acceptSuffix": "."
   },
   "main": {
-    "title": "Nawyki"
+    "title": "Nawyki",
+    "noHabits": "Brak nawyków",
+    "loading": "Ładowanie…",
+    "timeZoneNotRecognized": "Nie rozpoznano strefy czasowej przeglądarki. Używany jest czas UTC."
   },
   "privacy": {
     "title": "Polityka prywatności"
@@ -55,6 +61,10 @@
     "email-service-unavailable": "Usługa poczty jest niedostępna. Spróbuj ponownie później.",
     "invalid-request": "Nie udało się przetworzyć żądania. Odśwież stronę i spróbuj ponownie.",
     "not-found": "Ten adres nie istnieje.",
+    "invalid-code-format": "Wpisz 6-cyfrowy kod z wiadomości e-mail.",
+    "code-incorrect": "Ten kod jest nieprawidłowy. Spróbuj ponownie.",
+    "new-code-required": "Ten kod już nie działa. Poproś o nowy.",
+    "not-signed-in": "Nie jesteś zalogowany.",
     "internal-error": "Po naszej stronie coś poszło nie tak. Identyfikator śladu: {traceId}"
   },
   "email": {

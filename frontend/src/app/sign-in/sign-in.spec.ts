@@ -77,12 +77,16 @@ describe('SignIn', () => {
   });
 
   it('the button is disabled while sending and a second press sends nothing', async () => {
+    button().focus();
     await submit(email);
     form().dispatchEvent(new Event('submit', { cancelable: true }));
     button().click();
     await settle(harness);
 
-    expect(button().disabled).toBe(true);
+    // R-69: aria-disabled, never the disabled attribute, so the focus stays on the button.
+    expect(button().getAttribute('aria-disabled')).toBe('true');
+    expect(button().hasAttribute('disabled')).toBe(false);
+    expect(document.activeElement).toBe(button());
     expect(button().textContent?.trim()).toBe(signIn['requesting']);
     http.expectOne(endpoint).flush({ remaining: 4, limit: 5 }, { status: 202, statusText: 'Accepted' });
   });

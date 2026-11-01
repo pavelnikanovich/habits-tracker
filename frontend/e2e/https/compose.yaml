@@ -1,0 +1,8 @@
+# Caddy 2.11 for the webkit-360 project (see Caddyfile). The host network lets it reach ng serve on localhost:4200 and
+# listen on localhost:8443 without publishing ports.
+services:
+  caddy:
+    image: caddy:2.11
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro

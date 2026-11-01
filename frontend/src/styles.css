@@ -204,14 +204,16 @@ button {
   cursor: pointer;
 }
 
-button:hover:not(:disabled),
-button:focus-visible:not(:disabled) {
+button:hover:not(:disabled):not([aria-disabled='true']),
+button:focus-visible:not(:disabled):not([aria-disabled='true']) {
   color: var(--bg);
   background: var(--accent);
   text-shadow: none;
 }
 
-button:disabled {
+/* A sign-in button keeps the focus while its request runs, so it is aria-disabled instead of disabled (R-69). */
+button:disabled,
+button[aria-disabled='true'] {
   color: var(--muted);
   border-color: var(--muted);
   text-shadow: none;

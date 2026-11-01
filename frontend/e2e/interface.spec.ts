@@ -44,7 +44,11 @@ function contentSecurityPolicy(): string {
 test('the shell runs under the content security policy', async ({ page }) => {
   const problems: string[] = [];
   page.on('console', (message) => {
-    if (message.type() === 'error') problems.push(`console error: ${message.text()}`);
+    if (message.type() !== 'error') return;
+    // A visitor's GET /api/me answers 401 not-signed-in by contract (Task 13 asks it on the sign-in page to send a
+    // signed-in user on); the browser logs every such response, so this one answer is not a problem.
+    const visitorsAnswer = message.text().includes('status of 401') && message.location().url.endsWith('/api/me');
+    if (!visitorsAnswer) problems.push(`console error: ${message.text()}`);
   });
   page.on('pageerror', (error) => problems.push(`page error: ${error.message}`));
   // An init script is not subject to the page's policy, so it can report what the policy blocks.

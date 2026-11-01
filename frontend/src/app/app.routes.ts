@@ -1,6 +1,8 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
+import { Main } from './main/main';
 import { PlaceholderPage } from './placeholder-page';
+import { signedInGuard, signedOutGuard } from './session/signed-in.guard';
 import { CodeStep } from './sign-in/code-step';
 import { SignIn } from './sign-in/sign-in';
 import { SignInFlow } from './sign-in/sign-in-flow.service';
@@ -11,9 +13,9 @@ const codeRequested: CanActivateFn = () => inject(SignInFlow).email() !== null |
 
 // Each route's title is a translation key; TranslatedTitleStrategy turns it into the page's document title.
 export const routes: Routes = [
-  { path: 'sign-in', component: SignIn, title: 'signIn.title' },
-  { path: 'sign-in/code', component: CodeStep, title: 'signIn.title', canActivate: [codeRequested] },
-  { path: '', pathMatch: 'full', component: PlaceholderPage, title: 'main.title' },
+  { path: 'sign-in', component: SignIn, title: 'signIn.title', canActivate: [signedOutGuard] },
+  { path: 'sign-in/code', component: CodeStep, title: 'signIn.title', canActivate: [signedOutGuard, codeRequested] },
+  { path: '', pathMatch: 'full', component: Main, title: 'main.title', canActivate: [signedInGuard] },
   { path: 'privacy', component: PlaceholderPage, title: 'privacy.title' },
   { path: 'terms', component: PlaceholderPage, title: 'terms.title' },
   { path: '**', component: PlaceholderPage, title: 'notFound.title' },

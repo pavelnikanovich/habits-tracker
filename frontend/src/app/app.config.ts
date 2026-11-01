@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, TitleStrategy } from '@angular/router';
 import { provideTransloco } from '@jsverse/transloco';
@@ -6,6 +6,7 @@ import { routes } from './app.routes';
 import { provideIcuTranspiler } from './i18n/icu-transpiler';
 import { LanguageService } from './i18n/language.service';
 import { TranslocoHttpLoader } from './i18n/transloco-loader';
+import { notSignedInInterceptor } from './session/not-signed-in.interceptor';
 import { provideHeadingFocus } from './shell/focus-heading';
 import { TranslatedTitleStrategy } from './shell/translated-title.strategy';
 
@@ -15,7 +16,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     { provide: TitleStrategy, useClass: TranslatedTitleStrategy },
     provideHeadingFocus(),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([notSignedInInterceptor])),
     // The languages are not listed here: GET /api/locales lists the translation files (FR-020).
     provideTransloco({
       config: { defaultLang: 'en', reRenderOnLangChange: true, prodMode: !isDevMode() },
