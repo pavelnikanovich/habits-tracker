@@ -12,6 +12,7 @@ public sealed class SignIn
     private readonly IOneTimeCodes oneTimeCodes;
     private readonly IUsers users;
     private readonly ISessions sessions;
+    private readonly ILocales locales;
     private readonly TimeProvider time;
     private readonly IdentityContextOptions options;
 
@@ -20,6 +21,7 @@ public sealed class SignIn
         IOneTimeCodes oneTimeCodes,
         IUsers users,
         ISessions sessions,
+        ILocales locales,
         TimeProvider time,
         IdentityContextOptions options)
     {
@@ -27,6 +29,7 @@ public sealed class SignIn
         ArgumentNullException.ThrowIfNull(oneTimeCodes);
         ArgumentNullException.ThrowIfNull(users);
         ArgumentNullException.ThrowIfNull(sessions);
+        ArgumentNullException.ThrowIfNull(locales);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(options);
 
@@ -34,6 +37,7 @@ public sealed class SignIn
         this.oneTimeCodes = oneTimeCodes;
         this.users = users;
         this.sessions = sessions;
+        this.locales = locales;
         this.time = time;
         this.options = options;
     }
@@ -43,13 +47,15 @@ public sealed class SignIn
         OneTimeCodeValue code,
         bool rememberMe,
         string? browserTimeZone,
-        Locale locale,
+        string? localeCode,
         SessionToken? heldSession,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(email);
         ArgumentNullException.ThrowIfNull(code);
-        ArgumentNullException.ThrowIfNull(locale);
+        // Built before the transaction and on every path (M4): built only for a new user, an unavailable locale
+        // would be refused for a new email and accepted for an existing one, telling which emails have a user.
+        var locale = Locale.Create(localeCode, locales);
 
         return transaction.RunAsync(
             work => SignInAsync(email, code, rememberMe, browserTimeZone, locale, heldSession, work), ct);

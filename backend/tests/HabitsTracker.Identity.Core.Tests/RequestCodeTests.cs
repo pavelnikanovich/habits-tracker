@@ -200,13 +200,25 @@ public class RequestCodeTests
         Assert.Equal(0, (await codeRequests.CountAsync(other, Prefix, T.AddDays(-1), Ct)).ForEmail);
     }
 
+    // M4: the locale is built before the transaction, so an unavailable one takes no lock and is never answered
+    // with a limit refusal instead of InvalidLocale.
+    [Fact]
+    public async Task An_unavailable_locale_is_refused_before_the_transaction()
+    {
+        var exception = await Assert.ThrowsAsync<DomainException>(() => ExecuteAsync(localeCode: "de"));
+
+        Assert.Equal(DomainError.InvalidLocale, exception.Error);
+        Assert.Empty(calls.Entries);
+    }
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private Task<CodeRequestResult> ExecuteAsync(CodeRequestLimits? limits = null, Email? email = null)
+    private Task<CodeRequestResult> ExecuteAsync(
+        CodeRequestLimits? limits = null, Email? email = null, string? localeCode = "pl")
     {
         var options = IdentityContextOptions.Create(Key, limits ?? CodeRequestLimits.Default);
-        var useCase = new RequestCode(transaction, codeRequests, oneTimeCodes, sender, time, options);
-        return useCase.ExecuteAsync(email ?? Ada, Polish, Prefix, Ct);
+        var useCase = new RequestCode(transaction, codeRequests, oneTimeCodes, sender, new FixedLocales(), time, options);
+        return useCase.ExecuteAsync(email ?? Ada, localeCode, Prefix, Ct);
     }
 
     private async Task<OneTimeCode> StoreEarlierCodeAsync()

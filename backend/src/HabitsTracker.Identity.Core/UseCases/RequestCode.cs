@@ -12,6 +12,7 @@ public sealed class RequestCode
     private readonly ICodeRequests codeRequests;
     private readonly IOneTimeCodes oneTimeCodes;
     private readonly ICodeEmailSender sender;
+    private readonly ILocales locales;
     private readonly TimeProvider time;
     private readonly IdentityContextOptions options;
 
@@ -20,6 +21,7 @@ public sealed class RequestCode
         ICodeRequests codeRequests,
         IOneTimeCodes oneTimeCodes,
         ICodeEmailSender sender,
+        ILocales locales,
         TimeProvider time,
         IdentityContextOptions options)
     {
@@ -27,6 +29,7 @@ public sealed class RequestCode
         ArgumentNullException.ThrowIfNull(codeRequests);
         ArgumentNullException.ThrowIfNull(oneTimeCodes);
         ArgumentNullException.ThrowIfNull(sender);
+        ArgumentNullException.ThrowIfNull(locales);
         ArgumentNullException.ThrowIfNull(time);
         ArgumentNullException.ThrowIfNull(options);
 
@@ -34,16 +37,19 @@ public sealed class RequestCode
         this.codeRequests = codeRequests;
         this.oneTimeCodes = oneTimeCodes;
         this.sender = sender;
+        this.locales = locales;
         this.time = time;
         this.options = options;
     }
 
     public Task<CodeRequestResult> ExecuteAsync(
-        Email email, Locale locale, IpAddressPrefix ipAddressPrefix, CancellationToken ct)
+        Email email, string? localeCode, IpAddressPrefix ipAddressPrefix, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(email);
-        ArgumentNullException.ThrowIfNull(locale);
         ArgumentNullException.ThrowIfNull(ipAddressPrefix);
+        // Built before the transaction (M4): an unavailable locale takes no lock and is answered with InvalidLocale,
+        // never with a limit refusal.
+        var locale = Locale.Create(localeCode, locales);
 
         return transaction.RunAsync(work => RequestAsync(email, locale, ipAddressPrefix, work), ct);
     }

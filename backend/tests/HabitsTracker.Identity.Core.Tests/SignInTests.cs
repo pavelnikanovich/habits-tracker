@@ -10,7 +10,6 @@ public class SignInTests
     private static readonly DateTimeOffset Now = Issued.AddMinutes(1);
     private static readonly Email Ann = Email.Create("ann@example.com");
     private static readonly Email Bob = Email.Create("bob@example.com");
-    private static readonly Locale English = Locale.FromStorage("en");
     private static readonly Locale Polish = Locale.FromStorage("pl");
     private static readonly Locale Russian = Locale.FromStorage("ru");
     private static readonly byte[] Key = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
@@ -37,7 +36,7 @@ public class SignInTests
     {
         await IssueAsync(Ann, AnnsCode);
 
-        var result = await SignInAsync(Ann, AnnsCode, browserTimeZone: "Europe/Warsaw", locale: Polish);
+        var result = await SignInAsync(Ann, AnnsCode, browserTimeZone: "Europe/Warsaw", localeCode: "pl");
 
         var signedIn = Assert.IsType<SignInResult.SignedIn>(result);
         Assert.Equal(Ann, signedIn.User.Email);
@@ -75,7 +74,7 @@ public class SignInTests
         await IssueAsync(Ann, AnnsCode);
 
         var signedIn = Assert.IsType<SignInResult.SignedIn>(
-            await SignInAsync(Ann, AnnsCode, browserTimeZone: "America/New_York", locale: English));
+            await SignInAsync(Ann, AnnsCode, browserTimeZone: "America/New_York", localeCode: "en"));
 
         Assert.Equal(ann.Id, signedIn.User.Id);
         Assert.Equal("Europe/Warsaw", signedIn.User.TimeZone.Id);
@@ -226,27 +225,37 @@ public class SignInTests
         var code = OneTimeCodeValue.Create(AnnsCode);
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => useCase.ExecuteAsync(null!, code, false, null, Polish, null, Ct));
+            () => useCase.ExecuteAsync(null!, code, false, null, "pl", null, Ct));
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => useCase.ExecuteAsync(Ann, null!, false, null, Polish, null, Ct));
-        await Assert.ThrowsAsync<ArgumentNullException>(
-            () => useCase.ExecuteAsync(Ann, code, false, null, null!, null, Ct));
+            () => useCase.ExecuteAsync(Ann, null!, false, null, "pl", null, Ct));
+    }
+
+    // M4: the locale is built before the transaction, whether the email has a user or not, so the answer to an
+    // unavailable locale never tells which (Review Focus 3).
+    [Fact]
+    public async Task An_unavailable_locale_is_refused_before_the_transaction()
+    {
+        var exception = await Assert.ThrowsAsync<DomainException>(() => SignInAsync(Ann, AnnsCode, localeCode: "de"));
+
+        Assert.Equal(DomainError.InvalidLocale, exception.Error);
+        Assert.Empty(calls.Entries);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private SignIn NewSignIn() =>
-        new(transaction, oneTimeCodes, users, sessions, time, IdentityContextOptions.Create(Key, CodeRequestLimits.Default));
+        new(transaction, oneTimeCodes, users, sessions, new FixedLocales(), time,
+            IdentityContextOptions.Create(Key, CodeRequestLimits.Default));
 
     private Task<SignInResult> SignInAsync(
         Email email,
         string digits,
         bool rememberMe = false,
         string? browserTimeZone = "Europe/Warsaw",
-        Locale? locale = null,
+        string? localeCode = "pl",
         SessionToken? heldSession = null) =>
         NewSignIn().ExecuteAsync(
-            email, OneTimeCodeValue.Create(digits), rememberMe, browserTimeZone, locale ?? Polish, heldSession, Ct);
+            email, OneTimeCodeValue.Create(digits), rememberMe, browserTimeZone, localeCode, heldSession, Ct);
 
     private Task IssueAsync(Email email, string digits) =>
         oneTimeCodes.ReplaceAsync(

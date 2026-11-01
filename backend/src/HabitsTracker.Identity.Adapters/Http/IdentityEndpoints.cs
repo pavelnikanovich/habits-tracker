@@ -30,16 +30,15 @@ public static class IdentityEndpoints
     // US-1.1. Public. The answer is the same for an email with a user and one without (FR-003): only the use case
     // knows about codes, and it never reads users.
     private static async Task<IResult> RequestCodeAsync(
-        CodeRequestBody body, HttpContext context, [FromServices] RequestCode requestCode, [FromServices] ILocales locales)
+        CodeRequestBody body, HttpContext context, [FromServices] RequestCode requestCode)
     {
         var email = Email.Create(body.Email);
-        var locale = Locale.Create(body.Locale, locales);
         // The address the forwarded-headers middleware settled on: the proxy's X-Forwarded-For when it came from the
         // proxy network, else the connection's (research R7).
         var address = context.Connection.RemoteIpAddress
             ?? throw new InvalidOperationException("The connection has no remote IP address.");
 
-        var result = await requestCode.ExecuteAsync(email, locale, IpAddressPrefix.From(address), context.RequestAborted);
+        var result = await requestCode.ExecuteAsync(email, body.Locale, IpAddressPrefix.From(address), context.RequestAborted);
 
         return result switch
         {
@@ -57,14 +56,13 @@ public static class IdentityEndpoints
     // US-1.2. Public: a request with no session signs in, and one with a session signs in anew. The session the
     // browser held is passed to the use case, which revokes it; its token is never reused (research R19, S4).
     private static async Task<IResult> SignInAsync(
-        SignInBody body, HttpContext context, [FromServices] SignIn signIn, [FromServices] ILocales locales)
+        SignInBody body, HttpContext context, [FromServices] SignIn signIn)
     {
         var email = Email.Create(body.Email);
         var code = OneTimeCodeValue.Create(body.Code);
-        var locale = Locale.Create(body.Locale, locales);
 
         var result = await signIn.ExecuteAsync(
-            email, code, body.RememberMe, body.TimeZone, locale, SessionCookie.Read(context.Request), context.RequestAborted);
+            email, code, body.RememberMe, body.TimeZone, body.Locale, SessionCookie.Read(context.Request), context.RequestAborted);
 
         switch (result)
         {
