@@ -16,7 +16,27 @@
       "Bash(git push * main)",
       "Bash(git push * main *)",
       "Bash(git push *:main*)",
-      "Bash(git push * refs/heads/main*)"
+      "Bash(git push * refs/heads/main*)",
+      "Bash(/usr/bin/git push --force*)",
+      "Bash(/usr/bin/git push -f*)",
+      "Bash(/usr/bin/git push * --force*)",
+      "Bash(/usr/bin/git push * -f*)",
+      "Bash(/usr/bin/git push * +*)",
+      "Bash(/usr/bin/git push * main)",
+      "Bash(/usr/bin/git push * main *)",
+      "Bash(/usr/bin/git push *:main*)",
+      "Bash(/usr/bin/git push * refs/heads/main*)",
+      "Bash(rtk git push --force*)",
+      "Bash(rtk git push -f*)",
+      "Bash(rtk git push * --force*)",
+      "Bash(rtk git push * -f*)",
+      "Bash(rtk git push * +*)",
+      "Bash(rtk git push * main)",
+      "Bash(rtk git push * main *)",
+      "Bash(rtk git push *:main*)",
+      "Bash(rtk git push * refs/heads/main*)",
+      "Bash(git -C * push*)",
+      "Bash(/usr/bin/git -C * push*)"
     ]
   },
   "hooks": {
