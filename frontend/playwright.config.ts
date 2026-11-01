@@ -31,8 +31,8 @@ export default defineConfig({
     },
     { name: 'webkit-360', use: { ...devices['Desktop Safari'], ...phone }, grep: /@main-path/ },
   ],
-  // The run starts its own development loop: while a developer's scripts/dev.sh runs, the URL already answers and
-  // the run refuses to start ("is already used"), so stop it first. Every test requests codes from one address, so
+  // The run starts its own development loop, so a developer's scripts/dev.sh must be stopped first: the `e2e` script
+  // runs scripts/e2e-preflight.sh before Playwright, which says so. Every test requests codes from one address, so
   // the per-IP limit is raised. SIGTERM lets dev.sh stop the host and ng serve, which run in their own process groups.
   webServer: {
     command: 'bash ../scripts/dev.sh',
