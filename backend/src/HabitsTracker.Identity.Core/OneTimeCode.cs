@@ -49,6 +49,25 @@ public sealed class OneTimeCode
         Email email, CodeHash codeHash, DateTimeOffset issuedAt, DateTimeOffset expiresAt, int entryAttempts) =>
         new(email, codeHash, issuedAt, expiresAt, entryAttempts);
 
-    // Declared for the use cases; Task 11's tests specify it.
-    public CodeVerification Verify(CodeHash entered, DateTimeOffset now) => throw new NotImplementedException();
+    // A code that can no longer sign in (used, expired at exactly ExpiresAt, or out of attempts) changes nothing,
+    // so a late or repeated entry leaves the stored code as it was. Any other entry is counted, the correct one
+    // included; a wrong fifth entry exhausts the code.
+    public CodeVerification Verify(CodeHash entered, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(entered);
+        Instant.Require(now);
+
+        if (IsUsed || now >= ExpiresAt || EntryAttempts >= MaxEntryAttempts)
+            return CodeVerification.NewCodeRequired;
+
+        EntryAttempts++;
+
+        if (CodeHash.Matches(entered))
+        {
+            IsUsed = true;
+            return CodeVerification.SignIn;
+        }
+
+        return EntryAttempts == MaxEntryAttempts ? CodeVerification.NewCodeRequired : CodeVerification.Incorrect;
+    }
 }

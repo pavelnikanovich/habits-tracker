@@ -55,9 +55,21 @@ public sealed class Session
         byte[] id, Guid userId, bool remembered, DateTimeOffset createdAt, DateTimeOffset lastActivityAt) =>
         new(id, userId, remembered, createdAt, lastActivityAt);
 
-    // Declared for the ports and use cases; Task 11's tests specify it.
-    public bool IsExpired(DateTimeOffset now) => throw new NotImplementedException();
+    public bool IsExpired(DateTimeOffset now)
+    {
+        Instant.Require(now);
 
-    // Declared for the ports and use cases; Task 11's tests specify it.
-    public void RecordActivity(DateTimeOffset now) => throw new NotImplementedException();
+        return now >= LastActivityAt + IdleTimeout;
+    }
+
+    // Extends the session to IdleTimeout from now. A clock stepped back does not move the last activity back, so
+    // a session never holds a last activity before its creation, which loading refuses as CorruptRecord.
+    public void RecordActivity(DateTimeOffset now)
+    {
+        if (IsExpired(now))
+            throw new InvalidOperationException("Activity is recorded only on a session that has not expired.");
+
+        if (now > LastActivityAt)
+            LastActivityAt = now;
+    }
 }

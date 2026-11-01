@@ -36,6 +36,22 @@ public abstract class OneTimeCodesContract
     }
 
     [Fact]
+    public async Task Saving_a_used_code_deletes_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var used = Code(Ada, Now);
+        var other = Code(Email.Create("bob@example.com"), Now);
+        await OneTimeCodes.ReplaceAsync(used, ct);
+        await OneTimeCodes.ReplaceAsync(other, ct);
+        Assert.Equal(CodeVerification.SignIn, used.Verify(used.CodeHash, Now.AddMinutes(1)));
+
+        await OneTimeCodes.SaveAsync(used, ct);
+
+        Assert.Null(await OneTimeCodes.FindExclusiveAsync(Ada, ct));
+        AssertStored(other, await OneTimeCodes.FindExclusiveAsync(other.Email, ct));
+    }
+
+    [Fact]
     public async Task Delete_expired_or_exhausted()
     {
         var ct = TestContext.Current.CancellationToken;
