@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
+using Microsoft.Net.Http.Headers;
 
 namespace HabitsTracker.Host.Tests;
 
@@ -40,7 +41,8 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
 
     public FakeTimeProvider Time { get; } = new();
 
-    public string EnvironmentName { get; init; } = Environments.Development;
+    /// <summary>The host's environment; set it before the first client is created.</summary>
+    public string EnvironmentName { get; set; } = Environments.Development;
 
     /// <summary>The sender <see cref="WithCapturingSender"/> puts in place of the environment's.</summary>
     public CapturingCodeEmailSender Sender { get; } = new();
@@ -116,43 +118,61 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
     }
 
     /// <summary>
-    /// Signs <paramref name="email"/> in through the API, as a browser does: requests a code (locale <c>en</c>, from
-    /// 127.0.0.1), reads it from <see cref="Sender"/> and enters it with time zone <c>UTC</c> and locale <c>en</c>.
-    /// Needs <see cref="WithCapturingSender"/>. Each call counts one code request against the email's limit of 5 and
-    /// 127.0.0.1's limit of 10 in 24 hours. The client sends the session's cookie on every request and keeps no
-    /// cookie of its own, so a cookie a response sets or clears does not change what it sends.
+    /// A host on a fresh database of <paramref name="postgres"/>, with <paramref name="configure"/> applied before it
+    /// starts (the clock, the sender, settings, the environment).
     /// </summary>
-    public async Task<SignedInClient> SignInAsync(string email, bool rememberMe = false)
+    public static async Task<HostFactory> StartAsync(PostgresFixture postgres, Action<HostFactory>? configure = null)
     {
-        if (!capturesCodeEmails)
-            throw new InvalidOperationException("SignInAsync reads the code from Sender: call WithCapturingSender() first.");
-
-        var ct = TestContext.Current.CancellationToken;
-        using var browser = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
-        using (var requested = await browser.PostAsJsonAsync("/api/code-requests", new { email, locale = "en" }, ct))
-        {
-            if (requested.StatusCode != HttpStatusCode.Accepted)
-                throw new InvalidOperationException($"The code request answered {(int)requested.StatusCode}: {await requested.Content.ReadAsStringAsync(ct)}");
-        }
-
-        var code = Sender.LastCode(email.ToLowerInvariant());
-        using var signedIn = await browser.PostAsJsonAsync(
-            "/api/sessions", new { email, code, rememberMe, timeZone = "UTC", locale = "en" }, ct);
-        if (signedIn.StatusCode != HttpStatusCode.OK)
-            throw new InvalidOperationException($"The sign-in answered {(int)signedIn.StatusCode}: {await signedIn.Content.ReadAsStringAsync(ct)}");
-
-        var token = signedIn.Headers.GetValues("Set-Cookie")
-            .Select(header => Microsoft.Net.Http.Headers.SetCookieHeaderValue.Parse(header))
-            .Single(cookie => cookie.Name == "session").Value.ToString();
-        var client = CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
-        client.DefaultRequestHeaders.Add("Cookie", $"session={token}");
-        return new SignedInClient(client, token);
+        var host = new HostFactory(postgres);
+        configure?.Invoke(host);
+        await host.InitializeAsync();
+        return host;
     }
 
-    /// <summary>A client of a signed-in browser: <see cref="Client"/> sends the cookie <c>session=</c><see cref="Token"/>.</summary>
-    public sealed record SignedInClient(HttpClient Client, string Token) : IDisposable
+    /// <summary>A client that keeps no cookie, so a test sets and reads the session cookie itself.</summary>
+    public HttpClient CreateCookielessClient() => CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+
+    /// <summary>
+    /// Requests a code for <paramref name="email"/> in <paramref name="locale"/> through <paramref name="client"/>,
+    /// asserts that it was sent (<c>202</c>) and returns it, read from <see cref="Sender"/>. Needs
+    /// <see cref="WithCapturingSender"/>.
+    /// </summary>
+    public async Task<string> RequestCodeAsync(HttpClient client, string email, string locale = "en")
     {
-        public void Dispose() => Client.Dispose();
+        ArgumentNullException.ThrowIfNull(client);
+        if (!capturesCodeEmails)
+            throw new InvalidOperationException("RequestCodeAsync reads the code from Sender: call WithCapturingSender() first.");
+
+        var ct = TestContext.Current.CancellationToken;
+        using var requested = await client.PostAsJsonAsync("/api/code-requests", new { email, locale }, ct);
+        Assert.True(
+            requested.StatusCode == HttpStatusCode.Accepted,
+            $"The code request answered {(int)requested.StatusCode}: {await requested.Content.ReadAsStringAsync(ct)}");
+        return Sender.LastCode(email.ToLowerInvariant())!;
+    }
+
+    /// <summary>
+    /// Signs <paramref name="email"/> in through the API, as a browser does: requests a code (from 127.0.0.1), reads it
+    /// from <see cref="Sender"/> and enters it, with <paramref name="timeZone"/> and, for both requests,
+    /// <paramref name="locale"/>. Needs <see cref="WithCapturingSender"/>. Each call counts one code request against
+    /// the email's limit of 5 and 127.0.0.1's limit of 10 in 24 hours. The client sends the session's cookie on every
+    /// request and keeps no cookie of its own, so a cookie a response sets or clears does not change what it sends.
+    /// </summary>
+    public async Task<SignedInClient> SignInAsync(string email, bool rememberMe = false, string? timeZone = "UTC", string locale = "en")
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var browser = CreateCookielessClient();
+        var code = await RequestCodeAsync(browser, email, locale);
+
+        using var signedIn = await browser.PostAsJsonAsync("/api/sessions", new { email, code, rememberMe, timeZone, locale }, ct);
+        Assert.True(
+            signedIn.StatusCode == HttpStatusCode.OK,
+            $"The sign-in answered {(int)signedIn.StatusCode}: {await signedIn.Content.ReadAsStringAsync(ct)}");
+
+        string[] setCookie = [.. signedIn.Headers.GetValues(HeaderNames.SetCookie)];
+        var token = setCookie.Select(header => SetCookieHeaderValue.Parse(header))
+            .Single(cookie => cookie.Name == "session").Value.ToString();
+        return SignedInClient.WithCookie(this, token) with { SetCookie = setCookie };
     }
 
     // The test-only endpoints of the error format (Task 9) and of the log test (Task 12).

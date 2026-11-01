@@ -21,7 +21,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Sends_a_code_in_the_page_language_and_reports_the_remaining_count()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         using var response = await PostAsync(client, "ann@example.com", "pl", ct: ct);
@@ -36,7 +36,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Default_limits_are_five_per_email_and_ten_per_ip()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         foreach (var remaining in new[] { 4, 3, 2, 1, 0 })
@@ -47,7 +47,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var emailLimit = await PostAsync(client, "ann@example.com", ct: ct);
-        var problem = await ReadProblemAsync(emailLimit, HttpStatusCode.TooManyRequests, "email-limit", ct);
+        var problem = await Problem.AssertAsync(emailLimit, HttpStatusCode.TooManyRequests, "email-limit", ct);
         Assert.Equal("2026-11-03T10:00:00Z", problem.GetProperty("retryAt").GetString());
 
         for (var n = 0; n < 10; n++)
@@ -57,7 +57,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var ipLimit = await PostAsync(client, "user10@example.com", address: "203.0.113.7", ct: ct);
-        var ipProblem = await ReadProblemAsync(ipLimit, HttpStatusCode.TooManyRequests, "ip-limit", ct);
+        var ipProblem = await Problem.AssertAsync(ipLimit, HttpStatusCode.TooManyRequests, "ip-limit", ct);
         Assert.Equal("2026-11-03T10:00:00Z", ipProblem.GetProperty("retryAt").GetString());
         Assert.False(ipProblem.TryGetProperty("remaining", out _));
     }
@@ -66,7 +66,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Ipv6_addresses_of_one_64_prefix_share_the_limit()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         for (var n = 0; n < 10; n++)
@@ -76,7 +76,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var sharedPrefix = await PostAsync(client, "other@example.com", address: "2001:db8:1:2:ffff::1", ct: ct);
-        await ReadProblemAsync(sharedPrefix, HttpStatusCode.TooManyRequests, "ip-limit", ct);
+        await Problem.AssertAsync(sharedPrefix, HttpStatusCode.TooManyRequests, "ip-limit", ct);
 
         using var otherPrefix = await PostAsync(client, "other@example.com", address: "2001:db8:1:3::1", ct: ct);
         Assert.Equal(HttpStatusCode.Accepted, otherPrefix.StatusCode);
@@ -86,7 +86,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task A_refused_request_does_not_count()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
         const string address = "203.0.113.8";
 
@@ -97,7 +97,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var refused = await PostAsync(client, "a@example.com", address: address, ct: ct);
-        await ReadProblemAsync(refused, HttpStatusCode.TooManyRequests, "email-limit", ct);
+        await Problem.AssertAsync(refused, HttpStatusCode.TooManyRequests, "email-limit", ct);
 
         // Five from address X so far; the refused sixth did not count, so five more are accepted and the next is not.
         for (var n = 0; n < 5; n++)
@@ -107,14 +107,14 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var ipLimit = await PostAsync(client, "c@example.com", address: address, ct: ct);
-        await ReadProblemAsync(ipLimit, HttpStatusCode.TooManyRequests, "ip-limit", ct);
+        await Problem.AssertAsync(ipLimit, HttpStatusCode.TooManyRequests, "ip-limit", ct);
     }
 
     [Fact]
     public async Task An_unclear_send_counts_as_sent()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
         host.Sender.Next = new CodeEmailOutcome.Unclear();
 
@@ -131,23 +131,23 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Email_service_refusals()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
         var tomorrow = DateTimeOffset.Parse("2026-11-03T00:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
         host.Sender.Next = new CodeEmailOutcome.Refused(EmailServiceRefusal.DailyLimit, tomorrow);
         using var daily = await PostAsync(client, "ann@example.com", ct: ct);
-        var dailyProblem = await ReadProblemAsync(daily, HttpStatusCode.ServiceUnavailable, "email-service-limit", ct);
+        var dailyProblem = await Problem.AssertAsync(daily, HttpStatusCode.ServiceUnavailable, "email-service-limit", ct);
         Assert.Equal("2026-11-03T00:00:00Z", dailyProblem.GetProperty("retryAt").GetString());
 
         host.Sender.Next = new CodeEmailOutcome.Refused(EmailServiceRefusal.Limit, null);
         using var monthly = await PostAsync(client, "ann@example.com", ct: ct);
-        var monthlyProblem = await ReadProblemAsync(monthly, HttpStatusCode.ServiceUnavailable, "email-service-limit", ct);
+        var monthlyProblem = await Problem.AssertAsync(monthly, HttpStatusCode.ServiceUnavailable, "email-service-limit", ct);
         Assert.False(monthlyProblem.TryGetProperty("retryAt", out _));
 
         host.Sender.Next = new CodeEmailOutcome.Refused(EmailServiceRefusal.Unavailable, null);
         using var unavailable = await PostAsync(client, "ann@example.com", ct: ct);
-        var unavailableProblem = await ReadProblemAsync(unavailable, HttpStatusCode.ServiceUnavailable, "email-service-unavailable", ct);
+        var unavailableProblem = await Problem.AssertAsync(unavailable, HttpStatusCode.ServiceUnavailable, "email-service-unavailable", ct);
         Assert.False(unavailableProblem.TryGetProperty("retryAt", out _));
     }
 
@@ -155,19 +155,17 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Invalid_input()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         foreach (var email in new[] { "ann", " ann@example.com" })
         {
             using var response = await PostAsync(client, email, ct: ct);
-            await ReadProblemAsync(response, HttpStatusCode.BadRequest, "invalid-email", ct);
-            Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+            await Problem.AssertAsync(response, HttpStatusCode.BadRequest, "invalid-email", ct);
         }
 
         using var locale = await PostAsync(client, "ann@example.com", "de", ct: ct);
-        await ReadProblemAsync(locale, HttpStatusCode.BadRequest, "invalid-locale", ct);
-        Assert.Equal("application/problem+json", locale.Content.Headers.ContentType?.MediaType);
+        await Problem.AssertAsync(locale, HttpStatusCode.BadRequest, "invalid-locale", ct);
         Assert.Equal(0, host.Sender.Count);
     }
 
@@ -175,7 +173,8 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Forwarded_for_is_trusted_only_from_the_proxy_network()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync(factory => factory.WithSetting("ForwardedHeaders:KnownNetwork", "172.30.0.0/24"));
+        await using var host = await HostFactory.StartAsync(
+            postgres, factory => AtStart(factory.WithSetting("ForwardedHeaders:KnownNetwork", "172.30.0.0/24")));
         using var client = host.CreateClient();
 
         // A client outside the proxy network cannot choose its address with the header.
@@ -186,7 +185,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var spoofed = await PostAsync(client, "user10@example.com", address: "198.51.100.1", forwardedFor: "203.0.113.99", ct: ct);
-        await ReadProblemAsync(spoofed, HttpStatusCode.TooManyRequests, "ip-limit", ct);
+        await Problem.AssertAsync(spoofed, HttpStatusCode.TooManyRequests, "ip-limit", ct);
 
         // Through the proxy the address is the one the proxy forwards.
         for (var n = 0; n < 10; n++)
@@ -196,7 +195,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var proxied = await PostAsync(client, "proxied10@example.com", address: "172.30.0.5", forwardedFor: "203.0.113.9", ct: ct);
-        await ReadProblemAsync(proxied, HttpStatusCode.TooManyRequests, "ip-limit", ct);
+        await Problem.AssertAsync(proxied, HttpStatusCode.TooManyRequests, "ip-limit", ct);
 
         using var otherClient = await PostAsync(client, "proxied11@example.com", address: "172.30.0.5", forwardedFor: "203.0.113.10", ct: ct);
         Assert.Equal(HttpStatusCode.Accepted, otherClient.StatusCode);
@@ -206,7 +205,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Forwarded_for_is_ignored_without_a_proxy_network()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         for (var n = 0; n < 10; n++)
@@ -216,21 +215,21 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         }
 
         using var spoofed = await PostAsync(client, "user10@example.com", address: "198.51.100.1", forwardedFor: "203.0.113.99", ct: ct);
-        await ReadProblemAsync(spoofed, HttpStatusCode.TooManyRequests, "ip-limit", ct);
+        await Problem.AssertAsync(spoofed, HttpStatusCode.TooManyRequests, "ip-limit", ct);
     }
 
     [Fact]
     public async Task Malformed_and_non_json_requests_store_nothing()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         using var empty = await SendAsync(client, "{}", "application/json", ct);
-        await ReadProblemAsync(empty, HttpStatusCode.BadRequest, "invalid-request", ct);
+        await Problem.AssertAsync(empty, HttpStatusCode.BadRequest, "invalid-request", ct);
 
         using var plain = await SendAsync(client, """{"email":"ann@example.com","locale":"en"}""", "text/plain", ct);
-        await ReadProblemAsync(plain, HttpStatusCode.UnsupportedMediaType, "invalid-request", ct);
+        await Problem.AssertAsync(plain, HttpStatusCode.UnsupportedMediaType, "invalid-request", ct);
 
         Assert.Equal(0, host.Sender.Count);
         await using var scope = host.Services.CreateAsyncScope();
@@ -244,7 +243,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Code_request_answer_does_not_reveal_whether_a_user_exists()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
         await using (var scope = host.Services.CreateAsyncScope())
         {
@@ -265,7 +264,7 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Development_without_a_key_generates_one()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
         using var client = host.CreateClient();
 
         using var response = await PostAsync(client, "ann@example.com", ct: ct);
@@ -296,27 +295,20 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
     public async Task Configured_limits_replace_the_defaults()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync(factory => factory
+        await using var host = await HostFactory.StartAsync(postgres, factory => AtStart(factory
             .WithSetting("Identity:CodeRequestLimits:PerEmail", "2")
-            .WithSetting("Identity:CodeRequestLimits:Window", "01:00:00"));
+            .WithSetting("Identity:CodeRequestLimits:Window", "01:00:00")));
         using var client = host.CreateClient();
 
         using var first = await PostAsync(client, "ann@example.com", ct: ct);
         Assert.Equal("""{"remaining":1,"limit":2}""", await first.Content.ReadAsStringAsync(ct));
         using var second = await PostAsync(client, "ann@example.com", ct: ct);
         using var third = await PostAsync(client, "ann@example.com", ct: ct);
-        var problem = await ReadProblemAsync(third, HttpStatusCode.TooManyRequests, "email-limit", ct);
+        var problem = await Problem.AssertAsync(third, HttpStatusCode.TooManyRequests, "email-limit", ct);
         Assert.Equal("2026-11-02T11:00:00Z", problem.GetProperty("retryAt").GetString());
     }
 
-    private async Task<HostFactory> StartAsync(Action<HostFactory>? configure = null)
-    {
-        var host = new HostFactory(postgres).WithCapturingSender();
-        host.Time.SetUtcNow(Start);
-        configure?.Invoke(host);
-        await host.InitializeAsync();
-        return host;
-    }
+    private static void AtStart(HostFactory host) => host.WithCapturingSender().Time.SetUtcNow(Start);
 
     private static Task<HttpResponseMessage> PostAsync(
         HttpClient client, string email, string locale = "en", string? address = null, string? forwardedFor = null, CancellationToken ct = default)
@@ -343,16 +335,6 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
 
     private static async Task<JsonElement> ReadAsync(HttpResponseMessage response, CancellationToken ct) =>
         JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct)).RootElement.Clone();
-
-    private static async Task<JsonElement> ReadProblemAsync(
-        HttpResponseMessage response, HttpStatusCode status, string code, CancellationToken ct)
-    {
-        var body = await response.Content.ReadAsStringAsync(ct);
-        Assert.True(response.StatusCode == status, $"status {(int)response.StatusCode}, body '{body}'");
-        var problem = JsonDocument.Parse(body).RootElement.Clone();
-        Assert.Equal(code, problem.GetProperty("code").GetString());
-        return problem;
-    }
 
     private static string[] HeaderNames(HttpResponseMessage response) =>
         [.. response.Headers.Concat(response.Content.Headers).Select(header => header.Key).Where(name => name != "Date").Order(StringComparer.Ordinal)];

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using HabitsTracker.Tests;
 using Microsoft.AspNetCore.Hosting;
@@ -71,7 +70,7 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
         var ct = TestContext.Current.CancellationToken;
         await AssertCodesAsync(OversizeBodies);
 
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres);
         using var client = host.CreateClient();
         var json = EchoJson(BodyLimit);
         using var request = Post("/api/test/echo", json, "application/json");
@@ -97,7 +96,7 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
         var ct = TestContext.Current.CancellationToken;
         await AssertCodesAsync(UnexpectedFailures);
 
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres);
         var logs = new CapturingLoggerProvider();
         await using var logged = host.WithWebHostBuilder(builder => builder.ConfigureLogging(logging => logging.AddProvider(logs)));
         using var client = logged.CreateClient();
@@ -112,7 +111,7 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
     public async Task Every_problem_carries_a_trace_id()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres);
         using var client = host.CreateClient();
         var traceIds = new HashSet<string>();
 
@@ -121,7 +120,7 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
         {
             using var request = @case.Request();
             using var response = await client.SendAsync(request, ct);
-            var problem = await ReadProblemAsync(@case, response, ct);
+            var problem = await Problem.AssertAsync(response, @case.Status, @case.Code, ct, @case.Name);
 
             // RFC 9457 with the contract's choices: title is the reason phrase, type its default.
             Assert.True(
@@ -135,39 +134,18 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
         }
     }
 
-    private async Task<HostFactory> StartAsync()
-    {
-        var host = new HostFactory(postgres);
-        await host.InitializeAsync();
-        return host;
-    }
-
     private async Task AssertCodesAsync(Case[] cases)
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres);
         using var client = host.CreateClient();
 
         foreach (var @case in cases)
         {
             using var request = @case.Request();
             using var response = await client.SendAsync(request, ct);
-            var problem = await ReadProblemAsync(@case, response, ct);
-
-            var code = problem.TryGetProperty("code", out var value) ? value.GetString() : null;
-            Assert.True(code == @case.Code, $"{@case.Name}: code '{code}', expected '{@case.Code}'");
+            await Problem.AssertAsync(response, @case.Status, @case.Code, ct, @case.Name);
         }
-    }
-
-    private static async Task<JsonElement> ReadProblemAsync(Case @case, HttpResponseMessage response, CancellationToken ct)
-    {
-        var body = await response.Content.ReadAsStringAsync(ct);
-        Assert.True(response.StatusCode == @case.Status, $"{@case.Name}: {(int)response.StatusCode}, expected {(int)@case.Status}; body '{body}'");
-        Assert.True(
-            response.Content.Headers.ContentType?.MediaType == "application/problem+json",
-            $"{@case.Name}: Content-Type '{response.Content.Headers.ContentType}'");
-        using var document = JsonDocument.Parse(body);
-        return document.RootElement.Clone();
     }
 
     private static string ReasonPhrase(HttpStatusCode status) => status switch

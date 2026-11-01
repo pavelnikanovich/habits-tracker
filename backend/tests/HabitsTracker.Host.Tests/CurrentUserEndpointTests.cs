@@ -1,9 +1,5 @@
 using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using HabitsTracker.Tests;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Net.Http.Headers;
 
 namespace HabitsTracker.Host.Tests;
 
@@ -16,15 +12,12 @@ public class CurrentUserEndpointTests(PostgresFixture postgres)
     public async Task Me_requires_a_session()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
-        using var client = host.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        await using var host = await HostFactory.StartAsync(postgres, Capturing);
+        using var client = host.CreateCookielessClient();
 
         using var response = await client.GetAsync(Me, ct);
 
-        var body = await response.Content.ReadAsStringAsync(ct);
-        Assert.True(response.StatusCode == HttpStatusCode.Unauthorized, $"status {(int)response.StatusCode}; body '{body}'");
-        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("not-signed-in", JsonDocument.Parse(body).RootElement.GetProperty("code").GetString());
+        await Problem.AssertAsync(response, HttpStatusCode.Unauthorized, "not-signed-in", ct);
     }
 
     // FR-009: a browser that reports no time zone gets UTC, and the page is told it was not recognized.
@@ -32,24 +25,10 @@ public class CurrentUserEndpointTests(PostgresFixture postgres)
     public async Task Me_reports_an_unrecognized_time_zone()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
-        using var client = host.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
-        using (var requested = await client.PostAsJsonAsync("/api/code-requests", new { email = "ann@example.com", locale = "ru" }, ct))
-            Assert.Equal(HttpStatusCode.Accepted, requested.StatusCode);
-        using var signedIn = await client.PostAsJsonAsync("/api/sessions", new
-        {
-            email = "ann@example.com",
-            code = host.Sender.LastCode("ann@example.com"),
-            rememberMe = false,
-            timeZone = (string?)null,
-            locale = "ru",
-        }, ct);
-        Assert.Equal(HttpStatusCode.OK, signedIn.StatusCode);
-        var cookie = SetCookieHeaderValue.Parse(Assert.Single(signedIn.Headers.GetValues(HeaderNames.SetCookie)));
+        await using var host = await HostFactory.StartAsync(postgres, Capturing);
+        using var ann = await host.SignInAsync("ann@example.com", timeZone: null, locale: "ru");
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, Me);
-        request.Headers.Add(HeaderNames.Cookie, $"session={cookie.Value}");
-        using var response = await client.SendAsync(request, ct);
+        using var response = await ann.Client.GetAsync(Me, ct);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(
@@ -62,7 +41,7 @@ public class CurrentUserEndpointTests(PostgresFixture postgres)
     public async Task Me_of_user_B_is_never_user_A()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, Capturing);
         using var ann = await host.SignInAsync("ann@example.com");
         using var bob = await host.SignInAsync("bob@example.com");
 
@@ -77,10 +56,5 @@ public class CurrentUserEndpointTests(PostgresFixture postgres)
             await annsMe.Content.ReadAsStringAsync(ct));
     }
 
-    private async Task<HostFactory> StartAsync()
-    {
-        var host = new HostFactory(postgres).WithCapturingSender();
-        await host.InitializeAsync();
-        return host;
-    }
+    private static void Capturing(HostFactory host) => host.WithCapturingSender();
 }

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using HabitsTracker.Identity.Adapters.Storage;
 using HabitsTracker.Identity.Adapters.Storage.Records;
@@ -29,7 +28,7 @@ public class ProductionLogTests(PostgresFixture postgres)
     {
         var ct = TestContext.Current.CancellationToken;
         var logs = new CapturingLoggerProvider();
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, InProduction);
         await using var logged = WithLogs(host, logs);
         using var client = logged.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
 
@@ -64,14 +63,14 @@ public class ProductionLogTests(PostgresFixture postgres)
     {
         var ct = TestContext.Current.CancellationToken;
         var logs = new CapturingLoggerProvider();
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, InProduction);
         await using var logged = WithLogs(host, logs);
         using var client = logged.CreateClient();
 
         using var response = await client.GetAsync(new Uri("/api/test/throw", UriKind.Relative), ct);
 
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        var traceId = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct)).RootElement.GetProperty("traceId").GetString()!;
+        var problem = await Problem.AssertAsync(response, HttpStatusCode.InternalServerError, "internal-error", ct);
+        var traceId = problem.GetProperty("traceId").GetString()!;
         var failure = Assert.Single(logs.Entries, entry => entry.Exception is InvalidOperationException { Message: "secret detail" });
         Assert.Equal(LogLevel.Error, failure.Level);
         Assert.Contains(failure.Scopes, scope => scope.Contains($"TraceId:{traceId}", StringComparison.Ordinal));
@@ -81,21 +80,19 @@ public class ProductionLogTests(PostgresFixture postgres)
     [Fact]
     public async Task The_console_log_includes_scopes()
     {
-        await using var host = await StartAsync();
+        await using var host = await HostFactory.StartAsync(postgres, InProduction);
 
         Assert.True(host.Services.GetRequiredService<IOptionsMonitor<SimpleConsoleFormatterOptions>>().CurrentValue.IncludeScopes);
     }
 
-    private async Task<HostFactory> StartAsync()
+    private static void InProduction(HostFactory host)
     {
-        var host = new HostFactory(postgres) { EnvironmentName = Environments.Production }
-            .WithCapturingSender()
+        host.EnvironmentName = Environments.Production;
+        host.WithCapturingSender()
             // Ruling R-5: Production neither migrates nor starts without these; the capturing sender replaces Resend.
             .WithSetting("Database:MigrateOnStart", "true")
             .WithSetting("Identity:CodeHashKey", Convert.ToBase64String(new byte[32]))
             .WithSetting("Resend:ApiKey", "re_test_key");
-        await host.InitializeAsync();
-        return host;
     }
 
     // The host with every category captured down to Trace; the console keeps the levels of the settings files.
