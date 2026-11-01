@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideTransloco, TranslocoService } from '@jsverse/transloco';
-import { provideTranslocoMessageformat } from '@jsverse/transloco-messageformat';
 import { firstValueFrom } from 'rxjs';
 import { FileTranslationLoader, translationCodes } from '../../testing/translation-files';
+import { provideIcuTranspiler } from './icu-transpiler';
 
 // Plural categories come from CLDR through ICU MessageFormat (research R11, SC-012).
 describe('plurals', () => {
@@ -12,7 +12,7 @@ describe('plurals', () => {
     TestBed.configureTestingModule({
       providers: [
         provideTransloco({ config: { defaultLang: 'en', availableLangs: translationCodes() }, loader: FileTranslationLoader }),
-        provideTranslocoMessageformat(),
+        provideIcuTranspiler(),
       ],
     });
     transloco = TestBed.inject(TranslocoService);

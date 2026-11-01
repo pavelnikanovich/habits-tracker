@@ -3,10 +3,10 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { provideTransloco, TranslocoService } from '@jsverse/transloco';
-import { provideTranslocoMessageformat } from '@jsverse/transloco-messageformat';
 import { firstValueFrom } from 'rxjs';
 import { FileTranslationLoader, translationCodes } from '../testing/translation-files';
 import { AppShell } from './app';
+import { provideIcuTranspiler } from './i18n/icu-transpiler';
 import { routes } from './app.routes';
 
 describe('AppShell', () => {
@@ -17,7 +17,7 @@ describe('AppShell', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideTransloco({ config: { defaultLang: 'en', availableLangs: translationCodes() }, loader: FileTranslationLoader }),
-        provideTranslocoMessageformat(),
+        provideIcuTranspiler(),
       ],
     });
     await firstValueFrom(TestBed.inject(TranslocoService).load('en'));

@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, TitleStrategy } from '@angular/router';
 import { provideTransloco, TranslocoService } from '@jsverse/transloco';
-import { provideTranslocoMessageformat } from '@jsverse/transloco-messageformat';
 import { firstValueFrom } from 'rxjs';
 import { FileTranslationLoader, readTranslation, translationCodes } from '../../testing/translation-files';
 import { routes } from '../app.routes';
+import { provideIcuTranspiler } from '../i18n/icu-transpiler';
 import { TranslatedTitleStrategy } from './translated-title.strategy';
 
 // Every route sets document.title to its page title and app.name, again on a language switch (contracts/ui.md,
@@ -17,7 +17,7 @@ describe('TranslatedTitleStrategy', () => {
         provideRouter(routes),
         { provide: TitleStrategy, useClass: TranslatedTitleStrategy },
         provideTransloco({ config: { defaultLang: 'en', availableLangs: translationCodes() }, loader: FileTranslationLoader }),
-        provideTranslocoMessageformat(),
+        provideIcuTranspiler(),
       ],
     });
     await firstValueFrom(TestBed.inject(TranslocoService).load('en'));

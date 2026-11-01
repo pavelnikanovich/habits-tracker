@@ -2,9 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { ApplicationConfig, inject, isDevMode, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, TitleStrategy } from '@angular/router';
 import { provideTransloco, TranslocoService } from '@jsverse/transloco';
-import { provideTranslocoMessageformat } from '@jsverse/transloco-messageformat';
 import { firstValueFrom } from 'rxjs';
 import { routes } from './app.routes';
+import { provideIcuTranspiler } from './i18n/icu-transpiler';
 import { LanguageService } from './i18n/language.service';
 import { TranslocoHttpLoader } from './i18n/transloco-loader';
 import { provideHeadingFocus } from './shell/focus-heading';
@@ -22,7 +22,7 @@ export const appConfig: ApplicationConfig = {
       config: { defaultLang: 'en', reRenderOnLangChange: true, prodMode: !isDevMode() },
       loader: TranslocoHttpLoader,
     }),
-    provideTranslocoMessageformat(),
+    provideIcuTranspiler(),
     // The page renders once the current language's translation file has loaded, so no key ever shows.
     provideAppInitializer(async () => {
       const language = inject(LanguageService);

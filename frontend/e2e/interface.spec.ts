@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, Page, test } from '@playwright/test';
 import { expectVisibleFocus, pressTabUntil } from './support/keyboard';
 import { expectNoHorizontalScroll } from './support/layout';
@@ -24,6 +26,41 @@ function shellControls(page: Page) {
     page.getByRole('link', { name: en.nav.terms }),
   ];
 }
+
+/** The policy ng serve sends (angular.json), the host's own; a host test keeps the two equal. */
+function contentSecurityPolicy(): string {
+  const angular = JSON.parse(readFileSync(join(__dirname, '..', 'angular.json'), 'utf8')) as {
+    projects: Record<string, { architect: { serve: { options: { headers: Record<string, string> } } } }>;
+  };
+  return angular.projects['habits-tracker'].architect.serve.options.headers['Content-Security-Policy'];
+}
+
+test('the shell runs under the content security policy', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`console error: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => problems.push(`page error: ${error.message}`));
+  // An init script is not subject to the page's policy, so it can report what the policy blocks.
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) =>
+      console.error(`securitypolicyviolation: ${event.effectiveDirective} ${event.blockedURI}`),
+    );
+  });
+  const titles: [string, string][] = [
+    ['/sign-in', en.signIn.title],
+    ['/privacy', en.privacy.title],
+    ['/terms', en.terms.title],
+  ];
+
+  for (const [route, title] of titles) {
+    const response = await page.goto(route);
+    expect(response?.headers()['content-security-policy'], route).toBe(contentSecurityPolicy());
+    await expect(heading(page), route).toHaveText(title);
+  }
+
+  expect(problems).toEqual([]);
+});
 
 test('a phone gets the page at its own width', async ({ page }) => {
   await page.goto('/sign-in');

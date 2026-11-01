@@ -29,9 +29,6 @@
             ],
             "styles": [
               "src/styles.css"
-            ],
-            "allowedCommonJsDependencies": [
-              "@messageformat/core"
             ]
           },
           "configurations": {
@@ -78,7 +75,10 @@
           },
           "defaultConfiguration": "development",
           "options": {
-            "proxyConfig": "proxy.conf.json"
+            "proxyConfig": "proxy.conf.json",
+            "headers": {
+              "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            }
           }
         },
         "test": {
