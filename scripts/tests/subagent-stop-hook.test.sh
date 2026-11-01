@@ -38,19 +38,21 @@ STUB
   echo "$dir"
 }
 
+# Hook input for repository $1, event $2, agent $3; $4 is stop_hook_active (default false).
 input() {
-  printf '{"session_id":"s1","cwd":"%s","hook_event_name":"%s","agent_id":"%s","agent_type":"general-purpose"}' "$1" "$2" "$3"
+  printf '{"session_id":"s1","cwd":"%s","hook_event_name":"%s","stop_hook_active":%s,"agent_id":"%s","agent_type":"general-purpose"}' \
+    "$1" "$2" "${4:-false}" "$3"
 }
 
 start_agent() {
   input "$1" SubagentStart "$2" | CLAUDE_PROJECT_DIR="$1" bash "$1/.claude/hooks/subagent-start-record.sh"
 }
 
-# Runs the stop hook for agent $2 in repository $1; sets status and stderr.
+# Runs the stop hook for agent $2 in repository $1 ($3: stop_hook_active); sets status and stderr.
 stop_agent() {
   local err
   err="$(mktemp)"
-  input "$1" SubagentStop "$2" | CLAUDE_PROJECT_DIR="$1" bash "$1/.claude/hooks/subagent-stop-tests.sh" 2> "$err" > /dev/null
+  input "$1" SubagentStop "$2" "${3:-false}" | CLAUDE_PROJECT_DIR="$1" bash "$1/.claude/hooks/subagent-stop-tests.sh" 2> "$err" > /dev/null
   status=$?
   stderr="$(cat "$err")"
   rm -f "$err"
@@ -93,6 +95,20 @@ case_changed_file_and_green_tests() {
   stop_agent "$dir" agent-1
   [ "$status" -eq 0 ] || fail "changed file, green tests: exit $status, expected 0"
   [ "$(stub_runs "$dir")" -eq 1 ] || fail "changed file, green tests: the fast tests ran $(stub_runs "$dir") times, expected 1"
+  rm -rf "$dir"
+}
+
+# A subagent already sent back once by this hook may stop: the red tail is still shown, exit 0.
+case_red_tests_after_one_bounce() {
+  local dir
+  dir="$(new_repo)"
+  start_agent "$dir" agent-1
+  echo 'class A { int x; }' > "$dir/backend/A.cs"
+  echo 1 > "$dir/stub-exit"
+  stop_agent "$dir" agent-1 true
+  [ "$status" -eq 0 ] || fail "red tests, stop_hook_active true: exit $status, expected 0"
+  [[ "$stderr" == *"stub fast tests: 1 failed"* ]] || fail "red tests, stop_hook_active true: the stub's output is not on stderr: $stderr"
+  [ "$(stub_runs "$dir")" -eq 1 ] || fail "red tests, stop_hook_active true: the fast tests ran $(stub_runs "$dir") times, expected 1"
   rm -rf "$dir"
 }
 
@@ -140,6 +156,7 @@ done
 case_no_change_under_source_folders
 case_changed_file_and_red_tests
 case_changed_file_and_green_tests
+case_red_tests_after_one_bounce
 case_untracked_file_counts
 case_committed_change_counts
 case_agent_started_before_the_hook
@@ -148,4 +165,4 @@ if [ "$failures" -gt 0 ]; then
   echo "subagent-stop-hook: $failures failed" >&2
   exit 1
 fi
-echo "subagent-stop-hook: 6 cases passed"
+echo "subagent-stop-hook: 7 cases passed"
