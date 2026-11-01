@@ -10,7 +10,7 @@
     "watch": "ng build --watch --configuration development",
     "pretest": "bash scripts/fetch-fonts.sh",
     "test": "ng test --watch=false",
-    "lint": "ng lint --max-warnings 0",
+    "lint": "ng lint --max-warnings 0 && tsc --project e2e/tsconfig.json",
     "e2e": "bash ../scripts/e2e-preflight.sh && playwright test"
   },
   "private": true,
@@ -33,6 +33,7 @@
     "@angular/compiler-cli": "^22.2.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
     "angular-eslint": "22.6.0",
     "eslint": "^10.12.0",
     "eslint-plugin-sonarjs": "4.2.2",

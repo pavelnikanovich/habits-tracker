@@ -6,7 +6,7 @@ const self = 'app/no-html-from-strings.spec.ts';
 
 describe('templates', () => {
   it('no template renders HTML from a string', () => {
-    const offenders = readdirSync('src', { recursive: true })
+    const offenders = readdirSync('src', { recursive: true, encoding: 'utf8' })
       .filter((file) => /\.(html|ts)$/.test(file) && file !== self)
       .filter((file) => /innerHTML|bypassSecurityTrust/.test(readFileSync(`src/${file}`, 'utf8')));
 

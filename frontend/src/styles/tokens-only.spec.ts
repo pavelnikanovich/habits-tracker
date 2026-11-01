@@ -41,7 +41,7 @@ function literals(css: string): string[] {
 
 describe('component styles', () => {
   it('component styles use only tokens', () => {
-    const files = readdirSync('src/app', { recursive: true }).filter((file) => file.endsWith('.css'));
+    const files = readdirSync('src/app', { recursive: true, encoding: 'utf8' }).filter((file) => file.endsWith('.css'));
     expect(files, 'no component CSS file found under src/app').not.toEqual([]);
 
     const offenders = files.flatMap((file) => literals(readFileSync(`src/app/${file}`, 'utf8')).map((found) => `${file}: ${found}`));

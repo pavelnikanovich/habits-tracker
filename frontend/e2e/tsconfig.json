@@ -1,0 +1,10 @@
+/* The end-to-end tests and the Playwright configuration run in Node, outside the Angular build; `npm run lint`
+   type-checks them with this file. */
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}
