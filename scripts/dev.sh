@@ -20,16 +20,8 @@ if ! bash frontend/scripts/fetch-fonts.sh; then
   exit 1
 fi
 
-# The same fallback as test-fast.sh: dotnet may be installed but not on PATH.
-if ! command -v dotnet > /dev/null 2>&1; then
-  dotnet_root="${DOTNET_ROOT:-$HOME/.dotnet}"
-  if [ -x "$dotnet_root/dotnet" ]; then
-    export PATH="$dotnet_root:$PATH"
-  else
-    echo "dev.sh: the .NET SDK is missing: no dotnet on PATH or in $dotnet_root (install SDK 10.0.403)." >&2
-    exit 1
-  fi
-fi
+source scripts/lib/dotnet-path.sh
+ensure_dotnet dev.sh
 
 log=.dev/app.log
 echo "dev.sh: starting; the log of the host and ng serve is $log"
