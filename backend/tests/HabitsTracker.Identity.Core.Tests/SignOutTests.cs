@@ -32,6 +32,16 @@ public class SignOutTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => new SignOut(sessions).ExecuteAsync(null!, Ct));
     }
 
+    // A session id is the SHA-256 of a token; the driving adapter takes it from the authenticated session.
+    [Theory]
+    [InlineData(31)]
+    [InlineData(33)]
+    public async Task Sign_out_of_an_id_that_is_not_32_bytes_is_a_programming_error(int length)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            "sessionId", () => new SignOut(sessions).ExecuteAsync(new byte[length], Ct));
+    }
+
     [Fact]
     public async Task Sign_out_everywhere_deletes_every_session_of_the_user_and_no_other()
     {
