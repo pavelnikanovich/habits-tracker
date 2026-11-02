@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using HabitsTracker.Identity.Core;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -30,13 +31,17 @@ public sealed partial class DomainExceptionHandler(ILogger<DomainExceptionHandle
     [LoggerMessage(Level = LogLevel.Error, Message = "The request failed unexpectedly.")]
     private static partial void LogUnexpectedFailure(ILogger logger, Exception exception);
 
-    // InvalidConfiguration stops the host before any request; raised during one, it is an unexpected failure.
+    // A stored record the core rejects is a failure of the system, not of the request. InvalidConfiguration stops the
+    // host before any request; raised during one, it is an unexpected failure. A new member must be mapped here, so the
+    // default is unreachable rather than a silent 500.
     private static (int Status, string Code) ProblemOf(DomainError error) => error switch
     {
         DomainError.InvalidEmail => (StatusCodes.Status400BadRequest, ProblemCodes.InvalidEmail),
         DomainError.InvalidLocale => (StatusCodes.Status400BadRequest, ProblemCodes.InvalidLocale),
         DomainError.InvalidOneTimeCode => (StatusCodes.Status400BadRequest, ProblemCodes.InvalidCodeFormat),
         DomainError.InvalidSessionToken => (StatusCodes.Status401Unauthorized, ProblemCodes.NotSignedIn),
-        _ => InternalError,
+        DomainError.CorruptRecord => InternalError,
+        DomainError.InvalidConfiguration => InternalError,
+        _ => throw new UnreachableException(),
     };
 }

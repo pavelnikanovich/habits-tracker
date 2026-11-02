@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using HabitsTracker.Identity.Core;
 using HabitsTracker.Tests;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
@@ -54,6 +55,7 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
         new("InvalidOneTimeCode", () => Get("/api/test/domain/InvalidOneTimeCode"), HttpStatusCode.BadRequest, "invalid-code-format"),
         new("InvalidSessionToken", () => Get("/api/test/domain/InvalidSessionToken"), HttpStatusCode.Unauthorized, "not-signed-in"),
         new("CorruptRecord", () => Get("/api/test/domain/CorruptRecord"), HttpStatusCode.InternalServerError, "internal-error"),
+        new("InvalidConfiguration", () => Get("/api/test/domain/InvalidConfiguration"), HttpStatusCode.InternalServerError, "internal-error"),
     ];
 
     private static readonly Case[] UnexpectedFailures =
@@ -89,6 +91,13 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
 
     [Fact]
     public async Task Domain_errors_map_to_the_error_model() => await AssertCodesAsync(DomainErrors);
+
+    // The handler's table ends in UnreachableException, so a new DomainError member needs a row there and a case here.
+    [Fact]
+    public void Every_domain_error_has_a_case() =>
+        Assert.Equal(
+            Enum.GetValues<DomainError>().Select(error => error.ToString()).Order(StringComparer.Ordinal),
+            DomainErrors.Select(@case => @case.Name).Order(StringComparer.Ordinal));
 
     [Fact]
     public async Task An_unexpected_failure_is_internal_error()
