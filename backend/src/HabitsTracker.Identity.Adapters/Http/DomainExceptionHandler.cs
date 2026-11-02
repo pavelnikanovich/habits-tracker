@@ -11,6 +11,7 @@ namespace HabitsTracker.Identity.Adapters.Http;
 /// the status and code of its <see cref="DomainError"/>; anything else into <c>500</c> <c>internal-error</c>, with no
 /// detail of the failure beyond <c>traceId</c> (research R19, I5). The detail goes to the log: ASP.NET Core does not log
 /// an exception a handler answers, so every <c>500</c> is logged here, with its exception and the request's trace id.
+/// A request its client abandoned is neither logged nor answered with a problem.
 /// </summary>
 public sealed partial class DomainExceptionHandler(ILogger<DomainExceptionHandler> logger) : IExceptionHandler
 {
@@ -19,6 +20,16 @@ public sealed partial class DomainExceptionHandler(ILogger<DomainExceptionHandle
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
+
+        // A client that went away (a closed tab) is no failure: no Error line, so that one still means "look at this",
+        // and no problem body nobody reads; 499 (Client Closed Request), as ASP.NET Core's exception handler middleware
+        // answers such a request before it asks any handler.
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
+        {
+            if (!httpContext.Response.HasStarted)
+                httpContext.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
+            return true;
+        }
 
         var (status, code) = exception is DomainException domain ? ProblemOf(domain.Error) : InternalError;
         if (status == StatusCodes.Status500InternalServerError)

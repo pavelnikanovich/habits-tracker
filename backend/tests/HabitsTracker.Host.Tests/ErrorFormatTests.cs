@@ -1,9 +1,13 @@
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using HabitsTracker.Identity.Adapters.Http;
 using HabitsTracker.Identity.Core;
 using HabitsTracker.Tests;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace HabitsTracker.Host.Tests;
@@ -114,6 +118,70 @@ public partial class ErrorFormatTests(PostgresFixture postgres)
         Assert.DoesNotContain("secret detail", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         // The detail goes to the log instead, with the exception: the handler answers it, so ASP.NET Core does not log it.
         Assert.Contains(logs.Entries, entry => entry.Level == LogLevel.Error && entry.Category.EndsWith(".DomainExceptionHandler", StringComparison.Ordinal));
+    }
+
+    // A client that goes away is no failure of the server: no Error line, which would then no longer mean "look at
+    // this", and no 500, but 499 (Client Closed Request). Through the host's pipeline.
+    [Fact]
+    public async Task A_request_its_client_abandons_is_not_a_failure()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await HostFactory.StartAsync(postgres);
+        var logs = new CapturingLoggerProvider();
+        await using var logged = host.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+        {
+            logging.AddProvider(logs);
+            logging.AddFilter<CapturingLoggerProvider>(category: null, LogLevel.Trace);
+        }));
+        using var client = logged.CreateClient();
+        using var disconnect = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        // The lines of the host's start (EF Core logs its probe of the migrations history at Error) are not the request's.
+        var startLines = logs.Entries.Count;
+
+        var request = client.GetAsync(new Uri("/api/test/wait-for-abort", UriKind.Relative), disconnect.Token);
+        await host.WaitingForAbort.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        await disconnect.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request.WaitAsync(TimeSpan.FromSeconds(10), ct));
+
+        string? finished = null;
+        for (var wait = 0; wait < 50 && finished is null; wait++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100), ct);
+            finished = logs.Entries.Select(entry => entry.Message)
+                .FirstOrDefault(message => message.StartsWith("Request finished", StringComparison.Ordinal) && message.Contains("/api/test/wait-for-abort", StringComparison.Ordinal));
+        }
+
+        Assert.NotNull(finished);
+        Assert.Contains(" - 499 ", finished, StringComparison.Ordinal);
+        Assert.DoesNotContain(logs.Entries.Skip(startLines), entry => entry.Level >= LogLevel.Error);
+    }
+
+    // The handler itself, as a caller that has not already answered the aborted request asks it. ASP.NET Core's
+    // exception handler middleware answers 499 before it asks any handler, so the pipeline above passes either way.
+    [Fact]
+    public async Task The_handler_answers_an_abandoned_request_with_499_and_logs_nothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await HostFactory.StartAsync(postgres);
+        var logs = new CapturingLoggerProvider();
+        await using var logged = host.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+        {
+            logging.AddProvider(logs);
+            logging.AddFilter<CapturingLoggerProvider>(category: null, LogLevel.Trace);
+        }));
+        var handler = logged.Services.GetServices<IExceptionHandler>().OfType<DomainExceptionHandler>().Single();
+        using var aborted = new CancellationTokenSource();
+        await aborted.CancelAsync();
+        using var body = new MemoryStream();
+        var context = new DefaultHttpContext { RequestServices = logged.Services, RequestAborted = aborted.Token };
+        context.Response.Body = body;
+
+        var handled = await handler.TryHandleAsync(context, new OperationCanceledException(aborted.Token), ct);
+
+        Assert.True(handled);
+        Assert.Equal(StatusCodes.Status499ClientClosedRequest, context.Response.StatusCode);
+        Assert.Equal(0, body.Length);
+        Assert.DoesNotContain(logs.Entries, entry => entry.Category == typeof(DomainExceptionHandler).FullName);
     }
 
     [Fact]

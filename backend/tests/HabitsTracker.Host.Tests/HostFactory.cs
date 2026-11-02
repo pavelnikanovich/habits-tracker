@@ -50,6 +50,9 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
 
     private bool capturesCodeEmails;
 
+    /// <summary>Completes when a request to <c>/api/test/wait-for-abort</c> has started waiting for its client to go away.</summary>
+    public TaskCompletionSource WaitingForAbort { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>
     /// Replaces the code email sender with <see cref="Sender"/>. An opt-in, so the registration tests keep observing
     /// the environment's own sender; call it before the first client is created.
@@ -176,12 +179,20 @@ public sealed class HostFactory(PostgresFixture postgres) : WebApplicationFactor
         return SignedInClient.WithCookie(this, token) with { SetCookie = setCookie };
     }
 
-    // The test-only endpoints of the error format (Task 9), of the log test (Task 12) and of the timing test (Task 17).
+    // The test-only endpoints of the error format (Task 9), of the log test (Task 12), of the timing test (Task 17) and
+    // of a request its client abandons.
     private void MapTestEndpoints(IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/test/echo", (EchoBody body) => body);
         endpoints.MapGet("/api/test/throw", Throw);
         endpoints.MapGet("/api/test/domain/{error}", (DomainError error) => ThrowDomain(error));
+        // A request that waits until its client goes away, then throws as a cancelled database call does.
+        endpoints.MapGet("/api/test/wait-for-abort", async (HttpContext context) =>
+        {
+            WaitingForAbort.TrySetResult();
+            await Task.Delay(Timeout.Infinite, context.RequestAborted);
+            return Results.NoContent();
+        });
         // A request that takes 5000.1 ms on the host's clock, the first beyond the last bucket bound (Task 17).
         endpoints.MapGet("/api/test/slow", () =>
         {
