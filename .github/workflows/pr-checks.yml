@@ -73,6 +73,9 @@ jobs:
       - run: npm --prefix frontend ci
       # compose-run.test.sh renders the built page in Chromium to check it under the CSP.
       - run: npx --prefix frontend playwright install --with-deps chromium
+      # The tests that build a migration bundle (ops/tests/lib/identity-schema.sh) need the restored projects: dotnet-ef
+      # reads a project's metadata before it builds.
+      - run: dotnet restore backend/HabitsTracker.slnx
       - name: Shell tests of scripts/tests and ops/tests
         run: |
           set -euo pipefail
