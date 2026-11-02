@@ -22,7 +22,7 @@ Every user-visible text below is a translation key (FR-020); the English wording
 
 **Glow.** Dark theme only: the heading and accent text carry a static `text-shadow: 0 0 6px` in the accent colour. The contrast test uses the colours alone.
 
-**Controls.** Buttons and input fields at least 44 px high. The primary button is outlined: accent text and border on the background; on hover and focus it fills with the accent and its text takes the background colour. A disabled button has the `disabled` attribute, the muted colour for text and border, and no hover fill.
+**Controls.** Buttons and input fields at least 44 px high. The primary button is outlined: accent text and border on the background; on hover and focus it fills with the accent and its text takes the background colour. A busy button (waiting for an answer) has `aria-disabled="true"`, not the `disabled` attribute, so the focus stays on it and a screen reader still finds it; pressing it again does nothing. It takes the muted colour for text and border and no hover fill (developer's decision during execution).
 
 **Focus.** Every interactive element shows `outline: 3px solid var(--focus)` with `outline-offset: 2px` on `:focus-visible`. `outline: none` appears only together with a replacement of equal visibility.
 
@@ -89,7 +89,7 @@ A colour changed later keeps its hue and changes only its lightness until its pa
 |---|---|
 | Initial | `signIn.title`; email field (`signIn.email`, `type="email"`, `autocomplete="email"`); "Remember me" checkbox (`signIn.rememberMe`), unchecked, with `signIn.rememberMeHint` "Stay signed in on this device for up to 30 days without activity. Only on a device you trust." under it in `--muted`, linked by `aria-describedby` (FR-014); button `signIn.requestCode` "Get code"; the acceptance sentence with links (FR-025); the page frame |
 | Invalid email (the page's own check, research R18) | `signIn.emailInvalid` under the field; the button stays enabled; the focus returns to the field; no request is sent |
-| Sending | the button is disabled and reads `signIn.requesting` "Sending…"; pressing it again sends nothing |
+| Sending | the button is busy (`aria-disabled`) and reads `signIn.requesting` "Sending…"; pressing it again sends nothing |
 | Sent | `/sign-in/code` opens |
 | Refused (`email-limit`, `ip-limit`, `email-service-limit`, `email-service-unavailable`) | `error.<code>` with `{retryAt}` where the response has it; the email step stays, the field keeps its value |
 | `invalid-request`, `internal-error`, no response | `error.<code>`, for `internal-error` with `{traceId}`; a request that gets no response shows `error.network` "No connection to the server. Try again." |
@@ -103,7 +103,7 @@ The email, the "Remember me" choice and the remaining count travel from the emai
 |---|---|
 | Initial | `signIn.codeSent` "Code sent to {email}"; `signIn.remaining`; code field (`signIn.code`, `inputmode="numeric"`, `autocomplete="one-time-code"`, 6 digits); button `signIn.signIn` "Sign in" (the code is not sent by itself at the sixth digit); link-styled buttons `signIn.resendCode` "Send a new code" (a new code request for the same email, then this step again with the code field cleared and the new remaining count) and `signIn.otherEmail` "Use another email" (back to `/sign-in` with the email filled in); the focus is in the code field |
 | Malformed code (`invalid-code-format`, or not 6 digits by the page's check) | `error.invalid-code-format` under the field; no request when the page's check fails |
-| Signing in | the button is disabled and reads `signIn.signingIn` "Signing in…" |
+| Signing in | the button is busy (`aria-disabled`) and reads `signIn.signingIn` "Signing in…" |
 | Wrong code (`code-incorrect`) | `error.code-incorrect` under the field; the field is cleared; the focus returns to it |
 | New code needed (`new-code-required`) | back to `/sign-in` with the email filled in and `error.new-code-required` "This code no longer works. Request a new one." |
 | Resend refused | as "Refused" of the email step, shown on the code step |
@@ -116,7 +116,7 @@ The email, the "Remember me" choice and the remaining count travel from the emai
 | Loading (`GET /api/me`) | the page frame and an empty `<main>`; after 1 second without an answer, info `main.loading` "Loading…"; no skeleton placeholders |
 | Signed in | `main.title`; `main.noHabits` "No habits yet"; buttons `main.signOut` and `main.signOutEverywhere`; when `timeZoneRecognized` is `false`, info `main.timeZoneNotRecognized` |
 | Confirming sign out everywhere | in place of `main.signOutEverywhere`: `main.signOutEverywhereConfirm` "Sign out on every device?" and buttons `main.confirm` "Sign out everywhere" and `main.cancel` "Cancel"; the focus moves to "Cancel", so a second stray `Enter` signs nothing out; "Cancel" or `Escape` restores the button and returns the focus to it; no request is sent until "Sign out everywhere" is pressed (FR-015) |
-| Signing out | both sign-out buttons are disabled until the answer |
+| Signing out | both sign-out buttons are busy (`aria-disabled`) until the answer |
 | Session expired or revoked while the page is open (a request after a successful `GET /api/me` answers `not-signed-in`) | `/sign-in` opens in the "Session ended" state |
 | Not signed in when the page loads (`GET /api/me` answers `not-signed-in`) | `/sign-in` opens in its initial state: the page cannot tell an ended session from none |
 | `internal-error`, no response | `error.internal-error` with `{traceId}`, or `error.network` |

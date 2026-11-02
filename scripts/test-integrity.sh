@@ -29,7 +29,8 @@ cd "$root"
 git rev-parse --verify --quiet "$base_ref^{commit}" > /dev/null \
   || { echo "test-integrity.sh: $base_ref is not a commit" >&2; exit 2; }
 
-markers=("Ski""p =" ".ski""p(" ".onl""y(" "xi""t(" "xdescri""be(" "test.fi""xme(")
+markers=("Ski""p =" ".ski""p(" ".onl""y(" "xi""t(" "xdescri""be(" "test.fi""xme("
+  "Ski""p=" "Assert.Ski""p(" "Ski""pUnless" "Ski""pWhen" "Explici""t = true" ".ski""pIf(")
 
 # --- markers: only added lines count, in test files and everywhere else. A letter-initial marker must start a word.
 merge_base_status=0

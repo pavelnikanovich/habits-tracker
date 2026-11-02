@@ -15,7 +15,8 @@ fail() {
   failures=$((failures + 1))
 }
 
-markers=("Ski""p =" ".ski""p(" ".onl""y(" "xi""t(" "xdescri""be(" "test.fi""xme(")
+markers=("Ski""p =" ".ski""p(" ".onl""y(" "xi""t(" "xdescri""be(" "test.fi""xme("
+  "Ski""p=" "Assert.Ski""p(" "Ski""pUnless" "Ski""pWhen" "Explici""t = true" ".ski""pIf(")
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
