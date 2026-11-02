@@ -85,6 +85,19 @@ public class ProductionLogTests(PostgresFixture postgres)
         Assert.True(host.Services.GetRequiredService<IOptionsMonitor<SimpleConsoleFormatterOptions>>().CurrentValue.IncludeScopes);
     }
 
+    // Not every SQL command at Information in the journal: EF Core writes from Warning up. The capture above is
+    // unaffected, as it takes every category down to Trace.
+    [Fact]
+    public async Task Production_logs_ef_core_from_warning_up()
+    {
+        await using var host = await HostFactory.StartAsync(postgres, InProduction);
+
+        var commands = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Microsoft.EntityFrameworkCore.Database.Command");
+
+        Assert.False(commands.IsEnabled(LogLevel.Information));
+        Assert.True(commands.IsEnabled(LogLevel.Warning));
+    }
+
     private static void InProduction(HostFactory host)
     {
         host.EnvironmentName = Environments.Production;
