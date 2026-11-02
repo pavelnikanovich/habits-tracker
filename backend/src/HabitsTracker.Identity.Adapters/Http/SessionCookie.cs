@@ -7,14 +7,13 @@ namespace HabitsTracker.Identity.Adapters.Http;
 /// <summary>
 /// The cookie <c>session</c> (contracts/http-api.md, "Authentication"; research R4): only the session token,
 /// <c>HttpOnly</c>, <c>Secure</c>, <c>SameSite=Lax</c>, <c>Path=/</c>, no <c>Domain</c>; no <c>Expires</c> or
-/// <c>Max-Age</c> for a session that is not a Remembered session, <c>Max-Age=2592000</c> (30 days) for a Remembered one.
+/// <c>Max-Age</c> for a session that is not a Remembered session, <c>Max-Age=2592000</c> for a Remembered one: its idle
+/// timeout of 30 days, <see cref="Session.IdleTimeout"/>.
 /// Written here rather than by ASP.NET Core's cookie authentication, so these are its only attributes.
 /// </summary>
 public static class SessionCookie
 {
     public const string Name = "session";
-
-    private const int RememberedMaxAgeSeconds = 2592000;
 
     public static void Append(HttpResponse response, SessionToken token, bool remembered)
     {
@@ -23,7 +22,7 @@ public static class SessionCookie
 
         var options = Options();
         if (remembered)
-            options.MaxAge = TimeSpan.FromSeconds(RememberedMaxAgeSeconds);
+            options.MaxAge = Session.IdleTimeout;
         response.Cookies.Append(Name, token.Value, options);
     }
 
