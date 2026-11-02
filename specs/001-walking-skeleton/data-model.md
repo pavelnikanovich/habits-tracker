@@ -26,7 +26,7 @@ An invalid value raises **`DomainException`**, which carries one **`DomainError`
 | `CorruptRecord` | any value object or aggregate loaded from storage that breaks its rules | `500`, `code: "internal-error"` |
 | `InvalidConfiguration` | Code request limits, the code hash key | the host does not start |
 
-Expected outcomes reached with valid values are results of the use cases, not exceptions: a code sent or refused by a limit or by the email service; signed in, incorrect, or a new code required; not signed in. A programming error is not a domain error: a missing argument raises `ArgumentNullException`, an instant that is not UTC `ArgumentException`, a method called in a state that forbids it `InvalidOperationException`.
+Expected outcomes reached with valid values are results of the use cases, not exceptions: a code sent or refused by a limit or by the email service; signed in, incorrect, or a new code required; not signed in. A programming error is not a domain error: a missing or unset argument raises `ArgumentNullException` or `ArgumentException` (unset: `Guid.Empty`, `default`, an empty array, for every argument, whether or not the spec names it), an instant that is not UTC `ArgumentException`, a method called in a state that forbids it `InvalidOperationException`.
 
 ### Services, transactions and concurrency
 
@@ -165,7 +165,7 @@ Invariants:
 - Sliding expiry: a session with no request by the user for 30 days has expired; any request by the user sets `last activity at` to now (FR-013).
 - Revocation is deletion: sign out deletes this session, sign out everywhere deletes every session of the user; both take effect on the next request (FR-015).
 - A session belongs to one user and authorizes only that user's data (FR-017).
-- The id is 32 bytes; `last activity at` is never before `created at`; activity is never recorded on an expired session.
+- The id is 32 bytes; `last activity at` is never before `created at`; activity is never recorded on an expired session; recording activity never moves `last activity at` back (a clock stepped back leaves it as it was, since an earlier value could fall before `created at`).
 - The cookie of a session that is not a Remembered session has no expiry; the cookie of a Remembered session persists, and every response that extends the session renews its expiry to 30 days from now (FR-014) *(agent's call: renewing keeps the cookie alive as long as the session)*.
 
 State transitions:
@@ -212,7 +212,7 @@ Every driven port has one contract test suite that each of its adapters and its 
 
 ## Storage (PostgreSQL)
 
-One database. The storage adapter keeps its own record classes, mapped by EF Core, and turns them into aggregates through the core's factories, which check every rule on load. Schema `identity` belongs to the Identity package; schema `operations` belongs to the host and holds no domain data. Migrations only expand the schema (principle VI); the first migration creates both schemas.
+One database. The storage adapter keeps its own record classes, mapped by EF Core, and turns them into aggregates through the core's factories, which check every rule on load. Schema `identity` belongs to the Identity package; schema `operations` belongs to the host and holds no domain data. Migrations only expand the schema (principle VI); the first migration of each context creates that context's schema (`CreateIdentitySchema` in the adapters, `CreateOperationsSchema` in the host), so both exist after the deployment's two migration bundles.
 
 ### Schema `identity`
 

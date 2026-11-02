@@ -25,7 +25,7 @@ The error format is the same for every endpoint of every epic. The API changes o
 
 - Cookie `session`: the Session token (data-model, "Session token"), `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, no `Domain` (FR-012). No `Expires` or `Max-Age` for a session that is not a Remembered session; `Max-Age` of 30 days for a Remembered session, renewed on every response that extends it (FR-014).
 - An endpoint marked **signed in** answers `401` with `code: "not-signed-in"` when the cookie is missing, malformed, unknown, expired or revoked, and clears the cookie. A request that passes authentication extends the session (FR-013).
-- State-changing requests are `POST` or `PUT` with a JSON body; with `SameSite=Lax`, a cross-site page cannot send them with the cookie (research R4).
+- State-changing requests are `POST` or `PUT` with a JSON body, or `DELETE` with no body. With `SameSite=Lax` a cross-site page cannot send any of them with the cookie; a body other than `application/json` is answered `415`, and `PUT` and `DELETE` need a CORS preflight that the host does not allow (research R4).
 - Every signed-in endpoint acts only on the signed-in user; no endpoint takes a user id (FR-017). The cross-user test of each endpoint is listed below.
 
 ## Endpoints
