@@ -127,6 +127,38 @@ public class CodeRequestEndpointTests(PostgresFixture postgres)
         Assert.Equal(3, (await ReadAsync(next, ct)).GetProperty("remaining").GetInt32());
     }
 
+    // FR-004, R19 (D1, D2): a client that closes the connection while the email is on its way cannot undo the counted
+    // request, or a script that disconnects mid-send would get unlimited code emails.
+    [Fact]
+    public async Task A_client_that_disconnects_during_the_send_is_counted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await HostFactory.StartAsync(postgres, AtStart);
+        using var client = host.CreateClient();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        host.Sender.Gate = gate.Task;
+        using var disconnect = CancellationTokenSource.CreateLinkedTokenSource(ct);
+
+        var request = PostAsync(client, "ann@example.com", ct: disconnect.Token);
+        await host.Sender.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        await disconnect.CancelAsync();
+        gate.SetResult();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => request.WaitAsync(TimeSpan.FromSeconds(10), ct));
+
+        await using var scope = host.Services.CreateAsyncScope();
+        var database = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var counted = 0;
+        for (var wait = 0; wait < 50 && counted == 0; wait++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(100), ct);
+            counted = await database.Set<Identity.Adapters.Storage.Records.CodeRequestRecord>().CountAsync(ct);
+        }
+
+        Assert.Equal(1, counted);
+        Assert.Equal(1, await database.Set<Identity.Adapters.Storage.Records.OneTimeCodeRecord>().CountAsync(ct));
+        Assert.Equal(1, host.Sender.Count);
+    }
+
     [Fact]
     public async Task Email_service_refusals()
     {

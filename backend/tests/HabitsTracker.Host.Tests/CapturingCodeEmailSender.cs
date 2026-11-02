@@ -14,6 +14,15 @@ public sealed class CapturingCodeEmailSender : ICodeEmailSender
     /// <summary>What the next sends answer.</summary>
     public CodeEmailOutcome Next { get; set; } = new CodeEmailOutcome.Sent();
 
+    /// <summary>
+    /// When set, a send records its email, completes <see cref="Started"/>, waits for the gate and then throws if its
+    /// token was cancelled meanwhile, as an HTTP send cut off by the token does: the email has left by then.
+    /// </summary>
+    public Task? Gate { get; set; }
+
+    /// <summary>Completes when a send that waits for <see cref="Gate"/> has started.</summary>
+    public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     public int Count
     {
         get
@@ -23,7 +32,7 @@ public sealed class CapturingCodeEmailSender : ICodeEmailSender
         }
     }
 
-    public Task<CodeEmailOutcome> SendAsync(Email email, OneTimeCodeValue code, Locale locale, CancellationToken ct)
+    public async Task<CodeEmailOutcome> SendAsync(Email email, OneTimeCodeValue code, Locale locale, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(email);
         ArgumentNullException.ThrowIfNull(code);
@@ -31,7 +40,14 @@ public sealed class CapturingCodeEmailSender : ICodeEmailSender
 
         lock (gate)
             sent.Add((email.Value, code.Digits, locale.Code));
-        return Task.FromResult(Next);
+        if (Gate is { } held)
+        {
+            Started.TrySetResult();
+            await held;
+            ct.ThrowIfCancellationRequested();
+        }
+
+        return Next;
     }
 
     /// <summary>The code of the newest email to <paramref name="email"/>, or null.</summary>

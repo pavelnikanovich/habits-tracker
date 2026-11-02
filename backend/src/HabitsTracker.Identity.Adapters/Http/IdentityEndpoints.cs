@@ -41,7 +41,10 @@ public static class IdentityEndpoints
         var address = context.Connection.RemoteIpAddress
             ?? throw new InvalidOperationException("The connection has no remote IP address.");
 
-        var result = await requestCode.ExecuteAsync(email, body.Locale, IpAddressPrefix.From(address), context.RequestAborted);
+        // Not the request's abort token (ruling R-105): a client that closes the connection while the email is on its
+        // way would roll back the counted request after the email left, and a script that disconnects mid-send would get
+        // unlimited code emails (FR-004; R19, D1, D2). The sender's 10-second timeout and the lock wait bound the work.
+        var result = await requestCode.ExecuteAsync(email, body.Locale, IpAddressPrefix.From(address), CancellationToken.None);
 
         return result switch
         {
