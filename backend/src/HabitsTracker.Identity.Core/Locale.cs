@@ -38,6 +38,7 @@ public sealed partial record Locale
     public static bool IsCode([NotNullWhen(true)] string? code) =>
         code is not null && WholeMatch.IsMatch(PatternRegex(), code);
 
-    [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
+    // Linear time without a timeout, which would count elapsed time and fail under load (RegexEngineTests).
+    [GeneratedRegex(Pattern, RegexOptions.NonBacktracking)]
     private static partial Regex PatternRegex();
 }

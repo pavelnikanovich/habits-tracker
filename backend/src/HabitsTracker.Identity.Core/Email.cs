@@ -41,6 +41,7 @@ public sealed partial record Email
         input is { Length: <= MaxLength }
         && WholeMatch.IsMatch(PatternRegex(), input);
 
-    [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
+    // Linear time without a timeout, which would count elapsed time and fail under load (RegexEngineTests).
+    [GeneratedRegex(Pattern, RegexOptions.NonBacktracking)]
     private static partial Regex PatternRegex();
 }
