@@ -41,6 +41,10 @@ No one else receives personal data. A tool that would send personal data to anyo
 
 Resend, USA: the EU-US Data Privacy Framework adequacy decision (Commission Implementing Decision (EU) 2023/1795; Resend is on the DPF list) and the EU Standard Contractual Clauses in Resend's data processing agreement (https://resend.com/legal/dpa). Transfer to Hetzner: none, the server is in Germany.
 
+## Security measures
+
+Under art. 30(1)(g), as built in epic 1: the site is served over HTTPS only, plain HTTP is redirected to HTTPS and the answers carry HSTS (`ops/Caddyfile`); only the reverse proxy publishes ports (80 and 443), the app and the database none (`ops/compose.prod.yaml`). A one-time code is stored only as an HMAC-SHA-256 under a secret key, bound to its email, and a session token only as its SHA-256 hash, so the database and its backups hold neither in readable form. The session cookie is `HttpOnly`, `Secure` and `SameSite=Lax`. The logs hold no email, user id, session token or one-time code, which a test of the production logs checks; the reverse proxy's access log replaces the values of the cookie and authorization headers with `REDACTED`. Backups stay on the server and are written readable by their owner only (`umask 077`, `ops/backup.sh`).
+
 ## Rights, complaints and other statements
 
 - Rights: access, rectification, erasure, restriction, objection to processing under art. 6(1)(f), portability; exercised by writing to the contact email.
