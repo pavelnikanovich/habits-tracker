@@ -16,7 +16,72 @@
       "Bash(git push * main)",
       "Bash(git push * main *)",
       "Bash(git push *:main*)",
-      "Bash(git push * refs/heads/main*)"
+      "Bash(git push * refs/heads/main*)",
+      "Bash(/usr/bin/git push --force*)",
+      "Bash(/usr/bin/git push -f*)",
+      "Bash(/usr/bin/git push * --force*)",
+      "Bash(/usr/bin/git push * -f*)",
+      "Bash(/usr/bin/git push * +*)",
+      "Bash(/usr/bin/git push * main)",
+      "Bash(/usr/bin/git push * main *)",
+      "Bash(/usr/bin/git push *:main*)",
+      "Bash(/usr/bin/git push * refs/heads/main*)",
+      "Bash(rtk git push --force*)",
+      "Bash(rtk git push -f*)",
+      "Bash(rtk git push * --force*)",
+      "Bash(rtk git push * -f*)",
+      "Bash(rtk git push * +*)",
+      "Bash(rtk git push * main)",
+      "Bash(rtk git push * main *)",
+      "Bash(rtk git push *:main*)",
+      "Bash(rtk git push * refs/heads/main*)",
+      "Bash(git -C * push*)",
+      "Bash(/usr/bin/git -C * push*)",
+      "Bash(docker compose down -v*)",
+      "Bash(docker compose down * -v*)",
+      "Bash(docker compose * down -v*)",
+      "Bash(docker compose * down * -v*)",
+      "Bash(docker compose down --volumes*)",
+      "Bash(docker compose down * --volumes*)",
+      "Bash(docker compose * down --volumes*)",
+      "Bash(docker compose * down * --volumes*)",
+      "Bash(docker volume rm*)",
+      "Bash(docker volume prune*)",
+      "Bash(docker system prune*)",
+      "Bash(rtk docker compose down -v*)",
+      "Bash(rtk docker compose down * -v*)",
+      "Bash(rtk docker compose * down -v*)",
+      "Bash(rtk docker compose * down * -v*)",
+      "Bash(rtk docker compose down --volumes*)",
+      "Bash(rtk docker compose down * --volumes*)",
+      "Bash(rtk docker compose * down --volumes*)",
+      "Bash(rtk docker compose * down * --volumes*)",
+      "Bash(rtk docker volume rm*)",
+      "Bash(rtk docker volume prune*)",
+      "Bash(rtk docker system prune*)"
+    ]
+  },
+  "hooks": {
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-start-record.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-stop-tests.sh",
+            "timeout": 600
+          }
+        ]
+      }
     ]
   }
 }

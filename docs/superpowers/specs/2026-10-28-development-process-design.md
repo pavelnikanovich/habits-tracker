@@ -156,6 +156,8 @@ The steps are fixed. The agent may propose a deviation (skipping, merging or reo
 3. **`speckit-constitution`.** Project principles: minimum technology, tests are mandatory, the repository holds only the developer's work, and so on. Artifact: `.specify/memory/constitution.md`. Commit on `main`.
 4. **Agent configuration.** `CLAUDE.md` and `.claude/settings.json` with deny rules (see "Agent configuration"). Build and test commands are added once the stack is confirmed in epic 1. One run of `/doctor prompt-audit` checks for conflicts between `CLAUDE.md`, skills and plugins (superpowers, speckit, caveman) — if the installed Claude Code has it; otherwise `/context` shows what loads into the context. Commit on `main`.
 
+For a new product, stage 1 also designs the interaction once the product design is settled: a UX design made with `superpowers:brainstorming`, as in "Before epic 2". habits-tracker found the gap during epic 1, so its UX design comes before epic 2.
+
 Stage 1 runs on `main` without a separate branch: there is nothing to branch from yet. Each step adds its own ledger row in its own commit.
 
 ### Stage 2. Each epic (repeated)
@@ -163,12 +165,20 @@ Stage 1 runs on `main` without a separate branch: there is nothing to branch fro
 An epic is a separate speckit feature with its own folder `specs/NNN-<epic>/` and its own branch `NNN-<epic>`.
 
 1. **Branch** `NNN-<epic>` from `main`.
-2. **`speckit-specify`.** User stories with priorities P1, P2…, functional requirements `FR-NNN`, success criteria. No technology. If the epic has a real design fork (for example, choosing the OTP provider), run `superpowers:brainstorming` on that fork before this step; its outcome is the input to `speckit-specify`, which it hands over to instead of `writing-plans`.
+2. **`speckit-specify`.** User stories with priorities P1, P2…, functional requirements `FR-NNN`, success criteria. No technology. Every screen of the epic has acceptance scenarios for each outcome the user can meet on it: success, refusal, error, waiting, empty. From epic 2 on, the flows come from the UX design (see "Before epic 2"). If the epic has a real design fork (for example, choosing the OTP provider), run `superpowers:brainstorming` on that fork before this step; its outcome is the input to `speckit-specify`, which it hands over to instead of `writing-plans`.
 3. **`speckit-clarify`.** Up to five clarification questions on gaps in the spec.
 4. **Human review: spec.** No approval — no next step.
 5. **`speckit-plan`.** Stack, architecture, `data-model.md`, `contracts/`, `research.md`, deployment scheme. Checked against the constitution. If a technical unknown blocks the plan (for example, whether email leaves the VPS through the chosen provider), a throwaway spike comes first: its code is discarded and never merged, what it taught goes into `research.md`, and the ledger records the spike in one line.
-6. **Human review: technical plan.**
-7. **`superpowers:writing-plans`.** The task plan for the executor. File: `specs/NNN-<epic>/tasks-plan.md`. Requirements are in "Task plan format".
+
+   Before it writes `data-model.md`, the agent asks the developer the design questions of the checklist below, one at a time, each with options and a recommendation, and records every answer in `research.md` or `data-model.md`. An *agent's call* is allowed only where the developer leaves the choice to the agent. Checklist:
+   - **Tactical domain model** (constitution IX): aggregate boundaries; domain services; use cases that change more than one aggregate in a transaction; domain events and when each is delivered; read models; how concurrent changes are resolved; the form of value objects and aggregates; the error model.
+   - **Ports and adapters** (constitution IV): the ports the core needs; the adapters of each; the storage records and their mapping; the contract test suite of each driven port; which failures of each adapter become port outcomes.
+   - **Security** (constitution X), for an epic that touches authentication, sessions or user data: the threat model; what is logged.
+   - **Interfaces:** HTTP caching; how the API change stays compatible with open tabs (constitution VI); the relationship type of every new link in the context map.
+   - **User interface**, for an epic with a screen: every screen of the epic with its elements and states (loading, sending, error, empty); the visual baseline (spacing, type, colours, focus) shared by every screen; accessibility; the widths each screen is checked at. The result is `contracts/ui.md`; a requirement among the answers (accessibility, a new control) goes into the spec through steps 2–4.
+   - **Operations** (constitution XI): rolling back the deployment; restoring the live database; every manual duty the legal pages promise.
+6. **Human review: technical plan.** The digest lists every *agent's call* of the step 5 artifacts on its own line, with a pointer; none is approved as a group.
+7. **`superpowers:writing-plans`.** The task plan for the executor. File: `specs/NNN-<epic>/tasks-plan.md`. Requirements are in "Task plan format". A design decision that comes up while writing the task plan and that the step 5 checklist covers, or that more than one task relies on, goes back into the step 5 artifacts with the developer's word, in its own commit; the task plan refers to it instead of deciding it.
 8. **Human review: task plan.** Before it, the agent runs a mechanical check (a `grep`, no model judgment) that every `FR-NNN` and every user story from `spec.md` appears in the task tags of `tasks-plan.md`, and that every entity in `data-model.md` is a term in `docs/domain/ubiquitous-language.md`; a miss sends the plan back. An epic that introduces or changes a term edits the ubiquitous-language file in its own branch. writing-plans requires the human review before execution; the execution mode is chosen here too. The review checks that every cross-cutting concern (database migrations, error format, configuration) has an owning task. Plan depth follows the epic type: risk or security — full depth with Review Focus; tightly coupled domain — the entity and type model section, and Native is considered; loosely coupled tasks — a light plan. A plan of more than about 12 tasks splits the epic in two, so the epic's PR stays reviewable: the epic returns to step 2 as two specs. Epic 1 is exempt — the walking skeleton is one risk unit, and its CI/CD tasks are manual. The threshold is refined after epic 1. Signs of excess depth: the plan is more than twice as long as the spec, or tasks pass with no questions, no findings and trivial diffs. Epic 1 uses Subagent-driven only: the metrics for the pre-epic-2 decision come only from that mode. From epic 2 on, Subagent-driven or Native, by choice.
 9. **Execution.** Artifacts of steps 2–8 are committed to branch `NNN-<epic>`. Execution starts in a fresh session that works only from the committed artifacts; anything it has to ask the developer is a gap and is tagged in the metrics like an executor question. The main checkout goes back to `main`; `superpowers:using-git-worktrees` attaches a worktree to the same branch `NNN-<epic>` — no nested branches. Then `superpowers:subagent-driven-development` with `superpowers:test-driven-development` for agent-owned tasks; developer-owned tasks are done in the main session (see "Division of work"). Models per role — see "Models". Execution runs with auto-approval; the deny rules hold the boundaries. The developer watches task 1 end to end (brief, implementer report, review), then checks at natural pauses — the intermediate review after foundation tasks and the final review — and interrupts on drift. Drift signals: a loop (the same fix twice); functionality outside the task, even a reasonable next step; any weakening, disabling or deletion of tests; edits outside the task's boundaries. Bugs go through `superpowers:systematic-debugging`. Task briefs are cut from the plan text, so a ruling that changes anything other tasks rely on (an interface, a value, an entity) is written into `tasks-plan.md` and committed before the next task is dispatched. A defect at the spec level stops execution and returns to the spec with the developer. Override of the SDD Finish section: after its final whole-branch review the controller stops — it does not delete the SDD workspace and does not invoke `finishing-a-development-branch`; the process continues with step 10.
 10. **Branch readiness check.** `superpowers:verification-before-completion` with the full test command. The branch code review is SDD's final whole-branch review on Opus (step 9); it is not repeated, and metric 4 refers to it. Epics that touch authentication, sessions or user data also get `/security-review` over the branch.
@@ -177,7 +187,7 @@ An epic is a separate speckit feature with its own folder `specs/NNN-<epic>/` an
 13. **Ledger commit** to the branch, including the deployment record and metrics — see "Ledger". Metrics are harvested from the SDD progress ledger (`.superpowers/sdd/<plan>/progress.md`, git-ignored, inside the worktree) before step 14 removes the worktree. The developer reviews every ruling recorded there and decides which parked reviewer findings become small changes. One run of `/usage` (or `/context`, if `/usage` has no per-skill breakdown) checks where the epic's spend went; any skill, plugin or MCP server above 10% is considered, and a change to the environment is one ledger line.
 14. **Merge.** The developer merges the PR on GitHub — the merge is a human decision. CI redeploys `main` (same code). Only code checked on the server reaches `main`. The agent then removes the worktree, the local branch and the SDD workspace. `superpowers:finishing-a-development-branch` is not used: its merge option merges locally into `main`, which the deny rules and branch protection forbid.
 
-Before every human review (steps 4, 6, 8) the agent gives a short digest in chat, not in the file: decisions taken, assumptions it made without the developer's word, and 2–3 places worth reading closely — each with a pointer into the document. The developer reviews the digest and spot-reads the document.
+Before every human review (steps 4, 6, 8) the agent gives a short digest in chat, not in the file: decisions taken, assumptions it made without the developer's word (each *agent's call* on its own line), and 2–3 places worth reading closely — each with a pointer into the document. The developer reviews the digest and spot-reads the document.
 
 There is one environment, no staging: between steps 12 and 14 the server runs the not-yet-merged branch code. Hence one epic at a time: the server holds one branch.
 
@@ -213,6 +223,19 @@ A change is small if it is one task and adds no new requirements (no new `FR-NNN
 ### Before epic 2
 
 Decision: does `writing-plans` stay the only task source, or is `speckit-tasks` tried for simple epics. Decided by epic 1 metrics (see "Metrics").
+
+**UX design**, with `superpowers:brainstorming`, before epic 2's step 2. Artifact: `docs/superpowers/specs/YYYY-MM-DD-ux-design.md`, for the whole product: the screens and the navigation between them; the interaction patterns every epic reuses (confirmation and warning, forms and their checks, waiting, saved and failed states, the offline and changed-elsewhere notices, empty states); wireframes of the key flows of every epic at 360 and 1280 px (the habit card and today's check-in, fixing a past day in the calendar, creating a Routine and a Commitment with either schedule kind, Commit with its warning, a Release request and its cancellation, archive and restore, delete, a schedule change). It builds on epic 1's baseline (the product design, "Interface"; the shared components) and settles the questions epic 1 left open for it:
+
+- the size of a calendar cell at 360 px, about 30 px, against the 44 px of the baseline's buttons (WCAG 2.2 AA criterion 2.5.8 asks for 24 px; NFR-14 does not name it yet);
+- moving through the calendar's cells by keyboard (arrow keys within the grid, or `Tab` through every cell) (NFR-14);
+- how a check-in looks while the server has not confirmed it, and when it failed (NFR-3);
+- whether a Commit warning, too long for an inline confirmation like sign out everywhere's, needs a dialog component;
+- where the actions of a habit (rename, archive, delete, Commit, Release) live: on the card, in a menu, or on a habit page;
+- the habit name's limits (length, allowed characters), which the domain then holds.
+
+**Runway check**, after the UX design and before epic 2's step 2: epics 2 to 8 are walked against the constitution and epic 1's standing decisions (the code, `docs/operations/runbook.md`, the product design). Artifact: a section of the UX design document, or its own dated file under `docs/superpowers/specs/`. For each epic it lists the decisions that epic's step 5 must take and the traps an earlier epic must avoid so a later one needs no workaround (for example, epic 2 stores a habit's schedule as schedule periods from the start, since epic 5 adds periods and migrations only expand). A constitution change it shows is made once, there, with the developer's word, not epic by epic.
+
+From epic 2 on, step 2 takes each screen's flows from the UX design, and step 5 details them in `contracts/ui.md`; a flow the UX design lacks goes back to it with the developer's word.
 
 ## Task plan format
 
@@ -267,10 +290,12 @@ The summary goes into the epic's ledger entry; the "Before epic 2" decision is m
 | Decision | Where it is decided |
 |---|---|
 | Stack | decided: see the product design, Constraints; libraries confirmed in epic 1 `speckit-plan` |
-| OTP / email delivery provider. Outbound ports 25 and 465 are probably blocked on new Hetzner servers — to be checked | epic 1, brainstorming on the fork before `speckit-specify` |
+| OTP / email delivery provider. Outbound ports 25 and 465 are probably blocked on new Hetzner servers — to be checked | decided: Resend over its HTTP API, see `docs/superpowers/specs/2026-10-30-email-service-design.md` |
 | Subdomain name on `cardlane.eu` | decided: see the product design, Constraints |
 | CI/CD artifacts (what is built, how it is delivered to the VPS) | epic 1, `speckit-plan` |
 | `writing-plans` or `speckit-tasks` for epics 2+ | before epic 2, by metrics |
+| Interaction design of the product (screens, navigation, patterns, flows of every epic) | before epic 2: the UX design, see "Before epic 2" |
+| Decisions and traps of epics 2–8 against the constitution and epic 1 | before epic 2: the runway check, see "Before epic 2" |
 
 ## Revision
 

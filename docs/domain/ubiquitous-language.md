@@ -8,9 +8,9 @@ Each bounded context is a package in the code (modular monolith), not a service.
 
 | Context | Kind | Responsibility |
 |---|---|---|
-| Identity | supporting | Who the user is and whether they are signed in: accounts, one-time codes, sessions, time zone, locale, account deletion. |
-| Habit Tracking | core | Habits, their schedules, check-ins, and everything computed from them: day status, streaks, completion rate. |
-| Live Updates | generic | Delivers changes to every open connection of the same user. Knows no domain rules and decides nothing. |
+| Identity | supporting subdomain | Who the user is and whether they are signed in: accounts, one-time codes, sessions, time zone, locale, account deletion. |
+| Habit Tracking | core domain | Habits, their schedules, check-ins, and everything computed from them: day status, streaks, completion rate. |
+| Live Updates | generic subdomain | Delivers changes to every open connection of the same user. Knows no domain rules and decides nothing. |
 
 ## Context map
 
@@ -22,20 +22,24 @@ Each bounded context is a package in the code (modular monolith), not a service.
 | Habit Tracking | Live Updates | Change notifications: some data of a user changed (a check-in recorded, a habit renamed or archived, ...). Live Updates forwards them to the user's open connections. |
 | Identity | Live Updates | Session revoked or expired: the connections opened under that session are closed. |
 | Identity | Live Updates | Time zone changed: Live Updates forwards the change to every open connection of the user; the page then recomputes today in the new time zone. |
+| Identity | Live Updates | Locale changed: Live Updates forwards the change to every open connection of the user; the page then shows the new language without a reload. |
 
 ## Identity
 
 | Term (EN) | Russian word | Definition | Rules and invariants |
 |---|---|---|---|
+| Visitor | Посетитель | A person using the app in a browser without a session: not signed up yet, or signed out. | Can request a one-time code, sign in, read the Privacy and Terms pages and switch the language. The system keeps no record of a visitor; their language choice is kept in the browser. The first successful sign-in creates the User; a user with no session in a browser is a visitor in that browser. |
 | User | Пользователь | A person signed up to the app, identified by their email. | One user per email. Created on the first successful sign-in. "Account" means the User record: creating the account creates the User, account deletion erases it. |
 | Email | Email | The address a user signs in with. | Compared case-insensitively. Unique among users. |
-| One-time code | Одноразовый код | A 6-digit code sent by email to prove the user owns the address. | Valid for 10 minutes. At most 5 entry attempts per code. Stored only as a hash. Used once. Requesting a new code invalidates earlier ones. At most 3 codes per email per 15 minutes and 20 per IP address per hour. Never written to logs in production. |
+| One-time code | Одноразовый код | A 6-digit code sent by email to prove the user owns the address. | Valid for 10 minutes. At most 5 entry attempts per code. Stored only as a hash. Used once. Requesting a new code invalidates earlier ones, once the new code is sent. Sent in answer to a Code request, within its limits. Never written to logs in production. |
+| Code request | Запрос кода | A request for a one-time code for an email, from an IP address. | Counts against the limits when the code is sent or the result is unclear (a timeout, a lost response); a request refused by a limit or by the email service does not count. At most 5 per email and 10 per IP address (per /64 prefix for IPv6) in any 24 hours, a sliding window. Its email and IP address are kept 24 hours. |
 | Sign-in | Вход | Requesting a one-time code and entering it. | A correct, unexpired, unused code opens a session. |
-| Session | Сеанс | The state of being signed in on one browser. | Stored on the server; the `HttpOnly`, `Secure` cookie carries only its id. Sliding: expires after 30 days without activity, activity extends it. Activity is a request the user makes; an open Connection alone is not activity. Revocation takes effect at once. |
+| Session | Сеанс | The state of being signed in on one browser. | Stored on the server; the `HttpOnly`, `Secure` cookie carries only its id. Sliding: expires after 30 days without activity, activity extends it. Activity is a request the user makes; an open Connection alone is not activity. Revocation takes effect at once. The cookie of a session that is not a Remembered session ends when the browser closes. |
+| Remembered session | Запомненный сеанс | A session opened with "Remember me" ticked. | Its cookie persists across browser restarts; the session still expires after 30 days without activity. Ticking the box is the user's consent to the persistent cookie; the box is unchecked by default. |
 | Sign out | Выход | Revoking the current session. | — |
 | Sign out everywhere | Выход на всех устройствах | Revoking every session of the user. | Live Updates is told of every revoked session (see the context map). |
-| Time zone | Часовой пояс | The user's IANA time zone. | Taken from the browser on the first sign-in; the user can change it. |
-| Locale | Язык интерфейса | The language of the interface and of the one-time code email. | Only English exists now. Every user-visible string lives in translation files; a new language is a new file, with no code change. |
+| Time zone | Часовой пояс | The user's IANA time zone. | Taken from the browser on the first sign-in; if the browser reports none, or one the system does not know, it is UTC and the user is told so. The user can change it. |
+| Locale | Язык интерфейса | The language of the interface and of the one-time code email. | English, Polish and Russian. Before sign-in it follows the browser and the language switcher, falling back to English; at the first sign-in it becomes the user's locale; the user can change it. Every user-visible string lives in translation files; a new language is a new file, with no code change. A change reaches every open connection of the user through Live Updates (see the context map). |
 | Account deletion | Удаление аккаунта | The user erasing their account. | Erases all the user's data at once, in every context. Not reversible. Backups keep a copy until they expire, at most 7 days. |
 
 ## Habit Tracking

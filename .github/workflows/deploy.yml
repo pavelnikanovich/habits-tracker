@@ -1,0 +1,131 @@
+# Deployment to habits.cardlane.eu (FR-034, FR-035, research R13). Called by deploy-branch.yml and deploy-main.yml, or
+# run by hand (GitHub runs a manual workflow only from the default branch). Unless image_tag is given, the image is built
+# and pushed to GHCR tagged with the commit SHA; then, over SSH: the files of /opt/habits and its .env are written from
+# the repository and the production environment's secrets (the environment is the one source of the secrets), the
+# database is backed up, the migration bundles run unless migrate is false, and the application starts with that tag.
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        default: ""
+      migrate:
+        type: string
+        default: "true"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Commit SHA of an image already in GHCR (empty builds the current commit)
+        type: string
+        default: ""
+      migrate:
+        description: Run the migration bundles
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+
+permissions:
+  contents: read
+
+# One deployment at a time; a queued one waits instead of cancelling a deployment halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  # A pull request event's github.sha is GitHub's merge commit; the deployed code is the branch head.
+  COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  build:
+    if: inputs.image_tag == ''
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.COMMIT_SHA }}
+      - name: Build and push the image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/$owner/habits-tracker:$COMMIT_SHA"
+          echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --tag "$image" .
+          docker push "$image"
+
+  deploy:
+    needs: build
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag || github.event.pull_request.head.sha || github.sha }}
+      MIGRATE: ${{ inputs.migrate || 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.COMMIT_SHA }}
+      - name: Set up SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host server\n  HostName %s\n  User deploy\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' "$DEPLOY_HOST" > ~/.ssh/config
+      - name: Write the files and the .env of /opt/habits
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          IDENTITY_CODE_HASH_KEY: ${{ secrets.IDENTITY_CODE_HASH_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          set -euo pipefail
+          cp ops/compose.prod.yaml ops/Caddyfile .
+          tar -czf - compose.prod.yaml Caddyfile ops | ssh server 'tar -xzf - -C /opt/habits'
+          printf 'IMAGE_OWNER=%s\nIMAGE_TAG=%s\nPOSTGRES_PASSWORD=%s\nIDENTITY_CODE_HASH_KEY=%s\nRESEND_API_KEY=%s\n' \
+            "${GITHUB_REPOSITORY_OWNER,,}" "$IMAGE_TAG" "$POSTGRES_PASSWORD" "$IDENTITY_CODE_HASH_KEY" "$RESEND_API_KEY" \
+            | ssh server 'umask 077 && cat > /opt/habits/.env'
+      - name: Log the server in to GHCR for this deployment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GITHUB_TOKEN" | ssh server "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+      - name: Back up, migrate, start
+        run: |
+          ssh server bash -s -- "$IMAGE_TAG" "$MIGRATE" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/habits
+          export IMAGE_TAG="$1" HABITS_COMPOSE_FILES=/opt/habits/compose.prod.yaml
+          compose() { docker compose -f compose.prod.yaml "$@"; }
+          compose pull app
+          # The first deployment has no database yet: it starts here, and the backup is of the empty database.
+          compose up --detach --wait db
+          ops/backup.sh
+          # This script reaches bash on its standard input: a `compose run` that kept stdin would read the rest of it.
+          if [ "$2" != "false" ]; then
+            compose run --rm -T app ./migrate-identity < /dev/null
+            compose run --rm -T app ./migrate-operations < /dev/null
+          fi
+          compose up --detach --remove-orphans
+          compose ps
+          REMOTE
+      - name: Log the server out of GHCR
+        if: always()
+        run: ssh server 'docker logout ghcr.io' || true
+      - name: Check /health
+        # Caddy obtains its certificate on the first start, and the application needs a few seconds to start, so the
+        # one check waits up to a minute for the first answer.
+        run: curl --fail --silent --show-error --max-time 10 --retry 12 --retry-delay 5 --retry-all-errors https://habits.cardlane.eu/health

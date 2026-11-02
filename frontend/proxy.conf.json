@@ -1,0 +1,8 @@
+{
+  "/api": {
+    "target": "http://localhost:5080"
+  },
+  "/health": {
+    "target": "http://localhost:5080"
+  }
+}

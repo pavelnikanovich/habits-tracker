@@ -1,0 +1,17 @@
+# Override of compose.yaml for scripts/load-test.sh (research R14, FR-040): the app and the database are limited to
+# 1 vCPU and 2 GB each, together the server's 2 vCPU and 4 GB. Split limits are stricter than a shared pool, so passing
+# the split passes "limited together". Every load-test user signs in from one address, so the per-IP code request limit
+# is raised (FR-003). The app is published on 18080 and the database not at all, so a running development stack
+# (ports 8080, 5432) is not in the way.
+services:
+  db:
+    cpus: 1
+    mem_limit: 2g
+    ports: !override []
+  app:
+    cpus: 1
+    mem_limit: 2g
+    ports: !override
+      - "127.0.0.1:18080:8080"
+    environment:
+      Identity__CodeRequestLimits__PerIpAddress: "1000"

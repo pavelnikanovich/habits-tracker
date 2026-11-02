@@ -1,0 +1,16 @@
+# HTTPS in front of the development loop for the webkit-360 project (research R12, R-66): WebKit refuses the Secure
+# session cookie over http://localhost, so its tests open https://localhost:8443, where Caddy's own CA signs the
+# certificate (`tls internal`; the project sets ignoreHTTPSErrors). ng serve on 4200 proxies /api to the host.
+{
+	admin off
+	skip_install_trust
+	log {
+		level ERROR
+	}
+	auto_https disable_redirects
+}
+
+https://localhost:8443 {
+	tls internal
+	reverse_proxy localhost:4200
+}

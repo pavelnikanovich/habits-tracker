@@ -1,0 +1,13 @@
+# The daily database backup (FR-035, research R10), started by habits-backup.timer. Installed on the server with
+# `systemctl link /opt/habits/ops/systemd/habits-backup.service /opt/habits/ops/systemd/habits-backup.timer`.
+[Unit]
+Description=Back up the habits database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/opt/habits
+Environment=HABITS_COMPOSE_FILES=/opt/habits/compose.prod.yaml
+ExecStart=/opt/habits/ops/backup.sh

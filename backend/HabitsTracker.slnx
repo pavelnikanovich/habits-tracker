@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HabitsTracker.Host/HabitsTracker.Host.csproj" />
+    <Project Path="src/HabitsTracker.Identity.Adapters/HabitsTracker.Identity.Adapters.csproj" />
+    <Project Path="src/HabitsTracker.Identity.Core/HabitsTracker.Identity.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HabitsTracker.Host.Tests/HabitsTracker.Host.Tests.csproj" />
+    <Project Path="tests/HabitsTracker.Identity.Adapters.Tests/HabitsTracker.Identity.Adapters.Tests.csproj" />
+    <Project Path="tests/HabitsTracker.Identity.Core.Tests/HabitsTracker.Identity.Core.Tests.csproj" />
+  </Folder>
+</Solution>

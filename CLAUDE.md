@@ -8,7 +8,8 @@
 
 ## Commands
 
-Build and test commands are added in epic 1, once `speckit-plan` confirms the stack.
+- Fast: `scripts/test-fast.sh` (`dotnet test backend/HabitsTracker.slnx`, `npm --prefix frontend test`), about 21 s on the developer machine (530 tests, 2026-11-02); it needs Docker running, since Testcontainers starts PostgreSQL, and the first frontend build or test needs access to `github.com` for the font. Frontend lint: `npm --prefix frontend run lint`. Load: `scripts/load-test.sh` (100 users for 10 minutes, about 12 minutes, own compose project; k6 image `grafana/k6:2.3.0` pulled once).
+- Full: `scripts/test-full.sh` (fast, lint, `npm --prefix frontend run e2e`, every `*.test.sh` under `scripts/tests/` and `ops/tests/`). The end-to-end run starts its own `scripts/dev.sh` (database, host on 5080, `ng serve` on 4200, log `.dev/app.log`) and Caddy on 8443 for WebKit (image `caddy:2.11`, pulled once), so stop yours first. Browsers once: `npx --prefix frontend playwright install --with-deps chromium webkit`.
 
 ## Session start
 

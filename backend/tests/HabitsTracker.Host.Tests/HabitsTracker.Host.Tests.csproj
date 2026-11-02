@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Test names are sentences: Health_is_healthy_when_the_database_is_reachable. -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit.v3" />
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\CapturingLoggerProvider.cs" Link="Shared\CapturingLoggerProvider.cs" />
+    <Compile Include="..\Shared\PostgresFixture.cs" Link="Shared\PostgresFixture.cs" />
+    <Compile Include="..\Shared\Repository.cs" Link="Shared\Repository.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HabitsTracker.Host\HabitsTracker.Host.csproj" />
+  </ItemGroup>
+
+</Project>

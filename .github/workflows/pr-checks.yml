@@ -1,0 +1,120 @@
+# Pull request checks (FR-034, research R19): every check of scripts/test-full.sh plus the load test, the
+# dependency audit and the test integrity check, on GitHub-hosted runners. `pull_request` runs the pull request's
+# code with a read-only token and no secrets; `pull_request_target` is not used, so a fork's code never sees them.
+name: Pull request checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - run: scripts/test-fast.sh
+
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      # The backend analysers run in every build, so in `fast`.
+      - run: npm --prefix frontend run lint
+
+  e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      # `ng serve` and the host's file watchers need more inotify instances than the runner's default.
+      - run: sudo sysctl -w fs.inotify.max_user_instances=512
+      - run: npx --prefix frontend playwright install --with-deps chromium webkit
+      - run: npm --prefix frontend run e2e
+      - if: failure()
+        run: tail -n 200 .dev/app.log || true
+
+  ops:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      # compose-run.test.sh renders the built page in Chromium to check it under the CSP.
+      - run: npx --prefix frontend playwright install --with-deps chromium
+      # The tests that build a migration bundle (ops/tests/lib/identity-schema.sh) need the restored projects: dotnet-ef
+      # reads a project's metadata before it builds.
+      - run: dotnet restore backend/HabitsTracker.slnx
+      - name: Shell tests of scripts/tests and ops/tests
+        run: |
+          set -euo pipefail
+          for test in scripts/tests/*.test.sh ops/tests/*.test.sh; do
+            echo "== $test"
+            bash "$test"
+          done
+
+  load:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: scripts/load-test.sh
+
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # The backend's NuGet Audit runs in every build, so in `fast`.
+      - run: npm --prefix frontend audit --audit-level=high
+
+  test-integrity:
+    # The label is read when the run starts: after adding it, re-run this job.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'test-exception') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the script needs the merge base with main
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - run: scripts/test-integrity.sh origin/main

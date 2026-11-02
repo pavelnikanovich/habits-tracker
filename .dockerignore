@@ -1,0 +1,26 @@
+# The build context is the repository root; the image needs backend/, frontend/ and global.json only.
+.git
+.claude
+.dev
+.specify
+.superpowers
+.env
+.env.*
+specs
+docs
+ops
+scripts
+testdata
+TestResults
+**/bin
+**/obj
+**/node_modules
+**/TestResults
+frontend/.angular
+frontend/dist
+frontend/test-results
+frontend/e2e
+# Fetched and checksummed again by the image build (research R24).
+frontend/src/assets/fonts
+frontend/public/fonts
+backend/tests

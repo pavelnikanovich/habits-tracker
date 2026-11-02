@@ -1,0 +1,54 @@
+<h1 tabindex="-1">{{ 'signIn.title' | transloco }}</h1>
+
+@if (sessionEnded) {
+  <app-message kind="info" id="session-ended">{{ 'signIn.sessionEnded' | transloco }}</app-message>
+}
+
+<form novalidate (submit)="submit($event)">
+  <div class="field">
+    <label for="email">{{ 'signIn.email' | transloco }}</label>
+    <input
+      #emailField
+      id="email"
+      name="email"
+      type="email"
+      autocomplete="email"
+      autocapitalize="none"
+      spellcheck="false"
+      [value]="email()"
+      [attr.aria-invalid]="invalid() ? 'true' : null"
+      [attr.aria-describedby]="describedBy()"
+      (input)="typeEmail($event)"
+    />
+    @if (invalid()) {
+      <app-message kind="error" id="email-error">{{ 'signIn.emailInvalid' | transloco }}</app-message>
+    }
+  </div>
+
+  <div class="remember">
+    <input
+      id="remember-me"
+      name="rememberMe"
+      type="checkbox"
+      aria-describedby="remember-me-hint"
+      [checked]="rememberMe()"
+      (change)="chooseRememberMe($event)"
+    />
+    <label for="remember-me">{{ 'signIn.rememberMe' | transloco }}</label>
+    <p id="remember-me-hint" class="hint">{{ 'signIn.rememberMeHint' | transloco }}</p>
+  </div>
+
+  <button type="submit" [attr.aria-disabled]="flow.sending() ? 'true' : null">
+    {{ (flow.sending() ? 'signIn.requesting' : 'signIn.requestCode') | transloco }}
+  </button>
+
+  @if (flow.refusalText(); as refusal) {
+    <app-message kind="error" id="refusal">{{ refusal }}</app-message>
+  }
+</form>
+
+<p class="acceptance">
+  {{ 'signIn.acceptPrefix' | transloco }}<a routerLink="/terms">{{ 'signIn.termsLink' | transloco }}</a
+  >{{ 'signIn.acceptMiddle' | transloco }}<a routerLink="/privacy">{{ 'signIn.privacyLink' | transloco }}</a
+  >{{ 'signIn.acceptSuffix' | transloco }}
+</p>

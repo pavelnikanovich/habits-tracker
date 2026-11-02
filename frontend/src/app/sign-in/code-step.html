@@ -1,0 +1,40 @@
+<h1 tabindex="-1">{{ 'signIn.title' | transloco }}</h1>
+
+<p>{{ 'signIn.codeSent' | transloco: { email: flow.email() } }}</p>
+<app-message kind="info" id="remaining">
+  {{ 'signIn.remaining' | transloco: { remaining: flow.remaining(), limit: flow.limit() } }}
+</app-message>
+
+<form novalidate (submit)="submit($event)">
+  <div class="field">
+    <label for="code">{{ 'signIn.code' | transloco }}</label>
+    <input
+      #codeField
+      id="code"
+      name="code"
+      type="text"
+      inputmode="numeric"
+      autocomplete="one-time-code"
+      autocapitalize="none"
+      spellcheck="false"
+      [value]="code()"
+      [attr.aria-invalid]="fieldInvalid() ? 'true' : null"
+      [attr.aria-describedby]="fieldInvalid() ? 'refusal' : null"
+      (input)="typeCode($event)"
+    />
+    @if (flow.refusalText(); as refusal) {
+      <app-message kind="error" id="refusal">{{ refusal }}</app-message>
+    }
+  </div>
+
+  <button type="submit" [attr.aria-disabled]="flow.signingIn() ? 'true' : null">
+    {{ (flow.signingIn() ? 'signIn.signingIn' : 'signIn.signIn') | transloco }}
+  </button>
+</form>
+
+<div class="actions">
+  <button type="button" class="link" [attr.aria-disabled]="flow.sending() ? 'true' : null" (click)="resend()">
+    {{ (flow.sending() ? 'signIn.requesting' : 'signIn.resendCode') | transloco }}
+  </button>
+  <button type="button" class="link" (click)="useAnotherEmail()">{{ 'signIn.otherEmail' | transloco }}</button>
+</div>

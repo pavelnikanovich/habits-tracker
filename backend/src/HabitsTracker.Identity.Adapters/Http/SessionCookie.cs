@@ -1,0 +1,71 @@
+using HabitsTracker.Identity.Core;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
+
+namespace HabitsTracker.Identity.Adapters.Http;
+
+/// <summary>
+/// The cookie <c>session</c> (contracts/http-api.md, "Authentication"; research R4): only the session token,
+/// <c>HttpOnly</c>, <c>Secure</c>, <c>SameSite=Lax</c>, <c>Path=/</c>, no <c>Domain</c>; no <c>Expires</c> or
+/// <c>Max-Age</c> for a session that is not a Remembered session, <c>Max-Age=2592000</c> for a Remembered one: its idle
+/// timeout of 30 days, <see cref="Session.IdleTimeout"/>.
+/// Written here rather than by ASP.NET Core's cookie authentication, so these are its only attributes.
+/// </summary>
+public static class SessionCookie
+{
+    public const string Name = "session";
+
+    public static void Append(HttpResponse response, SessionToken token, bool remembered)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(token);
+
+        var options = Options();
+        if (remembered)
+            options.MaxAge = Session.IdleTimeout;
+        response.Cookies.Append(Name, token.Value, options);
+    }
+
+    /// <summary>
+    /// Tells the browser to drop the cookie: the same attributes, with an expiry in the past. It replaces a session
+    /// cookie the response already carries (the renewal of a Remembered session's), so the clearing one is the only one.
+    /// </summary>
+    public static void Clear(HttpResponse response)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+
+        var others = response.Headers.SetCookie
+            .Where(header => header is not null && !header.StartsWith(Name + "=", StringComparison.Ordinal))
+            .ToArray();
+        response.Headers.SetCookie = new StringValues(others);
+
+        response.Cookies.Delete(Name, Options());
+    }
+
+    /// <summary>The token the request's cookie carries, or null when there is no cookie or its value is not a session token.</summary>
+    public static SessionToken? Read(HttpRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (!request.Cookies.TryGetValue(Name, out var value))
+            return null;
+
+        try
+        {
+            return SessionToken.Create(value);
+        }
+        catch (DomainException exception) when (exception.Error == DomainError.InvalidSessionToken)
+        {
+            return null;
+        }
+    }
+
+    // Secure in every environment, development included: Chromium accepts a Secure cookie from http://localhost (research R4).
+    private static CookieOptions Options() => new()
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Lax,
+        Path = "/",
+    };
+}

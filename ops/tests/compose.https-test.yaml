@@ -1,0 +1,20 @@
+# Override of compose.yaml for ops/tests/https-only.test.sh: the one Caddyfile of production, for `localhost` with
+# Caddy's own certificate authority (local_certs), in front of the development app. Ports 80 and 443 of this machine.
+# Neither the database nor the app publishes a port: the proxy is the only way in.
+services:
+  db:
+    ports: !override []
+  app:
+    ports: !override []
+  caddy:
+    image: caddy:2.11.7
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    environment:
+      SITE_ADDRESS: localhost
+      CADDY_GLOBAL_OPTIONS: local_certs
+    volumes:
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - app

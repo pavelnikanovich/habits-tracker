@@ -1,0 +1,57 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { provideTransloco, TranslocoService } from '@jsverse/transloco';
+import { firstValueFrom } from 'rxjs';
+import { FileTranslationLoader, translationCodes } from '../testing/translation-files';
+import { AppShell } from './app';
+import { provideIcuTranspiler } from './i18n/icu-transpiler';
+import { routes } from './app.routes';
+import { CurrentUserService } from './session/current-user.service';
+
+describe('AppShell', () => {
+  beforeEach(async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter(routes),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideTransloco({ config: { defaultLang: 'en', availableLangs: translationCodes() }, loader: FileTranslationLoader }),
+        provideIcuTranspiler(),
+      ],
+    });
+    await firstValueFrom(TestBed.inject(TranslocoService).load('en'));
+  });
+
+  it('every route shows the switchers and the Privacy and Terms links', async () => {
+    const pages: [string, string][] = [
+      ['/sign-in', 'Sign in'],
+      ['/', 'Habits'],
+      ['/privacy', 'Privacy policy'],
+      ['/terms', 'Terms of use'],
+      ['/no-such-page', 'Page not found'],
+    ];
+    const fixture = TestBed.createComponent(AppShell);
+    const page = fixture.nativeElement as HTMLElement;
+
+    // A visitor sees the sign-in; the main screen is for a signed-in user.
+    const users = TestBed.inject(CurrentUserService);
+    users.clear();
+    for (const [url, heading] of pages) {
+      if (url === '/') await users.signedIn({ email: 'ann@example.com', timeZone: 'UTC', timeZoneRecognized: true, locale: 'en' });
+      await TestBed.inject(Router).navigateByUrl(url);
+      await fixture.whenStable();
+
+      expect(page.querySelectorAll('h1').length, url).toBe(1);
+      expect(page.querySelector('h1')?.textContent?.trim(), url).toBe(heading);
+      expect(page.querySelector('main h1')?.getAttribute('tabindex'), url).toBe('-1');
+      const switcher = page.querySelector('header select');
+      expect(switcher, url).not.toBeNull();
+      expect(page.querySelector(`label[for="${switcher?.id}"]`)?.textContent?.trim(), url).toBe('Language');
+      expect(page.querySelector('header button[type="button"]')?.textContent?.trim(), url).toBe('Light theme');
+      expect(page.querySelector('footer a[href="/privacy"]')?.textContent?.trim(), url).toBe('Privacy');
+      expect(page.querySelector('footer a[href="/terms"]')?.textContent?.trim(), url).toBe('Terms');
+    }
+  });
+});

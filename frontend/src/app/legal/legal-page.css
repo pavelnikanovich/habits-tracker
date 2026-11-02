@@ -1,0 +1,13 @@
+:host {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  margin-bottom: var(--space-3);
+}
+
+.prevails {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}

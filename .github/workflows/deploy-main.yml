@@ -1,0 +1,17 @@
+# Deploys every push to main, that is every merge (FR-034, research R13).
+name: Deploy main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
