@@ -17,6 +17,8 @@ public sealed class SignOut
     public Task ExecuteAsync(byte[] sessionId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sessionId);
+        if (sessionId.Length != Session.IdLength)
+            throw new ArgumentException("The session id is not 32 bytes.", nameof(sessionId));
 
         return sessions.DeleteAsync(sessionId, ct);
     }

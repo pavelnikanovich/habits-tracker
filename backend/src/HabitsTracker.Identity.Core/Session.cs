@@ -3,7 +3,7 @@ namespace HabitsTracker.Identity.Core;
 // Aggregate: a signed-in browser, known by the SHA-256 of the token in its cookie.
 public sealed class Session
 {
-    private const int IdLength = 32;
+    public const int IdLength = 32;
 
     public static readonly TimeSpan IdleTimeout = TimeSpan.FromDays(30);
 
