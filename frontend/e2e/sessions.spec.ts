@@ -3,7 +3,7 @@ import { newBrowser } from './support/contexts';
 import { uniqueEmail } from './support/emails';
 import { expectVisibleFocus, pressTabUntil } from './support/keyboard';
 import { expectControlsInViewport, expectNoHorizontalScroll } from './support/layout';
-import { languageSwitcher, switchLanguage } from './support/shell';
+import { heading, languageSwitcher, switchLanguage } from './support/shell';
 import { projectOrigin as origin, signIn } from './support/sign-in';
 import { forEachTheme } from './support/themes';
 import { translation } from './support/translations';
@@ -101,6 +101,18 @@ test('main screen actions by keyboard alone @main-path', async ({ page }) => {
   await page.keyboard.press('Enter');
 
   await expect(page).toHaveURL(`${origin()}/sign-in`);
+});
+
+// SC-015: plain sign out by keyboard alone, as sign out everywhere above.
+test('sign out by keyboard alone', async ({ page }) => {
+  await signIn(page, uniqueEmail());
+
+  await pressTabUntil(page, signOut(page));
+  await expectVisibleFocus(page);
+  await page.keyboard.press('Enter');
+
+  await expect(page).toHaveURL(`${origin()}/sign-in`);
+  await expect(heading(page)).toHaveText(en.signIn.title);
 });
 
 test('main screen actions at every width in both themes @width', async ({ page }) => {
