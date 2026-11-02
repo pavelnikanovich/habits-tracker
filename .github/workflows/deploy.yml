@@ -114,9 +114,10 @@ jobs:
           # The first deployment has no database yet: it starts here, and the backup is of the empty database.
           compose up --detach --wait db
           ops/backup.sh
+          # This script reaches bash on its standard input: a `compose run` that kept stdin would read the rest of it.
           if [ "$2" != "false" ]; then
-            compose run --rm app ./migrate-identity
-            compose run --rm app ./migrate-operations
+            compose run --rm -T app ./migrate-identity < /dev/null
+            compose run --rm -T app ./migrate-operations < /dev/null
           fi
           compose up --detach --remove-orphans
           compose ps
