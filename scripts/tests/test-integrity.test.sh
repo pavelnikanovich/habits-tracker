@@ -71,18 +71,18 @@ check
 expect 1 "marker in a new file"
 case "$output" in *"src/new.js:2: ${markers[1]}"*) ;; *) fail "new file: output lacks the file and line ($output)" ;; esac
 
-# A marker inside a longer word is none: exit( is not xit(.
+# A marker inside a longer word is none: a call of exit is not the marker that ends in it.
 new_repo 5
 printf 'one\nprocess.exit(1)\nsys.exit(2)\nthree\n' > "$repo/a.ts"
 commit_all
 check
-expect 0 "exit( is not xit("
+expect 0 "exit( is not a marker"
 
 new_repo 5
-printf 'one\n(xit(1)\n%s\nthree\n' "ex""it(1) xit(2)" > "$repo/a.ts"
+printf 'one\nexit(1) (%s\nthree\n' "xi""t(2)" > "$repo/a.ts"
 commit_all
 check
-expect 1 "xit( after a longer word on the same line"
+expect 1 "a marker after a longer word on the same line"
 
 # A marker only in a removed line, or untouched since the base, passes.
 new_repo 5
@@ -148,6 +148,39 @@ printf '%s\n' "${markers[2]}" >> "$repo/a.ts"
 commit_all
 check
 expect 1 "marker against an empty base"
+
+# A counting command that fails fails the check closed (exit 2, its stderr in the message), at the base and at HEAD.
+export TEST_COUNT_COMMAND='if [ -f broken ]; then echo "boom: no package source" >&2; exit 1; fi; cat count 2> /dev/null || echo 0'
+new_repo 5
+touch "$repo/broken"
+git -C "$repo" add -A
+git -C "$repo" commit -q -m broken
+git -C "$repo" branch -q -f main HEAD
+rm "$repo/broken"
+echo 9 > "$repo/count"
+commit_all
+check
+expect 2 "counting command failing at the base"
+case "$output" in *"boom: no package source"*) ;; *) fail "failing base: the message lacks the command's stderr ($output)" ;; esac
+
+new_repo 5
+touch "$repo/broken"
+commit_all
+check
+expect 2 "counting command failing at HEAD"
+export TEST_COUNT_COMMAND='cat count 2> /dev/null || echo 0'
+
+# A shallow clone has lost the history the merge base needs: exit 2 asking for full history, not the two-dot fallback.
+new_repo 5
+echo more >> "$repo/a.ts"
+commit_all
+clone="$work/shallow"
+git clone -q --depth 1 --no-single-branch "file://$repo" "$clone" 2> /dev/null
+git -C "$clone" checkout -q feature
+output="$(cd "$clone" && bash "$script" origin/main 2>&1)"
+status=$?
+expect 2 "shallow clone"
+case "$output" in *"full history"*) ;; *) fail "shallow clone: the message does not ask for full history ($output)" ;; esac
 
 # No base-ref is a usage error.
 output="$(cd "$repo" && bash "$script" 2>&1)"

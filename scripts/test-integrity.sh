@@ -10,6 +10,11 @@
 # counting command finds nothing. TEST_COUNT_COMMAND replaces the whole counting command, for the script's own test: it
 # runs with the checkout as its working directory and prints one number.
 #
+# Known limit: the listing commands print a theory row or a generated case (it.each, a loop) once, so removing one of its
+# rows does not lower the count; markers and removed methods, tests or files are caught.
+# A listing command that fails (a broken build, a restore without network) is an error (exit 2), never a count of 0;
+# only the absence of a project counts 0. A shallow clone has no merge base to find (exit 2: fetch full history).
+#
 # The markers are spelled in two pieces, so that this file does not hold them itself.
 set -euo pipefail
 
@@ -27,8 +32,14 @@ git rev-parse --verify --quiet "$base_ref^{commit}" > /dev/null \
 markers=("Ski""p =" ".ski""p(" ".onl""y(" "xi""t(" "xdescri""be(" "test.fi""xme(")
 
 # --- markers: only added lines count, in test files and everywhere else. A letter-initial marker must start a word.
-if merge_base="$(git merge-base "$base_ref" HEAD 2> /dev/null)"; then
+merge_base_status=0
+merge_base="$(git merge-base "$base_ref" HEAD 2> /dev/null)" || merge_base_status=$?
+if [ "$merge_base_status" -eq 0 ]; then
   diff_range=("$base_ref...HEAD")
+elif [ "$(git rev-parse --is-shallow-repository)" = true ] || [ "$merge_base_status" -ne 1 ]; then
+  # Exit 1 of merge-base means "no common ancestor"; anything else, or a shallow clone, means missing history.
+  echo "test-integrity.sh: the merge base of $base_ref and HEAD cannot be found, the history is missing: fetch full history (git fetch --unshallow)" >&2
+  exit 2
 else
   merge_base="$(git rev-parse "$base_ref^{commit}")"
   diff_range=("$base_ref" HEAD) # no common history: there is no merge base to diff from
@@ -49,7 +60,7 @@ done < <(
     /^\+/ {
       text = substr($0, 2)
       for (i = 1; i <= n; i++) {
-        # A marker that starts with a letter must start a word, so that exit( is not xit(.
+        # A marker that starts with a letter must start a word, so that a call of exit is not taken for the Jasmine marker.
         rest = text
         offset = 0
         while ((at = index(rest, marker[i])) > 0) {
@@ -64,10 +75,27 @@ done < <(
 )
 
 # --- the count.
+errors="$(mktemp)"
+
+# run_listing <name> <command...>: prints the command's stdout; if it fails, says so with its stderr and returns 2.
+run_listing() {
+  local name="$1" out status=0
+  shift
+  out="$("$@" 2> "$errors")" || status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "test-integrity.sh: $name failed with exit $status in $PWD:" >&2
+    cat "$errors" >&2
+    printf '%s\n' "$out" | tail -n 20 >&2
+    return 2
+  fi
+  printf '%s\n' "$out"
+}
+
 count_here() { # the number of tests of the tree in the current directory
+  local total=0 n out tmp
   if [ -n "${TEST_COUNT_COMMAND:-}" ]; then
-    local out
-    out="$(bash -c "$TEST_COUNT_COMMAND" 2> /dev/null | tail -n 1)" || out=""
+    out="$(run_listing TEST_COUNT_COMMAND bash -c "$TEST_COUNT_COMMAND")" || return 2
+    out="$(tail -n 1 <<< "$out")"
     out="${out//[[:space:]]/}"
     case "$out" in
       "") echo 0 ;;
@@ -78,27 +106,28 @@ count_here() { # the number of tests of the tree in the current directory
   fi
 
   source "$root/scripts/lib/dotnet-path.sh"
-  local total=0 n out tmp
   if [ -f backend/HabitsTracker.slnx ]; then
     ensure_dotnet test-integrity.sh
-    out="$(dotnet test backend/HabitsTracker.slnx --list-tests 2> /dev/null)" || out=""
+    out="$(run_listing "dotnet test backend/HabitsTracker.slnx --list-tests" dotnet test backend/HabitsTracker.slnx --list-tests)" || return 2
     n="$(sed -n 's/^Discovered \([0-9][0-9]*\) tests in assembly.*/\1/p' <<< "$out" | awk '{ sum += $1 } END { print sum + 0 }')"
-
-    total=$((total + ${n:-0}))
+    total=$((total + n))
   fi
-  if [ -f frontend/package.json ] && [ -d frontend/node_modules ]; then
+  if [ -f frontend/package.json ]; then
+    if [ ! -d frontend/node_modules ]; then
+      echo "test-integrity.sh: frontend/node_modules is missing in $PWD: run npm ci first" >&2
+      return 2
+    fi
     tmp="$(mktemp)"
     # Vitest also lists the Playwright specs under e2e/, which the next command counts.
-    (cd frontend && npx --no-install vitest list --json "$tmp" > /dev/null 2>&1) || true
+    out="$(cd frontend && run_listing "npx vitest list" npx --no-install vitest list --json "$tmp")" || { rm -f "$tmp"; return 2; }
     n="$(node -e '
-      try {
-        const tests = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
-        console.log(tests.filter((t) => !/[\\/]e2e[\\/]/.test(t.file)).length);
-      } catch { console.log(0); }' "$tmp")"
+      const tests = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+      console.log(tests.filter((t) => !/[\\/]e2e[\\/]/.test(t.file)).length);' "$tmp")" \
+      || { echo "test-integrity.sh: the Vitest list is not readable JSON" >&2; rm -f "$tmp"; return 2; }
     rm -f "$tmp"
     total=$((total + n))
     if [ -f frontend/playwright.config.ts ]; then
-      out="$(cd frontend && npx --no-install playwright test --list 2> /dev/null)" || out=""
+      out="$(cd frontend && run_listing "npx playwright test --list" npx --no-install playwright test --list)" || return 2
       n="$(sed -n 's/^Total: \([0-9][0-9]*\) tests\{0,1\} in .*/\1/p' <<< "$out" | tail -n 1)"
       total=$((total + ${n:-0}))
     fi
@@ -109,7 +138,7 @@ count_here() { # the number of tests of the tree in the current directory
 base_dir="$(mktemp -d)"
 cleanup() {
   git -C "$root" worktree remove --force "$base_dir" > /dev/null 2>&1 || true
-  rm -rf "$base_dir"
+  rm -rf "$base_dir" "$errors"
 }
 trap cleanup EXIT
 git worktree add --quiet --detach "$base_dir" "$merge_base" > /dev/null
