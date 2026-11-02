@@ -39,6 +39,11 @@ stub "$dir/stubs/docker" docker
 stub "$dir/stubs/dotnet" dotnet
 stub "$dir/frontend/node_modules/.bin/ng" ng
 stub "$dir/frontend/scripts/fetch-fonts.sh" fetch-fonts
+# dev.sh stops both servers once either ends (`wait -n`), so a `dotnet watch` stub that exited at once could end the
+# run before the ng stub has recorded its start. It waits up to 5 s for that line first; the order of the two starts
+# is then observed, not raced.
+printf 'if [ "${1:-}" = watch ]; then for _ in $(seq 1 50); do grep -q "^ng serve" "%s/started" 2> /dev/null && break; sleep 0.1; done; fi\n' \
+  "$dir" >> "$dir/stubs/dotnet"
 # The fetch stub fails when FETCH_FONTS_FAILS is set.
 printf '[ -z "${FETCH_FONTS_FAILS:-}" ] || exit 1\n' >> "$dir/frontend/scripts/fetch-fonts.sh"
 
@@ -65,7 +70,8 @@ kill "$holder_pid" 2> /dev/null
 wait "$holder_pid" 2> /dev/null
 holder_pid=""
 
-# The lock is free: the fonts are fetched first, ng serve after them. Every stub server exits at once, so dev.sh ends.
+# The lock is free: the fonts are fetched first, ng serve after them. The stub servers exit (dotnet once ng has
+# started), so dev.sh ends.
 rm -f "$dir/started"
 output="$(PATH="$dir/stubs:$PATH" timeout 10 bash "$dir/scripts/dev.sh" 2>&1)"
 status=$?
