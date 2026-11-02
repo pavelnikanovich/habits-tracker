@@ -37,6 +37,7 @@ public static partial class CachingHeaders
     }
 
     // Angular's production build (outputHashing "all") names its files <name>-<HASH>.<extension>, e.g. main-ABC123.js.
-    [GeneratedRegex("/[^/]+-[A-Z0-9]{6,}\\.[a-z0-9]+$", RegexOptions.None, matchTimeoutMilliseconds: 100)]
+    // Linear time without a timeout, which would count elapsed time and fail under load (RegexEngineTests).
+    [GeneratedRegex("/[^/]+-[A-Z0-9]{6,}\\.[a-z0-9]+$", RegexOptions.NonBacktracking)]
     private static partial Regex HashedFileName();
 }

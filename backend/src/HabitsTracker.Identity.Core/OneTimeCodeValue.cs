@@ -33,6 +33,7 @@ public sealed partial record OneTimeCodeValue
     private static bool Follows([NotNullWhen(true)] string? input) =>
         input is not null && WholeMatch.IsMatch(PatternRegex(), input);
 
-    [GeneratedRegex(Pattern, RegexOptions.None, matchTimeoutMilliseconds: 100)]
+    // Linear time without a timeout, which would count elapsed time and fail under load (RegexEngineTests).
+    [GeneratedRegex(Pattern, RegexOptions.NonBacktracking)]
     private static partial Regex PatternRegex();
 }
