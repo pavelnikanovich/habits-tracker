@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HabitsTracker.Identity.Core;
+using Microsoft.Extensions.Logging;
 
 namespace HabitsTracker.Identity.Adapters.CodeEmail;
 
@@ -10,9 +11,11 @@ namespace HabitsTracker.Identity.Adapters.CodeEmail;
 /// Sends the code email through Resend: text only, from the mail subdomain, no tags, no tracking. This is the
 /// anti-corruption layer for the email service: no Resend name or status leaves it, only <see cref="CodeEmailOutcome"/>.
 /// A request that did not leave the server is a refusal; one that may have been processed (a <c>500</c>, a timeout,
-/// a connection lost after sending) is unclear.
+/// a connection lost after sending) is unclear. Every refusal is logged at Warning with the HTTP status and Resend's
+/// error name, so a revoked API key shows in the log; never the email, the code, the text or the API key (research R3, R20).
 /// </summary>
-public sealed class ResendCodeEmailSender(HttpClient client, CodeEmailText text, TimeProvider time) : ICodeEmailSender
+public sealed partial class ResendCodeEmailSender(HttpClient client, CodeEmailText text, TimeProvider time, ILogger<ResendCodeEmailSender> logger)
+    : ICodeEmailSender
 {
     private const string Endpoint = "https://api.resend.com/emails";
     private const string From = "no-reply@mail.cardlane.eu";
@@ -43,7 +46,9 @@ public sealed class ResendCodeEmailSender(HttpClient client, CodeEmailText text,
         }
         catch (HttpRequestException exception) when (exception.HttpRequestError is HttpRequestError.ConnectionError or HttpRequestError.NameResolutionError)
         {
-            // Nothing left the server, so nothing was sent.
+            // Nothing left the server, so nothing was sent. The exception is not logged: its message may name more
+            // than the error.
+            LogUnreachable(logger, exception.HttpRequestError);
             return new CodeEmailOutcome.Refused(EmailServiceRefusal.Unavailable, null);
         }
         catch (HttpRequestException)
@@ -62,17 +67,23 @@ public sealed class ResendCodeEmailSender(HttpClient client, CodeEmailText text,
         if (response.IsSuccessStatusCode)
             return new CodeEmailOutcome.Sent();
 
-        if (response.StatusCode == HttpStatusCode.TooManyRequests)
-            return await MapTooManyRequests(response, ct);
+        // Resend refused the request (a validation error, an unknown sender, a wrong API key) or is down: it sent
+        // nothing. Any other answer (another 5xx) may come after the email was processed.
+        var status = (int)response.StatusCode;
+        if (status is not (>= 400 and < 500) && response.StatusCode != HttpStatusCode.ServiceUnavailable)
+            return new CodeEmailOutcome.Unclear();
 
-        // Resend refused the request (a validation error, an unknown sender) or is down: it sent nothing.
-        var refused = (int)response.StatusCode is >= 400 and < 500 || response.StatusCode == HttpStatusCode.ServiceUnavailable;
-        return refused ? new CodeEmailOutcome.Refused(EmailServiceRefusal.Unavailable, null) : new CodeEmailOutcome.Unclear();
+        var errorName = await ErrorName(response, ct);
+        LogRefused(logger, status, errorName ?? "no error name");
+
+        return response.StatusCode == HttpStatusCode.TooManyRequests
+            ? MapTooManyRequests(response, errorName)
+            : new CodeEmailOutcome.Refused(EmailServiceRefusal.Unavailable, null);
     }
 
-    private async Task<CodeEmailOutcome> MapTooManyRequests(HttpResponseMessage response, CancellationToken ct)
+    private CodeEmailOutcome.Refused MapTooManyRequests(HttpResponseMessage response, string? errorName)
     {
-        switch (await ErrorName(response, ct))
+        switch (errorName)
         {
             case "daily_quota_exceeded":
                 var now = time.GetUtcNow();
@@ -90,11 +101,26 @@ public sealed class ResendCodeEmailSender(HttpClient client, CodeEmailText text,
         try
         {
             using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-            return json.RootElement.TryGetProperty("name", out var name) ? name.GetString() : null;
+            var name = json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("name", out var value)
+                && value.ValueKind == JsonValueKind.String
+                ? value.GetString()!
+                : "";
+            return IsPlainIdentifier(name) ? name : null;
         }
         catch (JsonException)
         {
             return null;
         }
     }
+
+    // Resend's error names are identifiers such as missing_api_key; anything else is not logged, as it could hold the
+    // email of the request.
+    private static bool IsPlainIdentifier(string name) =>
+        name.Length is > 0 and <= 64 && name.All(character => character is (>= 'a' and <= 'z') or '_');
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Resend refused the code email: {Status} ({ErrorName})")]
+    private static partial void LogRefused(ILogger logger, int status, string errorName);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Resend could not be reached: {Error}")]
+    private static partial void LogUnreachable(ILogger logger, HttpRequestError error);
 }

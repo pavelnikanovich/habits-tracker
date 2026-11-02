@@ -35,7 +35,8 @@ public static class SenderContractTests
                 new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") }));
             ResendCodeEmailSender.ConfigureClient(client, "re_test_key");
             return new ResendCodeEmailSender(
-                client, new CodeEmailText(Files.Text), new FakeTimeProvider(new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.Zero)));
+                client, new CodeEmailText(Files.Text), new FakeTimeProvider(new DateTimeOffset(2026, 11, 2, 10, 0, 0, TimeSpan.Zero)),
+                NullLogger<ResendCodeEmailSender>.Instance);
         }
     }
 }
