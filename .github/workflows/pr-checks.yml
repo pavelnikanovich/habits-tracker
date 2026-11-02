@@ -101,7 +101,8 @@ jobs:
       - run: npm --prefix frontend audit --audit-level=high
 
   test-integrity:
-    # The label is read when the run starts: after adding it, re-run this job.
+    # The label is read from the event that started the run, and a re-run keeps that event: after adding the label,
+    # close and reopen the pull request, or push.
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'test-exception') }}
     runs-on: ubuntu-24.04
     steps:

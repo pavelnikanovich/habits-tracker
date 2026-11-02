@@ -1,4 +1,5 @@
-# The development database (research R17): no password, reachable from this machine only.
+# The development stack (research R17), reachable from this machine only: the database has no password and the
+# application writes one-time codes to its log (scripts/tests/dev-compose.test.sh).
 services:
   db:
     image: postgres:18.6
@@ -24,7 +25,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Habits: Host=db;Database=habits;Username=habits
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       db:
         condition: service_healthy
