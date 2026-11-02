@@ -20,7 +20,7 @@
     "email": "Adres e-mail",
     "emailInvalid": "Wpisz poprawny adres e-mail.",
     "rememberMe": "Zapamiętaj mnie",
-    "rememberMeHint": "Pozostań zalogowany na tym urządzeniu do 30 dni bez aktywności. Tylko na urządzeniu, któremu ufasz.",
+    "rememberMeHint": "Zachowaj logowanie na tym urządzeniu do 30 dni bez aktywności. Tylko na urządzeniu, któremu ufasz.",
     "requestCode": "Pobierz kod",
     "requesting": "Wysyłanie…",
     "codeSent": "Kod wysłano na adres {email}",
@@ -97,7 +97,7 @@
       },
       "12": {
         "title": "Pliki cookie i pamięć przeglądarki",
-        "body": "Aplikacja ustawia jeden plik cookie: cookie sesji z flagą HttpOnly, zawierające nieprzejrzysty identyfikator sesji. Utrzymuje on zalogowanie. Wygasa po zamknięciu przeglądarki, chyba że przy logowaniu zaznaczysz „Zapamiętaj mnie”: wtedy trwa do upływu 30 dni bez aktywności.\n\nPrzeglądarka przechowuje też w pamięci lokalnej (local storage) wybrany przez Ciebie język i motyw. To ustawienia interfejsu, które wybierasz sam, i podobnie jak cookie sesji nie wymagają zgody.\n\nNie ma innych plików cookie, analityki ani reklam."
+        "body": "Aplikacja ustawia jeden plik cookie: cookie sesji z flagą HttpOnly, zawierające nieprzejrzysty identyfikator sesji. Utrzymuje on zalogowanie. Wygasa po zamknięciu przeglądarki, chyba że przy logowaniu zaznaczysz „Zapamiętaj mnie”: wtedy trwa do upływu 30 dni bez aktywności.\n\nPrzeglądarka przechowuje też w pamięci lokalnej (local storage) wybrany przez Ciebie język i motyw. To ustawienia interfejsu, które wybierasz samodzielnie, i podobnie jak cookie sesji nie wymagają zgody.\n\nNie ma innych plików cookie, analityki ani reklam."
       },
       "13": {
         "title": "Prywatność nawyków",
@@ -134,7 +134,7 @@
       },
       "5": {
         "title": "Początek i koniec umowy",
-        "body": "Umowa zaczyna się przy pierwszym zalogowaniu: wtedy powstaje konto. W każdej chwili możesz przestać korzystać z usługi. Dopóki aplikacja nie umożliwia usunięcia konta, usunięcia konta i danych można zażądać pod adresem {email}.\n\nŚwiadczący usługę może usunąć konto, które łamie ten Regulamin, albo zakończyć usługę. Jeśli to możliwe, powiadomienie trafia na Twój adres e-mail."
+        "body": "Umowa zaczyna się przy pierwszym zalogowaniu: wtedy powstaje konto. W każdej chwili możesz przestać korzystać z usługi. Dopóki aplikacja nie umożliwia usunięcia konta, usunięcia konta i danych można zażądać pod adresem {email}.\n\nUsługodawca może usunąć konto, które łamie ten Regulamin, albo zakończyć usługę. Jeśli to możliwe, powiadomienie trafia na Twój adres e-mail."
       },
       "6": {
         "title": "Reklamacje i zgłoszenia",
@@ -167,7 +167,7 @@
     }
   },
   "legal": {
-    "controllerLabel": "Świadczący usługę i administrator danych",
+    "controllerLabel": "Usługodawca i administrator danych",
     "controllerName": "Paweł Nikanowicz",
     "contactLabel": "Kontakt",
     "contactEmail": "pavelnikanovich@gmail.com",
@@ -192,8 +192,8 @@
     "invalid-code-format": "Wpisz 6-cyfrowy kod z wiadomości e-mail.",
     "code-incorrect": "Ten kod jest nieprawidłowy. Spróbuj ponownie.",
     "new-code-required": "Ten kod już nie działa. Poproś o nowy.",
-    "not-signed-in": "Nie jesteś zalogowany.",
-    "internal-error": "Po naszej stronie coś poszło nie tak. Identyfikator śladu: {traceId}"
+    "not-signed-in": "Nie zalogowano.",
+    "internal-error": "Po naszej stronie coś poszło nie tak. Identyfikator śledzenia: {traceId}"
   },
   "email": {
     "subject": "Twój kod logowania",
