@@ -22,9 +22,19 @@ When: data was damaged or deleted by mistake, and the disk is intact.
 2. `ops/restore-live.sh /var/backups/habits/<directory>`; type the database name when asked. The script restores into `habits_restored`, checks it against the backup's manifest, and only on `PASS` stops `app`, renames `habits` to `habits_broken_<time>` and `habits_restored` to `habits`, starts `app`, checks `/health` and prints the time.
 3. Check: the script printed `PASS` and `Healthy`; sign in on the site.
 4. Delete again what the backup brought back: for every deletion request answered since the chosen backup was taken (the contact mailbox, at most the 7 days backups are kept), run `ops/delete-user.sh <email>` again (next section). A restore must never bring back data a person was told is deleted (GDPR art. 17).
-5. Keep `habits_broken_<time>` until the cause is understood, then drop it.
+5. Keep `habits_broken_<time>` until the cause is understood, then drop it, with the name the script printed. The name holds upper-case letters, so it stays in double quotes; unquoted, PostgreSQL folds it to lower case and answers that the database does not exist:
 
-To undo a restore: stop `app`, rename `habits` back to `habits_restored` and `habits_broken_<time>` to `habits`, start `app`.
+   ```sh
+   docker compose -f compose.prod.yaml exec -T db psql --username habits --dbname postgres -c 'drop database "habits_broken_<time>"'
+   ```
+
+To undo a restore: stop `app`, rename `habits` back to `habits_restored` and `habits_broken_<time>` to `habits` (the statements `ops/restore-live.sh` prints at its end, in one transaction), start `app`:
+
+```sh
+docker compose -f compose.prod.yaml stop app
+docker compose -f compose.prod.yaml exec -T db psql --username habits --dbname postgres -c 'alter database habits rename to habits_restored; alter database "habits_broken_<time>" rename to habits;'
+docker compose -f compose.prod.yaml start app
+```
 
 ## Delete a user's data on request
 
