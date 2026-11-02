@@ -32,7 +32,7 @@ export interface Translation {
   error: { network: string };
   privacy: { title: string };
   terms: { title: string };
-  notFound: { title: string };
+  notFound: { title: string; home: string };
 }
 
 export function translation(code: string): Translation {

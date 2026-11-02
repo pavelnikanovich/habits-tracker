@@ -176,7 +176,8 @@
     "englishPrevails": "Wersje polska i rosyjska służą wyłącznie wygodzie; jeśli wersje się różnią, pierwszeństwo ma wersja angielska."
   },
   "notFound": {
-    "title": "Nie znaleziono strony"
+    "title": "Nie znaleziono strony",
+    "home": "Przejdź do ekranu głównego"
   },
   "error": {
     "network": "Brak połączenia z serwerem. Spróbuj ponownie.",

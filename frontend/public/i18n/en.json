@@ -176,7 +176,8 @@
     "englishPrevails": "The Polish and Russian translations are for convenience; if the versions differ, this English version prevails."
   },
   "notFound": {
-    "title": "Page not found"
+    "title": "Page not found",
+    "home": "Go to the main screen"
   },
   "error": {
     "network": "No connection to the server. Try again.",

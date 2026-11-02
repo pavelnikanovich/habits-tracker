@@ -144,6 +144,19 @@ test('every page has its title in the page language', async ({ page }) => {
   }
 });
 
+// contracts/ui.md, "Not found": the link `notFound.home` leads to `/`, which sends a visitor on to the sign-in.
+test('the Not found page links to the main screen', async ({ page }) => {
+  await page.goto('/no-such-page');
+  await expect(heading(page)).toHaveText(en.notFound.title);
+  const home = page.getByRole('main').getByRole('link', { name: en.notFound.home });
+  await expect(home).toHaveAttribute('href', '/');
+
+  await home.click();
+
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(heading(page)).toHaveText(en.signIn.title);
+});
+
 test('shell controls are at least 44 px high', async ({ page }) => {
   await page.goto('/sign-in');
   await expect(heading(page)).toBeVisible();
