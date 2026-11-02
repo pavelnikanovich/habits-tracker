@@ -59,9 +59,16 @@ public sealed class ConcurrencyTests(PostgresFixture postgres) : IAsyncLifetime
             return await CountAttemptAsync(codes, await codes.FindExclusiveAsync(Ada, work), work);
         });
 
-        var finishedFirst = await Task.WhenAny(second, Task.Delay(TimeSpan.FromMilliseconds(500), ct));
-        Assert.True(finishedFirst != second, "the second transaction read the code while the first one held it");
-        firstMaySave.SetResult();
+        // Released in finally: a failed assertion would otherwise leave the first transaction waiting for ever.
+        try
+        {
+            var finishedFirst = await Task.WhenAny(second, Task.Delay(TimeSpan.FromMilliseconds(500), ct));
+            Assert.True(finishedFirst != second, "the second transaction read the code while the first one held it");
+        }
+        finally
+        {
+            firstMaySave.TrySetResult();
+        }
 
         Assert.Equal(0, await first);
         Assert.Equal(1, await second);
