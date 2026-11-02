@@ -28,7 +28,7 @@ trap cleanup EXIT
 
 mkdir -p "$dir/scripts" "$dir/.dev" "$dir/stubs" "$dir/backend/src/HabitsTracker.Host" "$dir/frontend/node_modules/.bin" \
   "$dir/frontend/scripts"
-cp "$repo_root/scripts/dev.sh" "$dir/scripts/dev.sh" 2> /dev/null
+mkdir -p "$dir/scripts/lib" && cp "$repo_root/scripts/lib/dotnet-path.sh" "$dir/scripts/lib/" && cp "$repo_root/scripts/dev.sh" "$dir/scripts/dev.sh" 2> /dev/null
 
 # A stub at path $1 that records "$2 <arguments>" in $dir/started.
 stub() {
