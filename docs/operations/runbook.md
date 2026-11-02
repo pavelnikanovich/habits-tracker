@@ -1,6 +1,10 @@
 # Runbook
 
-Procedures for the server at `habits.cardlane.eu`. A living document: each epic that adds a recovery path or a manual duty adds its procedure here (constitution XI). Commands run on the server in `/opt/habits` unless a step says otherwise. Decisions and their reasons are in `specs/001-walking-skeleton/research.md`, R13 and R22.
+Procedures for the server at `habits.cardlane.eu`. A living document: each epic that adds a recovery path or a manual duty adds its procedure here (constitution XI). Commands run on the server in `/opt/habits`, as the user `deploy`, unless a step says otherwise. The ops scripts act on the compose files of `HABITS_COMPOSE_FILES` and refuse to run without them, so first:
+
+```sh
+export HABITS_COMPOSE_FILES=/opt/habits/compose.prod.yaml
+``` Decisions and their reasons are in `specs/001-walking-skeleton/research.md`, R13 and R22.
 
 ## Roll back a deployment
 
