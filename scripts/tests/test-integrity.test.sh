@@ -21,6 +21,9 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 export TEST_COUNT_COMMAND='cat count 2> /dev/null || echo 0'
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
+# The temporary repositories ignore the developer's global and system git config: a global commit.gpgsign,
+# core.hooksPath or commit template would make their commits fail or prompt.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
 # A repository whose commit "base" holds a.ts (three lines) and the count file $1; sets $repo.
 new_repo() {

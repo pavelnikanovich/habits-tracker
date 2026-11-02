@@ -4,6 +4,9 @@
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
+# The temporary repositories ignore the developer's global and system git config: a global commit.gpgsign,
+# core.hooksPath or commit template would make their commits fail or prompt.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 failures=0
 
 fail() {
