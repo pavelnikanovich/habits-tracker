@@ -16,7 +16,13 @@ const tokens = new SharedArray('sessions', () => JSON.parse(open('./.sessions.js
 export const options = {
   vus: users,
   duration,
-  thresholds: { http_req_duration: [`p(95)<${p95Ms}`] },
+  // Failed requests and failed checks fail the run too: a regression that answers every request fast with an error
+  // (401 on /api/me) would otherwise pass on the duration alone.
+  thresholds: {
+    http_req_duration: [`p(95)<${p95Ms}`],
+    http_req_failed: ['rate<0.01'],
+    checks: ['rate>0.99'],
+  },
 };
 
 export default function () {
