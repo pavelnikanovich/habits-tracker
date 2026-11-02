@@ -1,0 +1,10 @@
+# Starts habits-backup.service every day at 03:00 UTC; a run missed while the server was off runs at the next boot.
+[Unit]
+Description=Daily backup of the habits database
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
